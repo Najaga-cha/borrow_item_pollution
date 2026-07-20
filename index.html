@@ -10,6 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@500;600;700&display=swap');
 
@@ -244,16 +246,43 @@ const CATEGORIES = ["ด้านน้ำ", "ด้านอากาศ", "ด
 
 </script>
 <script>
-/* ===================== Storage helpers ===================== */
-const MEM = {}; // fallback in-memory store
+/* ===================== Storage helpers (Firebase Firestore) ===================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCHqvCEtQBBiQCAfCsf_megG_d5eQncmIo",
+  authDomain: "borrow-item-e8c28.firebaseapp.com",
+  projectId: "borrow-item-e8c28",
+  storageBucket: "borrow-item-e8c28.firebasestorage.app",
+  messagingSenderId: "1032037812090",
+  appId: "1:1032037812090:web:1651f5f00865ddb3c878c3"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const FS_COLLECTION = 'borrow_item_store';
+
+const MEM = {}; // fallback in-memory store (used if Firestore is unreachable)
+
 async function stGet(key, shared){
+  // ข้อมูลที่ไม่ต้องแชร์ (เช่น ธีมของหน้าจอ) เก็บไว้ในเครื่องด้วย localStorage พอ
+  if(!shared){
+    try{
+      const v = localStorage.getItem('local:'+key);
+      return v !== null ? JSON.parse(v) : null;
+    }catch(e){ return MEM[key] !== undefined ? MEM[key] : null; }
+  }
   try{
-    const r = await window.storage.get(key, shared);
-    return r ? JSON.parse(r.value) : null;
+    const snap = await db.collection(FS_COLLECTION).doc(key).get();
+    if(!snap.exists) return null;
+    const data = snap.data();
+    return data && ('value' in data) ? data.value : null;
   }catch(e){ return MEM[key] !== undefined ? MEM[key] : null; }
 }
 async function stSet(key, value, shared){
-  try{ await window.storage.set(key, JSON.stringify(value), shared); }
+  if(!shared){
+    try{ localStorage.setItem('local:'+key, JSON.stringify(value)); }
+    catch(e){ MEM[key] = value; }
+    return;
+  }
+  try{ await db.collection(FS_COLLECTION).doc(key).set({ value: value }); }
   catch(e){ MEM[key] = value; }
 }
 
