@@ -2,13 +2,7 @@
 <html lang="th" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0"/>
-<meta name="theme-color" content="#0f766e"/>
-<meta name="mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="ใบยืมเครื่องมือ"/>
-<meta name="format-detection" content="telephone=no"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ระบบใบยืมเครื่องมือ - ศูนย์สนับสนุนการตรวจวัดมลพิษ</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -238,85 +232,6 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
   body.printing-slip #print-area{ display:block !important; }
   body.printing-report .no-print{ display:none !important; }
   @page{ size:A4; margin:10mm; }
-}
-
-/* ===================== Mobile mode (Android/iOS) ===================== */
-html{
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-body{
-  -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
-  min-height: 100svh; /* dynamic viewport height, avoids iOS/Android browser-chrome jump */
-}
-button, .tab-btn, .btn-ghost, .btn-primary, .btn-theme, .icon-btn, .cat-card, .ms-dropdown-btn, .ms-dropdown-item{
-  touch-action: manipulation; /* removes 300ms tap delay & double-tap-zoom on controls */
-  -webkit-tap-highlight-color: transparent;
-}
-input, select, textarea{
-  -webkit-tap-highlight-color: transparent;
-}
-.table-wrap{
-  -webkit-overflow-scrolling: touch; /* momentum scrolling on iOS */
-}
-/* Safe-area padding for notch / home-indicator (iPhone) */
-.header-band{
-  padding-top: env(safe-area-inset-top, 0px);
-}
-#main-content{
-  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
-}
-.modal-backdrop{
-  padding-top: calc(16px + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-}
-
-@media (max-width: 640px){
-  /* Prevent iOS Safari auto-zoom-on-focus (needs >=16px font on form fields) */
-  .inp, select.inp, textarea.inp{ font-size:16px; }
-
-  /* Comfortable touch targets (Apple HIG / Material both recommend ~44px) */
-  .btn-primary, .btn-ghost, .btn-early-return{ min-height:44px; padding-top:11px; padding-bottom:11px; }
-  .tab-btn{ min-height:42px; padding-top:10px; padding-bottom:10px; font-size:13.5px; }
-  .btn-theme{ width:44px; height:44px; }
-  .icon-btn{ min-width:38px; min-height:38px; display:inline-flex; align-items:center; justify-content:center; font-size:17px; }
-  input[type="checkbox"]{ width:20px; height:20px; }
-
-  /* Tabbar: allow horizontal swipe instead of wrapping into many rows */
-  .tabbar{ flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; scrollbar-width:none; }
-  .tabbar::-webkit-scrollbar{ display:none; }
-  .tabbar .tab-btn{ flex:0 0 auto; white-space:nowrap; }
-
-  .header-band{ border-radius:0 0 18px 18px; }
-  .header-title{ font-size:1.05rem; }
-  .header-sub{ font-size:.72rem; }
-  .logo-badge{ width:38px; height:38px; font-size:19px; }
-
-  .card{ border-radius:14px; }
-  .modal-card{ padding:16px; max-height:92svh; border-radius:14px; }
-
-  /* Data tables: shrink font slightly and keep horizontal scroll, with a visual hint */
-  .data-table{ font-size:12.5px; }
-  .data-table th, .data-table td{ padding:7px 8px; }
-  .table-wrap{ position:relative; }
-
-  /* Buttons row inside cards often overflow on very narrow screens; let them wrap */
-  .flex.gap-2.ml-auto{ flex-wrap:wrap; }
-}
-
-/* Remove sticky :hover states that can linger after a tap on touch devices */
-@media (hover: none){
-  .tab-btn:hover{ background:rgba(255,255,255,.12); }
-  .btn-ghost:hover{ background: var(--card); }
-  .btn-primary:hover{ background: var(--primary); }
-  .btn-early-return:hover{ background:#eff6ff; }
-  .ms-dropdown-btn:hover{ border-color: var(--input-border); }
-  .ms-dropdown-item:hover{ background: transparent; }
-  .cat-card:hover{ border-color:var(--border); background:var(--card); }
-  .icon-btn:hover{ background: none; }
-  .data-table tr:hover td{ background: transparent; }
-  .cal-cell:hover{ background: transparent; }
 }
 
 </style>
@@ -578,10 +493,6 @@ function render(){
   `;
   attachHandlers();
 
-  const hasModal = !!root.querySelector('.modal-backdrop');
-  document.body.style.overflow = hasModal ? 'hidden' : '';
-  document.body.style.touchAction = hasModal ? 'none' : '';
-
   if(activeId){
     const el = document.getElementById(activeId);
     if(el){
@@ -639,11 +550,11 @@ function renderLogin(targetTab){
     <div class="space-y-3">
       <div>
         <label class="lbl">ชื่อผู้ใช้</label>
-        <input id="login-user" class="inp" placeholder="admin" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username"/>
+        <input id="login-user" class="inp" placeholder="admin"/>
       </div>
       <div>
         <label class="lbl">รหัสผ่าน</label>
-        <input id="login-pass" type="password" class="inp" placeholder="••••••••" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="current-password"/>
+        <input id="login-pass" type="password" class="inp" placeholder="••••••••"/>
       </div>
       <div id="login-err" class="text-sm text-red-500 hidden">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</div>
       <button class="btn-primary w-full" data-act="do-login">เข้าสู่ระบบ</button>
@@ -772,10 +683,10 @@ function renderBorrowTab(){
       </div>
       <div>
         <label class="lbl">พื้นที่ปฏิบัติงาน (จังหวัด) *</label>
-        <input id="f-province" class="inp" list="province-list" value="${esc(f.province)}" placeholder="พิมพ์เพื่อค้นหาจังหวัด..."/>
-        <datalist id="province-list">
-          ${PROVINCES.map(p=>`<option value="${p}">`).join('')}
-        </datalist>
+        <select id="f-province" class="inp">
+          <option value="">-- เลือกจังหวัด --</option>
+          ${PROVINCES.map(p=>`<option value="${esc(p)}" ${f.province===p?'selected':''}>${esc(p)}</option>`).join('')}
+        </select>
       </div>
       <div>
         <label class="lbl">อื่นๆ</label>
