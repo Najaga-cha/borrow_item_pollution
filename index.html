@@ -1335,6 +1335,18 @@ function clearReportFilters(){
   state.reports.openFilterDropdown = null;
   render();
 }
+async function clearDashboardData(){
+  const ok1 = confirm('ยืนยันล้างข้อมูล Dashboard?\n\nการดำเนินการนี้จะลบ "ใบยืมทั้งหมด" ที่ใช้แสดงรายงาน/สถิติออกจากระบบถาวร (รายชื่อเครื่องมือในคลังจะไม่ถูกลบ)');
+  if(!ok1) return;
+  const ok2 = confirm('ยืนยันอีกครั้ง: ข้อมูลใบยืมทั้งหมดจะถูกลบและกู้คืนไม่ได้ ต้องการดำเนินการต่อหรือไม่?');
+  if(!ok2) return;
+  state.borrows = [];
+  state.returns = [];
+  await saveBorrows();
+  await saveReturns();
+  clearReportFilters();
+  render();
+}
 
 function renderFilterDropdown(ftype, label, options, selected, iconFn){
   const isOpen = state.reports.openFilterDropdown === ftype;
@@ -1461,6 +1473,7 @@ function renderReportsTab(){
         <div class="flex gap-2 ml-auto">
           <button class="btn-ghost" data-act="export-excel">📤 ส่งออก Excel</button>
           <button class="btn-primary" data-act="print-report">🖨️ พิมพ์รายงาน</button>
+          <button class="btn-ghost" style="color:#dc2626;border-color:#fca5a5" data-act="clear-dashboard-data">🗑️ ล้างข้อมูล Dashboard</button>
         </div>
       </div>
       <div class="text-sm subtle mt-3">ช่วงข้อมูล: ${fmtDateBE(range.start)} — ${fmtDateBE(range.end)} • พบใบยืม ${list.length} รายการ</div>
@@ -1771,6 +1784,7 @@ function onClick(e){
   if(act==='export-excel'){ exportExcel(); return; }
   if(act==='print-report'){ printReport(); return; }
   if(act==='clear-report-filters'){ clearReportFilters(); return; }
+  if(act==='clear-dashboard-data'){ clearDashboardData(); return; }
   if(act==='toggle-filter-dropdown'){ const t=el.dataset.ftype; const wasOpen = state.reports.openFilterDropdown===t; state.reports.openFilterDropdown = wasOpen ? null : t; if(!wasOpen) state.reports.filterSearch[t] = ''; render(); return; }
   if(act==='toggle-report-filter'){ toggleReportFilter(el.dataset.ftype, el.dataset.fval); return; }
 }
@@ -2215,7 +2229,7 @@ function startRealtimeSync(intervalMs){
   await initData();
   if(autoReturnOverdueBorrows()){ await saveBorrows(); }
   render();
-  startRealtimeSync(6000);
+  startRealtimeSync(1800000); // 30 นาที (30 * 60 * 1000 ms)
 })();
 
 </script>
