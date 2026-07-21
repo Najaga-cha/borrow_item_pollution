@@ -306,7 +306,8 @@ const state = {
   // borrow form state
   form: {
     dept: '', name:'', phone:'', position:'', borrowDate:'', returnDate:'',
-    province:'', notes:'', selectedCats: [], picks: {} // picks[equipmentId] = qty
+    province:'', notes:'', selectedCats: [], picks: {}, // picks[equipmentId] = qty
+    openDropdown: null, dropdownSearch: { dept:'', province:'' }
   },
   manage: { catFilter:'', statusFilter:'', search:'', editing:null },
   calendar: { year: new Date().getFullYear(), month: new Date().getMonth(), selectedDay:null },
@@ -653,11 +654,7 @@ function renderBorrowTab(){
     <!-- ผู้ยืม -->
     <div class="grid md:grid-cols-2 gap-4 mb-2 mt-2">
       <div>
-        <label class="lbl">2) หน่วยงานผู้ยืม *</label>
-        <select id="f-dept" class="inp">
-          <option value="">-- เลือกหน่วยงาน --</option>
-          ${DEPTS.map(d=>`<option value="${d}" ${f.dept===d?'selected':''}>${d}</option>`).join('')}
-        </select>
+        ${renderFormSearchSelect('dept', '2) หน่วยงานผู้ยืม *', DEPTS, f.dept, '-- เลือกหน่วยงาน --')}
       </div>
       <div>
         <label class="lbl">ชื่อ-นามสกุล ผู้ยืม *</label>
@@ -682,11 +679,7 @@ function renderBorrowTab(){
         <div class="hint-be">${f.returnDate? 'พ.ศ. '+beYear(new Date(f.returnDate).getFullYear()) : ''}</div>
       </div>
       <div>
-        <label class="lbl">พื้นที่ปฏิบัติงาน (จังหวัด) *</label>
-        <select id="f-province" class="inp">
-          <option value="">-- เลือกจังหวัด --</option>
-          ${PROVINCES.map(p=>`<option value="${esc(p)}" ${f.province===p?'selected':''}>${esc(p)}</option>`).join('')}
-        </select>
+        ${renderFormSearchSelect('province', 'พื้นที่ปฏิบัติงาน (จังหวัด) *', PROVINCES, f.province, 'พิมพ์เพื่อค้นหาจังหวัด...')}
       </div>
       <div>
         <label class="lbl">อื่นๆ</label>
@@ -1348,6 +1341,29 @@ async function clearDashboardData(){
   render();
 }
 
+function renderFormSearchSelect(ftype, label, options, value, placeholder){
+  const isOpen = state.form.openDropdown === ftype;
+  const searchVal = state.form.dropdownSearch[ftype] || '';
+  const filteredOptions = searchVal ? options.filter(o=>o.toLowerCase().includes(searchVal.toLowerCase())) : options;
+  return `
+  <label class="lbl">${esc(label)}</label>
+  <div class="ms-dropdown" data-dropdown="form-${ftype}">
+    <button type="button" class="ms-dropdown-btn ${isOpen?'ms-dropdown-btn-open':''}" data-act="toggle-form-dropdown" data-ftype="${ftype}">
+      <span>${value ? esc(value) : `<span class="subtle">${esc(placeholder||'-- เลือก --')}</span>`}</span>
+      <span class="ms-dropdown-caret">▾</span>
+    </button>
+    ${isOpen ? `
+    <div class="ms-dropdown-panel">
+      <input type="text" id="form-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="🔍 พิมพ์เพื่อค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
+      <div class="ms-dropdown-list">
+        ${filteredOptions.length===0 ? `<div class="ms-dropdown-empty">ไม่พบรายการที่ค้นหา</div>` : filteredOptions.map(o=>`
+        <div class="ms-dropdown-item" data-act="select-form-dropdown-item" data-ftype="${ftype}" data-fval="${escAttr(o)}">
+          <span>${esc(o)}</span>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>`;
+}
 function renderFilterDropdown(ftype, label, options, selected, iconFn){
   const isOpen = state.reports.openFilterDropdown === ftype;
   const btnText = selected.length ? `เลือกแล้ว ${selected.length} รายการ` : 'ทั้งหมด (ไม่กรอง)';
@@ -1709,7 +1725,8 @@ function attachHandlers(){
   bindTextInput('f-name', v=>state.form.name=v);
   bindTextInput('f-position', v=>state.form.position=v);
   bindTextInput('f-notes', v=>state.form.notes=v);
-  bindTextInput('f-province', v=>state.form.province=v);
+  bindTextInput('form-search-dept', v=>{state.form.dropdownSearch.dept=v; render();});
+  bindTextInput('form-search-province', v=>{state.form.dropdownSearch.province=v; render();});
   bindTextInput('m-search', v=>{state.manage.search=v; renderSoft();});
   bindTextInput('ret-search', v=>{state.returnSearch=v; renderSoft();});
   bindTextInput('r-search-dept', v=>{state.reports.filterSearch.dept=v; renderSoft();});
@@ -1722,10 +1739,16 @@ function attachHandlers(){
   document.addEventListener('click', onDocumentClickCloseFilterDropdown);
 }
 function onDocumentClickCloseFilterDropdown(e){
-  if(!state.reports.openFilterDropdown) return;
-  if(e.target.closest('[data-dropdown]')) return; // click was inside a dropdown, let its own handler deal with it
-  state.reports.openFilterDropdown = null;
-  render();
+  if(state.reports.openFilterDropdown && !e.target.closest('[data-dropdown]')){
+    state.reports.openFilterDropdown = null;
+    render();
+    return;
+  }
+  if(state.form.openDropdown && !e.target.closest('[data-dropdown]')){
+    state.form.openDropdown = null;
+    render();
+    return;
+  }
 }
 function bindTextInput(id, setter){
   const el = document.getElementById(id);
@@ -1787,13 +1810,14 @@ function onClick(e){
   if(act==='clear-dashboard-data'){ clearDashboardData(); return; }
   if(act==='toggle-filter-dropdown'){ const t=el.dataset.ftype; const wasOpen = state.reports.openFilterDropdown===t; state.reports.openFilterDropdown = wasOpen ? null : t; if(!wasOpen) state.reports.filterSearch[t] = ''; render(); return; }
   if(act==='toggle-report-filter'){ toggleReportFilter(el.dataset.ftype, el.dataset.fval); return; }
+  if(act==='toggle-form-dropdown'){ const t=el.dataset.ftype; const wasOpen = state.form.openDropdown===t; state.form.openDropdown = wasOpen ? null : t; if(!wasOpen) state.form.dropdownSearch[t] = ''; render(); return; }
+  if(act==='select-form-dropdown-item'){ const t=el.dataset.ftype; state.form[t] = el.dataset.fval; state.form.openDropdown = null; state.form.dropdownSearch[t] = ''; render(); return; }
 }
 
 function onChange(e){
   const el = e.target;
   const act = el.dataset && el.dataset.act;
 
-  if(el.id==='f-dept'){ state.form.dept = el.value; return; }
   if(el.id==='f-borrowdate'){ state.form.borrowDate = el.value; updateDateHint(el); return; }
   if(el.id==='f-returndate'){ state.form.returnDate = el.value; updateDateHint(el); return; }
 
@@ -1853,7 +1877,7 @@ function doLogin(){
 
 
 function resetForm(){
-  state.form = { dept:'', name:'', phone:'', position:'', borrowDate:'', returnDate:'', province:'', notes:'', selectedCats:[], picks:{} };
+  state.form = { dept:'', name:'', phone:'', position:'', borrowDate:'', returnDate:'', province:'', notes:'', selectedCats:[], picks:{}, openDropdown:null, dropdownSearch:{dept:'',province:''} };
 }
 function toggleCat(cat){
   const i = state.form.selectedCats.indexOf(cat);
@@ -1877,12 +1901,10 @@ function buildBorrowDraft(){
   const phoneEl = document.getElementById('f-phone');
   const posEl = document.getElementById('f-position');
   const noteEl = document.getElementById('f-notes');
-  const provEl = document.getElementById('f-province');
   f.name = nameEl?nameEl.value:f.name;
   f.phone = phoneEl?phoneEl.value:f.phone;
   f.position = posEl?posEl.value:f.position;
   f.notes = noteEl?noteEl.value:f.notes;
-  f.province = provEl?provEl.value:f.province;
 
   const errs = [];
   if(!f.dept) errs.push('กรุณาเลือกหน่วยงานผู้ยืม');
