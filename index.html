@@ -362,6 +362,7 @@ async function initData(){
     await stSet('equipment:list', eq, true);
   }
   state.equipment = eq;
+  if(autoUpdateCalibStatus()){ await saveEquipment(); }
 
   let br = await stGet('borrows:list', true);
   if(!br || !Array.isArray(br)) br = [];
@@ -447,6 +448,21 @@ function isCalibExpired(item){
   if(!item.nextCalib) return false;
   const today = todayISO();
   return item.nextCalib < today;
+}
+/* ===================== Auto-update สถานะใช้งาน ตามวันสอบเทียบครั้งถัดไป =====================
+   ถ้าวันที่ "สอบเทียบครั้งถัดไป" (nextCalib) ของเครื่องมือ เกินวันที่ปัจจุบันแล้ว (เลยกำหนด)
+   ระบบจะปรับ "สถานะใช้งาน" (useStatus) ของเครื่องมือชิ้นนั้นให้เป็น "รอสอบเทียบ" ให้อัตโนมัติทันที
+====================================================================================== */
+function autoUpdateCalibStatus(list){
+  const today = todayISO();
+  let changed = false;
+  (list || state.equipment).forEach(item=>{
+    if(item.nextCalib && item.nextCalib < today && item.useStatus !== 'รอสอบเทียบ'){
+      item.useStatus = 'รอสอบเทียบ';
+      changed = true;
+    }
+  });
+  return changed;
 }
 function isBorrowable(item){
   return item.useStatus === 'ใช้งานได้' && !isCalibExpired(item) && !unitIsHeld(item.id);
@@ -2070,6 +2086,8 @@ async function updateCalibDate(id, value){
     d.setFullYear(d.getFullYear() + parseInt(e.calibCycle||1));
     e.nextCalib = d.toISOString().slice(0,10);
   }
+  // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที
+  if(e.nextCalib && e.nextCalib < todayISO()){ e.useStatus = 'รอสอบเทียบ'; }
   await saveEquipment();
   render();
 }
@@ -2100,6 +2118,8 @@ async function saveEquipModal(id){
     d.setFullYear(d.getFullYear()+obj.calibCycle);
     obj.nextCalib = d.toISOString().slice(0,10);
   } else obj.nextCalib = null;
+  // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที
+  if(obj.nextCalib && obj.nextCalib < todayISO()){ obj.useStatus = 'รอสอบเทียบ'; }
 
   if(id){
     const e = state.equipment.find(x=>x.id===id);
@@ -2141,6 +2161,7 @@ function importExcel(file){
       const merge = confirm(`พบเครื่องมือ ${newItems.length} รายการในไฟล์\n\nกด "ตกลง" เพื่อ "เพิ่มต่อ" ในฐานข้อมูลเดิม\nกด "ยกเลิก" เพื่อ "แทนที่" ฐานข้อมูลเดิมทั้งหมด`);
       if(merge) state.equipment = state.equipment.concat(newItems);
       else state.equipment = newItems;
+      autoUpdateCalibStatus();
       await saveEquipment();
       render();
       alert('นำเข้าข้อมูลสำเร็จ');
@@ -2239,6 +2260,11 @@ async function pollRealtimeUpdates(){
     if(Array.isArray(br)){
       const cur = JSON.stringify(state.borrows), next = JSON.stringify(br);
       if(cur !== next){ state.borrows = br; changed = true; }
+    }
+    // ตรวจสอบเครื่องมือที่เลยกำหนดสอบเทียบครั้งถัดไป แล้วปรับสถานะใช้งานเป็น "รอสอบเทียบ" ให้อัตโนมัติ
+    if(autoUpdateCalibStatus()){
+      changed = true;
+      await saveEquipment();
     }
     // ตรวจสอบใบยืมที่ครบ/เกินกำหนดคืน แล้วปิดใบยืม+คืนเครื่องมือให้อัตโนมัติ
     if(autoReturnOverdueBorrows()){
