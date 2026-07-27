@@ -262,10 +262,15 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
   body.printing-report [class*="grid"][class*="md:grid-cols-2"]{ display:grid !important; grid-template-columns:repeat(2,1fr) !important; }
   body.printing-report .grid{ gap:10px !important; }
 
-  /* Charts: fixed, print-friendly heights so canvases don't get cropped or bloated */
+  /* Charts: fixed, print-friendly heights so canvases don't get cropped, stretched or bloated.
+     Using a dedicated class (instead of matching the dynamic inline style) so this reliably
+     applies to every chart box, including the department chart whose height varies with row count. */
   body.printing-report .card canvas{ max-height:170px !important; }
-  body.printing-report .card > div[style*="height:220px"],
-  body.printing-report .card > div[style*="height:200px"]{ height:170px !important; }
+  body.printing-report .report-chart-box{ height:170px !important; max-height:170px !important; overflow:hidden; }
+
+  /* Keep chart cards and the sections around them from splitting badly across a page edge */
+  body.printing-report [class*="grid"][class*="md:grid-cols-3"],
+  body.printing-report [class*="grid"][class*="md:grid-cols-2"]{ break-inside:avoid; page-break-inside:avoid; }
 
   /* Tables: crisp borders, avoid row-splitting, smaller type to fit more per page */
   body.printing-report table{ font-size:11px !important; border-collapse:collapse !important; width:100% !important; }
@@ -1647,7 +1652,7 @@ function renderReportsTab(){
     <div class="grid md:grid-cols-3 gap-5">
       <div class="card p-5">
         <h3 class="font-bold mb-3 text-sm">สัดส่วนตามด้าน (จำนวนที่ยืม)</h3>
-        ${catEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div style="height:220px"><canvas id="chart-cat"></canvas></div>`}
+        ${catEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:220px"><canvas id="chart-cat"></canvas></div>`}
       </div>
       <div class="card p-5">
         <h3 class="font-bold mb-3 text-sm">เครื่องมือยอดนิยม (Top 8)</h3>
@@ -1657,22 +1662,22 @@ function renderReportsTab(){
           <span class="flex items-center gap-1"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${(CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2'}"></span>${esc(c)}</span>
           `).join('')}
         </div>
-        <div style="height:200px"><canvas id="chart-equip"></canvas></div>`}
+        <div class="report-chart-box" style="height:200px"><canvas id="chart-equip"></canvas></div>`}
       </div>
       <div class="card p-5">
         <h3 class="font-bold mb-3 text-sm">สถานะใบยืม</h3>
-        ${list.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div style="height:220px"><canvas id="chart-status"></canvas></div>`}
+        ${list.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:220px"><canvas id="chart-status"></canvas></div>`}
       </div>
     </div>
 
     <div class="card p-5">
       <h3 class="font-bold mb-3 text-sm">แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน</h3>
-      <div style="height:220px"><canvas id="chart-trend"></canvas></div>
+      <div class="report-chart-box" style="height:220px"><canvas id="chart-trend"></canvas></div>
     </div>
 
     <div class="card p-5">
       <h3 class="font-bold mb-3 text-sm">หน่วยงานที่ยืม เทียบกับสถานะการยืม-คืน</h3>
-      ${deptDetailEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div style="height:${Math.max(220, deptDetailEntries.length*36)}px"><canvas id="chart-dept-status"></canvas></div>`}
+      ${deptDetailEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, deptDetailEntries.length*36)}px"><canvas id="chart-dept-status"></canvas></div>`}
     </div>
 
     <div class="card p-5">
@@ -2358,11 +2363,27 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb, ws, 'รายงาน');
   XLSX.writeFile(wb, `รายงานการยืมเครื่องมือ_${todayISO()}.xlsx`);
 }
+function _resizeReportCharts(){
+  Object.values(_reportChartInstances).forEach(c=>{ try{ c.resize(); }catch(e){} });
+}
 function printReport(){
   document.body.classList.add('printing-report');
-  window.print();
-  setTimeout(()=>document.body.classList.remove('printing-report'), 500);
+  // Charts are sized/drawn for the on-screen layout. The print stylesheet changes the
+  // width/height of their containers, but Chart.js only redraws on an explicit resize -
+  // without this, canvases print stretched/blurry instead of matching the new box size.
+  // Two animation-frame waits give the browser time to apply the print CSS and reflow
+  // the layout before we tell Chart.js to redraw at the new size.
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      _resizeReportCharts();
+      window.print();
+    });
+  });
 }
+window.addEventListener('afterprint', ()=>{
+  document.body.classList.remove('printing-report');
+  _resizeReportCharts();
+});
 
 /* ===================== Realtime sync (polling) =====================
    window.storage ไม่รองรับการ "push" ข้อมูลแบบทันที (real push / WebSocket)
