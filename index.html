@@ -317,6 +317,7 @@ const state = {
   pendingBorrow: null,
   notifyStatus: {},
   returnSearch: '',
+  returnSubTab: 'all',
   lastCreatedReturnId: null,
 };
 
@@ -432,9 +433,10 @@ function isBorrowPartiallyReturned(b){
 }
 function borrowStatusBadge(b){
   if(b.status==='early-returned') return '<span class="pill pill-ok">↩️ คืนก่อนกำหนด</span>';
-  if(b.status==='auto-returned') return '<span class="pill pill-warn">⏰ คืนตามกำหนดอัตโนมัติ</span>';
-  if(b.status==='returned') return '<span class="pill pill-ok">คืนแล้ว</span>';
+  if(b.status==='late-returned') return '<span class="pill pill-danger">⚠️ คืนสาย (เลยกำหนด)</span>';
+  if(b.status==='returned') return '<span class="pill pill-ok">✅ คืนตรงเวลา</span>';
   if(isBorrowPartiallyReturned(b)) return `<span class="pill pill-warn">คืนบางส่วน (${borrowReturnedUnitCount(b)}/${borrowTotalUnitCount(b)})</span>`;
+  if(b.status==='active' && borrowTimingCategory(b)==='late') return `<span class="pill pill-danger">⏰ เลยกำหนดคืนแล้ว ${daysLate(b)} วัน (ยังไม่คืน)</span>`;
   return '<span class="pill pill-ok">อนุมัติ/ใช้งานอยู่</span>';
 }
 function itemsSummaryLine(b){
@@ -464,18 +466,27 @@ function autoUpdateCalibStatus(list){
   });
   return changed;
 }
-function isBorrowable(item){
+function isReadyBorrowable(item){
   return item.useStatus === 'ใช้งานได้' && !isCalibExpired(item) && !unitIsHeld(item.id);
 }
-// group by category+name -> {name, category, available: [items], count}
+function isPendingCalibBorrowable(item){
+  if(unitIsHeld(item.id)) return false;
+  return item.useStatus === 'รอสอบเทียบ' || (item.useStatus === 'ใช้งานได้' && isCalibExpired(item));
+}
+function isBorrowable(item){
+  return isReadyBorrowable(item) || isPendingCalibBorrowable(item);
+}
+// group by category+name -> { readyItems (พร้อมใช้ ให้ยืมก่อน), pendingItems (รอสอบเทียบ ให้ยืมทีหลัง), availItems (รวม เรียงพร้อมใช้ก่อน) }
 function groupEquipment(category){
   const groups = {};
   state.equipment.filter(e=>e.category===category).forEach(e=>{
     const key = e.name;
-    if(!groups[key]) groups[key] = { name: e.name, category, items: [], availItems: [] };
+    if(!groups[key]) groups[key] = { name: e.name, category, items: [], readyItems: [], pendingItems: [], availItems: [] };
     groups[key].items.push(e);
-    if(isBorrowable(e)) groups[key].availItems.push(e);
+    if(isReadyBorrowable(e)) groups[key].readyItems.push(e);
+    else if(isPendingCalibBorrowable(e)) groups[key].pendingItems.push(e);
   });
+  Object.values(groups).forEach(g=>{ g.availItems = g.readyItems.concat(g.pendingItems); });
   return Object.values(groups).sort((a,b)=>a.name.localeCompare(b.name,'th'));
 }
 
@@ -526,9 +537,10 @@ function render(){
 }
 
 function renderHeader(){
+  const lateCount = lateActiveBorrows().length;
   const tabs = [
     {id:'borrow', label:'สร้างใบยืม', icon:'📝'},
-    {id:'return', label:'คืนก่อนกำหนด', icon:'↩️'},
+    {id:'return', label:'คืนเครื่องมือ', icon:'📦', badge: lateCount>0 ? lateCount : null},
     {id:'manage', label:'บริหารเครื่องมือ', icon:'🧰'},
     {id:'reports', label:'รายงานสถิติ', icon:'📊'},
   ];
@@ -549,10 +561,12 @@ function renderHeader(){
           <button class="btn-theme" data-act="toggle-theme" title="สลับธีม">${state.theme==='light'?'🌙':'☀️'}</button>
         </div>
       </div>
+      ${lateCount>0 ? `<div class="mt-4" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:12px;padding:10px 14px;font-size:13.5px;font-weight:600;">⚠️ มีใบยืม ${lateCount} รายการ ที่เลยกำหนดวันคืนแล้วแต่ยังไม่ได้คืน — ดูรายละเอียดที่แท็บ "คืนเครื่องมือ"</div>` : ''}
       <div class="tabbar mt-5">
         ${tabs.map(t=>`
-          <button class="tab-btn ${state.tab===t.id?'tab-active':''}" data-act="tab" data-tab="${t.id}">
+          <button class="tab-btn ${state.tab===t.id?'tab-active':''}" data-act="tab" data-tab="${t.id}" style="position:relative">
             <span class="mr-1">${t.icon}</span>${t.label}
+            ${t.badge ? `<span style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:999px;font-size:10.5px;font-weight:700;padding:1px 6px;line-height:1.4;">${t.badge}</span>` : ''}
           </button>`).join('')}
       </div>
     </div>
@@ -600,26 +614,52 @@ function renderReturnSuccessBanner(){
 }
 
 function renderReturnTab(){
+  const sub = state.returnSubTab || 'all';
   const q = (state.returnSearch||'').trim().toLowerCase();
-  const active = state.borrows.filter(b=>b.status==='active');
-  const list = q ? active.filter(b=>{
+  const activeAll = state.borrows.filter(b=>b.status==='active');
+  const byTiming = sub==='all' ? activeAll : activeAll.filter(b=>borrowTimingCategory(b)===sub);
+  const list = q ? byTiming.filter(b=>{
     return (b.code||'').toLowerCase().includes(q)
       || (b.name||'').toLowerCase().includes(q)
       || (b.phone||'').toLowerCase().includes(q)
       || (b.dept||'').toLowerCase().includes(q);
-  }) : active;
+  }) : byTiming;
+  const cEarly = activeAll.filter(b=>borrowTimingCategory(b)==='early').length;
+  const cOntime = activeAll.filter(b=>borrowTimingCategory(b)==='ontime').length;
+  const cLate = activeAll.filter(b=>borrowTimingCategory(b)==='late').length;
+  const subTabs = [
+    {id:'all', label:'ทั้งหมด', icon:'📋', count: activeAll.length},
+    {id:'early', label:'คืนก่อนกำหนด', icon:'↩️', count: cEarly},
+    {id:'ontime', label:'คืนตรงเวลา', icon:'✅', count: cOntime},
+    {id:'late', label:'คืนสาย', icon:'⚠️', count: cLate},
+  ];
   const successHTML = state.lastCreatedReturnId ? renderReturnSuccessBanner() : '';
   return `
   ${successHTML}
   <div class="card p-5 md:p-7 mt-5">
-    <h2 class="text-lg font-bold flex items-center gap-2 mb-2">↩️ คืนเครื่องมือก่อนกำหนด (สำหรับ Admin)</h2>
-    <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนก่อนกำหนด" เมื่อผู้ยืมนำเครื่องมือมาคืนก่อนถึงวันครบกำหนด ระบบจะปรับสถานะเครื่องมือทุกชิ้นให้พร้อมยืมใหม่ให้อัตโนมัติ ไม่ต้องเลือกรายการเอง (ใบยืมที่ถึงวันครบกำหนดคืนแล้วยังไม่ได้กดคืน ระบบจะปิดให้อัตโนมัติเอง)</p>
+    <h2 class="text-lg font-bold flex items-center gap-2 mb-2">📦 คืนเครื่องมือ (สำหรับ Admin)</h2>
+    <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเทียบวันที่คืนจริงกับวันครบกำหนดคืนแล้วบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อนกำหนด/ตรงเวลา/สาย พร้อมปรับสถานะเครื่องมือทุกชิ้นให้พร้อมยืมใหม่ทันที (ระบบจะไม่ปิดใบยืมให้อัตโนมัติอีกต่อไป ต้องกดคืนเองเสมอ)</p>
+
+    <div class="tabbar mb-4" style="gap:6px">
+      ${subTabs.map(t=>`
+        <button type="button" class="btn-ghost" data-act="return-subtab" data-subtab="${t.id}"
+          style="${sub===t.id?'background:var(--primary);color:#fff;border-color:var(--primary);':''}${t.id==='late'&&t.count>0?'border-color:#dc2626;color:'+(sub===t.id?'#fff':'#dc2626')+';':''}">
+          ${t.icon} ${t.label} ${t.count>0?`<span class="pill ${sub===t.id?'':'pill-warn'}" style="margin-left:4px;${sub===t.id?'background:rgba(255,255,255,.25);color:#fff;':''}">${t.count}</span>`:''}
+        </button>`).join('')}
+    </div>
+
     <div class="mb-4">
       <label class="lbl">ค้นหาใบยืมที่ต้องการคืน (รหัสใบยืม / ชื่อผู้ยืม / เบอร์โทร / หน่วยงาน)</label>
       <input id="ret-search" class="inp" value="${esc(state.returnSearch||'')}" placeholder="พิมพ์เพื่อค้นหา หรือเว้นว่างเพื่อดูรายการทั้งหมด"/>
     </div>
-    ${list.length===0 ? `<div class="empty-hint">${q ? 'ไม่พบใบยืมที่ยังไม่คืนตรงกับคำค้นหานี้' : 'ไม่มีใบยืมที่ค้างคืนอยู่ในขณะนี้'}</div>` :
-      list.map(b=>`
+    ${list.length===0 ? `<div class="empty-hint">${q ? 'ไม่พบใบยืมที่ยังไม่คืนตรงกับคำค้นหานี้' : 'ไม่มีใบยืมในหมวดนี้'}</div>` :
+      list.map(b=>{
+        const timing = borrowTimingCategory(b);
+        let btnLabel = '↩️ คืนก่อนกำหนด';
+        let btnStyle = '';
+        if(timing==='ontime') btnLabel = '✅ คืนตรงเวลา';
+        if(timing==='late'){ btnLabel = `⚠️ คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`; btnStyle='background:#fee2e2;color:#b91c1c;border-color:#fecaca'; }
+        return `
       <div class="borrow-item-card">
         <div class="flex justify-between flex-wrap gap-2">
           <div>
@@ -627,12 +667,14 @@ function renderReturnTab(){
             <div class="text-sm subtle">ยืม ${fmtDateBE(b.borrowDate)} ถึง ${fmtDateBE(b.returnDate)} • พื้นที่: ${esc(b.province)}</div>
             ${b.phone?`<div class="text-sm subtle">เบอร์โทร: ${esc(b.phone)}</div>`:''}
             <div class="text-sm subtle">รายการ: ${itemsSummaryLine(b)}</div>
+            <div class="text-xs mt-1">${borrowStatusBadge(b)}</div>
           </div>
           <div class="flex gap-2 items-start">
-            <button class="btn-early-return" data-act="return-early" data-id="${b.id}">↩️ คืนก่อนกำหนด</button>
+            <button class="btn-early-return" style="${btnStyle}" data-act="return-now" data-id="${b.id}">${btnLabel}</button>
           </div>
         </div>
-      </div>`).join('')
+      </div>`;
+      }).join('')
     }
   </div>`;
 }
@@ -656,13 +698,16 @@ function renderBorrowTab(){
           const col = CATEGORY_COLOR[c];
           const active = f.selectedCats.includes(c);
           const total = state.equipment.filter(e=>e.category===c).length;
-          const avail = state.equipment.filter(e=>e.category===c && isBorrowable(e)).length;
+          const catItems = state.equipment.filter(e=>e.category===c);
+          const avail = catItems.filter(e=>isBorrowable(e)).length;
+          const pendingCalib = catItems.filter(e=>isPendingCalibBorrowable(e)).length;
           return `
           <button type="button" class="cat-card ${active?'cat-card-active':''}" style="--c:${col.bg};--c2:${col.bg2}" data-act="toggle-cat" data-cat="${c}">
             <span class="cat-card-check">${active? '✔️' : ''}</span>
             <span class="cat-card-icon">${catIcon(c)}</span>
             <span class="cat-card-name">${c}</span>
             <span class="cat-card-count">${avail}/${total} พร้อมยืม</span>
+            ${pendingCalib>0 ? `<span class="cat-card-count" style="color:#b45309">⏳ รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
           </button>`;
         }).join('')}
       </div>
@@ -722,6 +767,7 @@ function renderToolPicker(){
   return `
   <div class="mb-6">
     <label class="lbl mb-2">3) เลือกเครื่องมือและจำนวนที่ต้องการยืม</label>
+    <p class="hint-be mb-3">ระบบจะจัดสรรเครื่องมือที่ "พร้อมใช้งาน" ให้ยืมก่อนโดยอัตโนมัติ หากไม่พอจึงจะจัดสรรเครื่องมือที่ "รอสอบเทียบ" ให้ยืมทีหลัง</p>
     <div class="space-y-4">
       ${f.selectedCats.map(cat=>{
         const groups = groupEquipment(cat);
@@ -732,6 +778,7 @@ function renderToolPicker(){
           <div class="tool-list">
             ${groups.length===0 ? `<div class="empty-hint">ยังไม่มีข้อมูลเครื่องมือในหมวดนี้</div>` : groups.map(g=>{
               const remain = g.availItems.length;
+              const pendingN = g.pendingItems.length;
               const qty = f.picks[g.name+'|'+cat] || 0;
               const checked = qty > 0;
               return `
@@ -742,6 +789,7 @@ function renderToolPicker(){
                   <span class="truncate">${esc(g.name)}</span>
                 </label>
                 <span class="qty-badge ${remain===0?'qty-zero':''}">คงเหลือ ${remain}</span>
+                ${pendingN>0 ? `<span class="qty-badge" style="background:#fef3c7;color:#92400e" title="เครื่องมือที่รอสอบเทียบ จะถูกจัดสรรให้ยืมหลังเครื่องมือที่พร้อมใช้หมดก่อน">⏳ รอสอบเทียบ ${pendingN}</span>` : ''}
                 <input type="number" min="1" max="${remain}" value="${qty||1}" class="qty-input"
                   ${remain===0||!checked?'disabled':''}
                   data-act="qty-tool" data-cat="${cat}" data-name="${escAttr(g.name)}"/>
@@ -1288,7 +1336,7 @@ function renderCalendar(){
           </div>
           <div class="flex gap-2 items-start">
             <button class="btn-ghost" data-act="print-slip" data-id="${b.id}">🖨️ พิมพ์</button>
-            ${b.status==='active' ? `<button class="btn-early-return" data-act="return-early" data-id="${b.id}">↩️ คืนก่อนกำหนด</button>` : ''}
+            ${b.status==='active' ? `<button class="btn-early-return" data-act="return-now" data-id="${b.id}">📦 คืนเครื่องมือ</button>` : ''}
           </div>
         </div>
       </div>`).join('')}
@@ -1420,7 +1468,7 @@ function renderReportsTab(){
   const byEquip = {}, byDept = {}, byCat = {};
   let totalQty = 0, returnedCount = 0;
   list.forEach(b=>{
-    if(b.status==='returned' || b.status==='auto-returned' || b.status==='early-returned') returnedCount++;
+    if(b.status==='returned' || b.status==='late-returned' || b.status==='early-returned') returnedCount++;
     b.items.forEach(it=>{
       if(!reportItemMatchesCatFilter(it.category)) return;
       byDept[b.dept] = (byDept[b.dept]||0) + it.qty;
@@ -1438,11 +1486,11 @@ function renderReportsTab(){
 
   const deptDetail = {};
   list.forEach(b=>{
-    if(!deptDetail[b.dept]) deptDetail[b.dept] = { items:{}, active:0, returned:0, autoReturned:0 };
+    if(!deptDetail[b.dept]) deptDetail[b.dept] = { items:{}, active:0, returned:0, lateReturned:0 };
     const dd = deptDetail[b.dept];
     if(b.status==='active') dd.active++;
     else if(b.status==='returned' || b.status==='early-returned') dd.returned++;
-    else if(b.status==='auto-returned') dd.autoReturned++;
+    else if(b.status==='late-returned') dd.lateReturned++;
     itemGroupsForBorrow(b).forEach(g=>{
       if(!reportItemMatchesCatFilter(g.category)) return;
       if(!dd.items[g.name]) dd.items[g.name] = { category: g.category, qty: 0, returnedQty: 0 };
@@ -1450,7 +1498,7 @@ function renderReportsTab(){
       dd.items[g.name].returnedQty += g.returnedQty;
     });
   });
-  const deptDetailEntries = Object.entries(deptDetail).sort((a,b)=>(b[1].active+b[1].returned+b[1].autoReturned)-(a[1].active+a[1].returned+a[1].autoReturned));
+  const deptDetailEntries = Object.entries(deptDetail).sort((a,b)=>(b[1].active+b[1].returned+b[1].lateReturned)-(a[1].active+a[1].returned+a[1].lateReturned));
 
 
   const trendMonths = [];
@@ -1474,7 +1522,7 @@ function renderReportsTab(){
     deptStatusLabels: deptDetailEntries.map(e=>e[0]),
     deptStatusActive: deptDetailEntries.map(e=>e[1].active),
     deptStatusReturned: deptDetailEntries.map(e=>e[1].returned),
-    deptStatusAutoReturned: deptDetailEntries.map(e=>e[1].autoReturned),
+    deptStatusLateReturned: deptDetailEntries.map(e=>e[1].lateReturned),
   };
 
   return `
@@ -1570,7 +1618,7 @@ function renderReportsTab(){
       ${deptDetailEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th style="width:13%">หน่วยงาน</th><th>รายการเครื่องมือที่ยืม (ต่อชิ้น)</th><th class="c" style="width:11%">ใบยืม<br/>กำลังยืมอยู่</th><th class="c" style="width:10%">ใบยืม<br/>คืนก่อนกำหนด</th><th class="c" style="width:10%">ใบยืม<br/>คืนตามกำหนดอัตโนมัติ</th></tr></thead>
+          <thead><tr><th style="width:13%">หน่วยงาน</th><th>รายการเครื่องมือที่ยืม (ต่อชิ้น)</th><th class="c" style="width:11%">ใบยืม<br/>กำลังยืมอยู่</th><th class="c" style="width:10%">ใบยืม<br/>คืนแล้ว (ก่อน/ตรงเวลา)</th><th class="c" style="width:10%">ใบยืม<br/>คืนสาย (เลยกำหนด)</th></tr></thead>
           <tbody>
             ${deptDetailEntries.map(([dept,dd])=>{
               const itemEntries = Object.entries(dd.items).sort((a,b)=>b[1].qty-a[1].qty);
@@ -1599,7 +1647,7 @@ function renderReportsTab(){
                 </td>
                 <td class="c align-top"><span class="pill pill-warn">${dd.active}</span></td>
                 <td class="c align-top"><span class="pill pill-ok">${dd.returned}</span></td>
-                <td class="c align-top"><span class="pill pill-warn">${dd.autoReturned}</span></td>
+                <td class="c align-top"><span class="pill pill-danger">${dd.lateReturned}</span></td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -1720,8 +1768,8 @@ function drawReportCharts(){
         labels: data.deptStatusLabels.map(l=>l.length>20?l.slice(0,20)+'…':l),
         datasets:[
           { label:'กำลังยืมอยู่', data:data.deptStatusActive, backgroundColor:'#b45309' },
-          { label:'คืนก่อนกำหนด', data:data.deptStatusReturned, backgroundColor:'#15803d' },
-          { label:'คืนตามกำหนดอัตโนมัติ', data:data.deptStatusAutoReturned, backgroundColor:'#2563eb' },
+          { label:'คืนแล้ว (ก่อน/ตรงเวลา)', data:data.deptStatusReturned, backgroundColor:'#15803d' },
+          { label:'คืนสาย (เลยกำหนด)', data:data.deptStatusLateReturned, backgroundColor:'#dc2626' },
         ]
       },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ position:'bottom' } }, scales:{ x:{ stacked:true, ticks:{precision:0} }, y:{ stacked:true } } }
@@ -1827,7 +1875,8 @@ function onClick(e){
   if(act==='cal-prev'){ calShift(-1); return; }
   if(act==='cal-next'){ calShift(1); return; }
   if(act==='cal-day'){ state.calendar.selectedDay = parseInt(el.dataset.day); render(); return; }
-  if(act==='return-early'){ returnBorrowEarly(el.dataset.id); return; }
+  if(act==='return-now'){ returnBorrowNow(el.dataset.id); return; }
+  if(act==='return-subtab'){ state.returnSubTab = el.dataset.subtab; render(); return; }
   if(act==='dismiss-return-banner'){ state.lastCreatedReturnId=null; render(); return; }
   if(act==='export-excel'){ exportExcel(); return; }
   if(act==='print-report'){ printReport(); return; }
@@ -2179,6 +2228,31 @@ function excelDateToISO(v){
   return null;
 }
 
+/* ===================== การคืนเครื่องมือ (คืนก่อนกำหนด / คืนตรงเวลา / คืนสาย) =====================
+   ผู้ดูแลระบบเป็นผู้กดคืนเครื่องมือเองเสมอ (ไม่มีการปิดใบยืมอัตโนมัติ)
+   ระบบจะเทียบ "วันที่คืน (returnDate)" ที่กำหนดไว้ในใบยืม กับวันที่กดคืนจริง แล้วตั้งสถานะให้อัตโนมัติ:
+     - กดคืนก่อนถึงวันครบกำหนด  -> 'early-returned'  (คืนก่อนกำหนด)
+     - กดคืนตรงวันครบกำหนดพอดี -> 'returned'         (คืนตรงเวลา)
+     - กดคืนหลังวันครบกำหนดไปแล้ว -> 'late-returned'   (คืนสาย/เลยกำหนด)
+====================================================================================== */
+// หมวดของใบยืมที่ยัง "active" (ยังไม่คืน) เทียบกับวันครบกำหนดคืน ณ วันนี้
+// ใช้จัดกลุ่มในเมนู "คืนเครื่องมือ" และเพื่อแจ้งเตือนใบยืมที่เลยกำหนดแล้ว
+function borrowTimingCategory(b){
+  const today = todayISO();
+  if(!b.returnDate) return 'early';
+  if(b.returnDate > today) return 'early';   // ยังไม่ถึงกำหนด (ถ้าคืนวันนี้ = คืนก่อนกำหนด)
+  if(b.returnDate === today) return 'ontime'; // ถึงกำหนดคืนพอดีวันนี้
+  return 'late'; // เลยวันครบกำหนดคืนแล้ว แต่ยังไม่ได้คืน
+}
+function daysLate(b){
+  if(!b.returnDate) return 0;
+  const d1 = new Date(b.returnDate+'T00:00:00');
+  const d2 = new Date(todayISO()+'T00:00:00');
+  return Math.max(0, Math.round((d2-d1)/86400000));
+}
+function lateActiveBorrows(){
+  return state.borrows.filter(b=>b.status==='active' && borrowTimingCategory(b)==='late');
+}
 /* ===================== Calendar logic ===================== */
 function calShift(dir){
   let m = state.calendar.month + dir;
@@ -2187,39 +2261,26 @@ function calShift(dir){
   state.calendar.month=m; state.calendar.year=y; state.calendar.selectedDay=null;
   render();
 }
-async function returnBorrowEarly(id){
+async function returnBorrowNow(id){
   const b = state.borrows.find(x=>x.id===id);
   if(!b) return;
-  if(!confirm(`ยืนยันคืนเครื่องมือก่อนกำหนดสำหรับใบยืม ${b.code} (${b.name})?\nเครื่องมือทุกชิ้นในใบยืมนี้จะกลับมาว่างให้ยืมใหม่ได้ทันที`)) return;
-  const nowIso = todayISO();
-  (b.itemsExpanded||[]).forEach(rec=>{ if(!rec.returned){ rec.returned = true; rec.returnedAt = nowIso; } });
-  b.status = 'early-returned';
-  b.earlyReturnedAt = new Date().toISOString();
+  const today = todayISO();
+  let newStatus, confirmLabel;
+  if(!b.returnDate || today < b.returnDate){ newStatus='early-returned'; confirmLabel='ก่อนกำหนด'; }
+  else if(today === b.returnDate){ newStatus='returned'; confirmLabel='ตรงเวลา'; }
+  else { newStatus='late-returned'; confirmLabel=`สาย (เลยกำหนดมาแล้ว ${daysLate(b)} วัน)`; }
+  if(!confirm(`ยืนยันคืนเครื่องมือ${confirmLabel}สำหรับใบยืม ${b.code} (${b.name})?\nเครื่องมือทุกชิ้นในใบยืมนี้จะกลับมาว่างให้ยืมใหม่ได้ทันที`)) return;
+  (b.itemsExpanded||[]).forEach(rec=>{ if(!rec.returned){ rec.returned = true; rec.returnedAt = today; } });
+  b.status = newStatus;
+  b.actualReturnedAt = new Date().toISOString();
   await saveBorrows();
   render();
-}
-
-/* ===================== Auto-return เมื่อครบกำหนดคืน ===================== */
-// เมื่อถึง/เกินวันครบกำหนดคืน (returnDate) ของใบยืมที่ยัง 'active' ระบบจะปิดใบยืมและคืนเครื่องมือ
-// ให้อัตโนมัติ โดยใช้สถานะ 'auto-returned' แยกออกจาก 'returned' (คืนเอง) และ 'early-returned' (คืนก่อนกำหนด)
-function autoReturnOverdueBorrows(){
-  const today = todayISO();
-  let changed = false;
-  state.borrows.forEach(b=>{
-    if(b.status==='active' && b.returnDate && b.returnDate<=today){
-      (b.itemsExpanded||[]).forEach(rec=>{ if(!rec.returned){ rec.returned = true; rec.returnedAt = today; } });
-      b.status = 'auto-returned';
-      b.autoReturnedAt = new Date().toISOString();
-      changed = true;
-    }
-  });
-  return changed;
 }
 /* ===================== Reports export/print ===================== */
 function statusLabelTH(status){
   if(status==='early-returned') return 'คืนก่อนกำหนด';
-  if(status==='auto-returned') return 'คืนตามกำหนดอัตโนมัติ';
-  if(status==='returned') return 'คืนแล้ว';
+  if(status==='late-returned') return 'คืนสาย (เลยกำหนด)';
+  if(status==='returned') return 'คืนตรงเวลา';
   return 'กำลังยืมอยู่';
 }
 function exportExcel(){
@@ -2266,11 +2327,6 @@ async function pollRealtimeUpdates(){
       changed = true;
       await saveEquipment();
     }
-    // ตรวจสอบใบยืมที่ครบ/เกินกำหนดคืน แล้วปิดใบยืม+คืนเครื่องมือให้อัตโนมัติ
-    if(autoReturnOverdueBorrows()){
-      changed = true;
-      await saveBorrows();
-    }
     if(changed) render();
   }catch(e){ /* เงียบไว้ ไม่รบกวนผู้ใช้ถ้าเน็ตหลุดชั่วคราว */ }
   finally{ _syncBusy = false; }
@@ -2298,7 +2354,6 @@ function startLiveClock(){
 /* ===================== Boot ===================== */
 (async function boot(){
   await initData();
-  if(autoReturnOverdueBorrows()){ await saveBorrows(); }
   render();
   startRealtimeSync(1800000); // 30 นาที (30 * 60 * 1000 ms)
   startLiveClock();
