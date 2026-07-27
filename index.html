@@ -1724,7 +1724,7 @@ function drawReportCharts(){
   if(catEl && data.catEntries.length){
     _reportChartInstances.cat = new Chart(catEl, {
       type:'doughnut',
-      data:{ labels:data.catEntries.map(e=>e[0]), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:palette }] },
+      data:{ labels:data.catEntries.map(e=>e[0]), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:data.catEntries.map(e=>(CATEGORY_COLOR[e[0]]&&CATEGORY_COLOR[e[0]].bg)||'#64748b') }] },
       options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{boxWidth:10,font:{size:10}} } } }
     });
   }
