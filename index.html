@@ -1465,7 +1465,7 @@ function renderFilterDropdown(ftype, label, options, selected, iconFn){
 function renderReportsTab(){
   const range = getReportRange();
   const list = applyReportFilters(filterBorrowsByRange(range));
-  const byEquip = {}, byDept = {}, byCat = {};
+  const byEquip = {}, byDept = {}, byCat = {}, equipCat = {};
   let totalQty = 0, returnedCount = 0;
   list.forEach(b=>{
     if(b.status==='returned' || b.status==='late-returned' || b.status==='early-returned') returnedCount++;
@@ -1474,6 +1474,7 @@ function renderReportsTab(){
       byDept[b.dept] = (byDept[b.dept]||0) + it.qty;
       byEquip[it.name] = (byEquip[it.name]||0) + it.qty;
       byCat[it.category] = (byCat[it.category]||0) + it.qty;
+      equipCat[it.name] = it.category;
       totalQty += it.qty;
     });
   });
@@ -1516,7 +1517,7 @@ function renderReportsTab(){
 
 
   state._reportChartData = {
-    catEntries, equipEntries: equipEntries.slice(0,8),
+    catEntries, equipEntries: equipEntries.slice(0,8), equipCat,
     statusCounts: [activeCount, returnedCount],
     trendLabels: trendMonths.map(t=>t.label), trendCounts,
     deptStatusLabels: deptDetailEntries.map(e=>e[0]),
@@ -1595,7 +1596,13 @@ function renderReportsTab(){
       </div>
       <div class="card p-5">
         <h3 class="font-bold mb-3 text-sm">เครื่องมือยอดนิยม (Top 8)</h3>
-        ${equipEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div style="height:220px"><canvas id="chart-equip"></canvas></div>`}
+        ${equipEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `
+        <div class="flex flex-wrap gap-x-3 gap-y-1 mb-2" style="font-size:11px;">
+          ${[...new Set(equipEntries.map(e=>equipCat[e[0]]).filter(Boolean))].map(c=>`
+          <span class="flex items-center gap-1"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${(CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2'}"></span>${esc(c)}</span>
+          `).join('')}
+        </div>
+        <div style="height:200px"><canvas id="chart-equip"></canvas></div>`}
       </div>
       <div class="card p-5">
         <h3 class="font-bold mb-3 text-sm">สถานะใบยืม</h3>
@@ -1734,7 +1741,7 @@ function drawReportCharts(){
   if(equipEl && data.equipEntries.length){
     _reportChartInstances.equip = new Chart(equipEl, {
       type:'bar',
-      data:{ labels:data.equipEntries.map(e=>e[0].length>14?e[0].slice(0,14)+'…':e[0]), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:'#0891b2' }] },
+      data:{ labels:data.equipEntries.map(e=>e[0].length>14?e[0].slice(0,14)+'…':e[0]), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}) }] },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ ticks:{precision:0} } } }
     });
   }
