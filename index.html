@@ -233,6 +233,54 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
   body.printing-slip #print-area{ display:block !important; }
   body.printing-report .no-print{ display:none !important; }
   @page{ size:A4; margin:10mm; }
+
+  /* ---- Report print theme: force a clean, light, high-contrast look regardless of the on-screen theme ---- */
+  body.printing-report{
+    --bg:#ffffff; --bg-grad1:#ffffff; --bg-grad2:#ffffff;
+    --card:#ffffff; --text:#16302b; --subtle:#5b6b68; --border:#d7e2df;
+    --input-bg:#ffffff; --input-border:#d7e2df;
+    --header-bg:#0f766e; --header-text:#ffffff;
+    --primary:#0f766e; --primary-dark:#0d5f59;
+    --chip-bg:#f4faf8; --shadow:none;
+    background:#fff !important;
+  }
+  body.printing-report, body.printing-report *{ box-shadow:none !important; text-shadow:none !important; }
+  body.printing-report #main-content{ background:#fff !important; padding:0 !important; max-width:none !important; }
+
+  /* Print-friendly report title */
+  body.printing-report .report-print-title{ display:block !important; text-align:center; font-weight:800; font-size:19px; color:#0f766e; margin:0 0 12px; }
+
+  /* Cards: crisp border instead of shadow, tighter padding, avoid splitting across a page */
+  body.printing-report .card{ border:1px solid #cfe0dc !important; border-radius:10px !important; break-inside:avoid; page-break-inside:avoid; margin-bottom:10px !important; background:#fff !important; }
+  body.printing-report .card.p-5{ padding:12px 14px !important; }
+  body.printing-report .card.p-4{ padding:10px !important; }
+  body.printing-report h3{ color:#0f766e !important; }
+
+  /* Force multi-column grids to stay multi-column at print width, regardless of Tailwind's screen-based md: breakpoint */
+  body.printing-report [class*="grid"][class*="md:grid-cols-4"]{ display:grid !important; grid-template-columns:repeat(4,1fr) !important; }
+  body.printing-report [class*="grid"][class*="md:grid-cols-3"]{ display:grid !important; grid-template-columns:repeat(3,1fr) !important; }
+  body.printing-report [class*="grid"][class*="md:grid-cols-2"]{ display:grid !important; grid-template-columns:repeat(2,1fr) !important; }
+  body.printing-report .grid{ gap:10px !important; }
+
+  /* Charts: fixed, print-friendly heights so canvases don't get cropped or bloated */
+  body.printing-report .card canvas{ max-height:170px !important; }
+  body.printing-report .card > div[style*="height:220px"],
+  body.printing-report .card > div[style*="height:200px"]{ height:170px !important; }
+
+  /* Tables: crisp borders, avoid row-splitting, smaller type to fit more per page */
+  body.printing-report table{ font-size:11px !important; border-collapse:collapse !important; width:100% !important; }
+  body.printing-report .data-table th, body.printing-report .data-table td{ border:1px solid #d7e2df !important; padding:4px 6px !important; }
+  body.printing-report .data-table th{ background:#eef6f4 !important; color:#16302b !important; }
+  body.printing-report .data-table tr{ break-inside:avoid; page-break-inside:avoid; }
+
+  /* Chips/pills/badges: outline style so they read clearly without needing background graphics */
+  body.printing-report .pill, body.printing-report .mini-chip, body.printing-report .qty-badge{
+    background:transparent !important; border:1px solid #cfe0dc !important; color:#16302b !important;
+  }
+
+  /* Reduce section spacing so the report reads as a tight document rather than loose app panels */
+  body.printing-report .space-y-5 > * + *,
+  body.printing-report [class*="space-y-"] > * + *{ margin-top:8px !important; }
 }
 
 </style>
@@ -376,6 +424,12 @@ async function initData(){
   let theme = await stGet('ui:theme', false);
   if(theme) state.theme = theme;
   applyTheme();
+
+  const savedAuth = await stGet('auth:session', false);
+  if(savedAuth && savedAuth.loggedIn){
+    state.loggedIn = true;
+    state.loggedInUser = savedAuth.user || null;
+  }
 }
 async function saveEquipment(){ await stSet('equipment:list', state.equipment, true); }
 async function saveBorrows(){ await stSet('borrows:list', state.borrows, true); }
@@ -1528,6 +1582,7 @@ function renderReportsTab(){
 
   return `
   <div class="mt-5 space-y-6" id="report-root">
+    <div class="report-print-title" style="display:none">รายงานสรุปการยืม-คืนเครื่องมือ<br/><span style="font-weight:600;font-size:13px;color:#5b6b68">พิมพ์เมื่อ ${new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})} • ช่วงข้อมูล: ${fmtDateBE(range.start)} — ${fmtDateBE(range.end)}</span></div>
     <div class="card p-5 no-print">
       <div class="flex flex-wrap gap-3 items-end">
         <div>
@@ -1859,7 +1914,7 @@ function onClick(e){
 
   if(act==='tab'){ state.tab = el.dataset.tab; state.lastCreatedBorrowId=null; state.lastCreatedReturnId=null; render(); return; }
   if(act==='toggle-theme'){ toggleTheme(); return; }
-  if(act==='logout'){ state.loggedIn=false; state.loggedInUser=null; render(); return; }
+  if(act==='logout'){ state.loggedIn=false; state.loggedInUser=null; stSet('auth:session', null, false); render(); return; }
   if(act==='do-login'){ doLogin(); return; }
   if(act==='reset-form'){ resetForm(); render(); return; }
   if(act==='dismiss-banner'){ state.lastCreatedBorrowId=null; render(); return; }
@@ -1950,6 +2005,7 @@ function doLogin(){
   if(found){
     state.loggedIn = true;
     state.loggedInUser = found.user;
+    stSet('auth:session', { loggedIn:true, user: found.user }, false);
     render();
   } else {
     document.getElementById('login-err').classList.remove('hidden');
