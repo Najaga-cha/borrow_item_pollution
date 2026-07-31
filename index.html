@@ -531,6 +531,26 @@ function todayISO(){
 function uid(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 /* ===================== Data init ===================== */
+/* ===================== Migration: สถานะ 'auto-returned' รุ่นเก่า =====================
+   เวอร์ชันก่อนหน้าของระบบเคยมีฟีเจอร์ "ปิดใบยืมอัตโนมัติ" ที่ตั้งสถานะเป็น 'auto-returned'
+   ปัจจุบันฟีเจอร์นี้ถูกถอดออกแล้ว (ต้องกดคืนเองเสมอ) แต่ข้อมูลเก่าที่เคยถูกปิดแบบนี้
+   อาจยังค้างอยู่ใน Firestore — โค้ดส่วนนี้จะดึงกลับมาเป็น 'active' ให้อัตโนมัติทุกครั้งที่โหลดระบบ
+   เพื่อให้ใบยืมเหล่านั้นกลับไปคำนวณสถานะ (ค้าง/สาย ฯลฯ) ตามจริงอีกครั้ง
+====================================================================================== */
+async function migrateLegacyAutoReturned(){
+  let migrated = false;
+  state.borrows.forEach(b=>{
+    if(b.status === 'auto-returned'){
+      b.status = 'active';
+      delete b.autoReturnedAt;
+      delete b.actualReturnedAt;
+      (b.itemsExpanded||[]).forEach(rec=>{ rec.returned = false; delete rec.returnedAt; });
+      migrated = true;
+    }
+  });
+  if(migrated) await saveBorrows();
+}
+
 async function initData(){
   let eq = await stGet('equipment:list', true);
   if(!eq || !Array.isArray(eq) || eq.length===0){
@@ -543,6 +563,8 @@ async function initData(){
   let br = await stGet('borrows:list', true);
   if(!br || !Array.isArray(br)) br = [];
   state.borrows = br;
+
+  await migrateLegacyAutoReturned();
 
   let rt = await stGet('returns:list', true);
   if(!rt || !Array.isArray(rt)) rt = [];
