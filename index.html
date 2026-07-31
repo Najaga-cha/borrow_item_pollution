@@ -2683,40 +2683,70 @@ window.addEventListener('afterprint', ()=>{
   _resizeReportCharts();
 });
 
-/* ===================== Realtime sync (polling) =====================
-   window.storage ไม่รองรับการ "push" ข้อมูลแบบทันที (real push / WebSocket)
-   จึงใช้วิธี "polling" คือดึงข้อมูลล่าสุดจากพื้นที่เก็บข้อมูลกลาง (shared storage)
-   มาเทียบกับข้อมูลบนหน้าจอทุก ๆ ไม่กี่วินาที ถ้าพบว่าเปลี่ยนแปลง (เช่นมีคนอื่นยืม/คืน/แก้ไข
-   เครื่องมือจากเครื่องอื่น) จะอัปเดตหน้าจอให้อัตโนมัติโดยไม่รบกวนช่องที่กำลังพิมพ์อยู่
+/* ===================== Realtime sync (Firestore onSnapshot) =====================
+   ใช้ Firestore real-time listener (onSnapshot) แทนการ polling เดิม
+   เมื่อมีการเปลี่ยนแปลงข้อมูล (เช่น มีคนกดส่งใบยืมจากมือถือ) Firestore จะ "push"
+   ข้อมูลล่าสุดมาให้ทุกเครื่องที่เปิดหน้านี้อยู่ทันที ไม่ต้องรอรอบเวลา
 ====================================================================== */
+let _unsubEquipmentList = null;
+let _unsubBorrowsList = null;
+
+function applyEquipmentListUpdate(eq){
+  if(!Array.isArray(eq)) return;
+  const cur = JSON.stringify(state.equipment), next = JSON.stringify(eq);
+  if(cur === next) return;
+  state.equipment = eq;
+  if(autoUpdateCalibStatus()){ saveEquipment(); }
+  render();
+}
+function applyBorrowsListUpdate(br){
+  if(!Array.isArray(br)) return;
+  const cur = JSON.stringify(state.borrows), next = JSON.stringify(br);
+  if(cur === next) return;
+  state.borrows = br;
+  render();
+}
+
+// เผื่อกรณี real-time listener เชื่อมต่อไม่ได้ (เน็ตหลุด/ถูกบล็อก) ใช้ polling เป็นตัวสำรอง
 let _syncBusy = false;
 async function pollRealtimeUpdates(){
   if(_syncBusy) return;
   _syncBusy = true;
   try{
     const [eq, br] = await Promise.all([ stGet('equipment:list', true), stGet('borrows:list', true) ]);
-    let changed = false;
-    if(Array.isArray(eq)){
-      const cur = JSON.stringify(state.equipment), next = JSON.stringify(eq);
-      if(cur !== next){ state.equipment = eq; changed = true; }
-    }
-    if(Array.isArray(br)){
-      const cur = JSON.stringify(state.borrows), next = JSON.stringify(br);
-      if(cur !== next){ state.borrows = br; changed = true; }
-    }
-    // ตรวจสอบเครื่องมือที่เลยกำหนดสอบเทียบครั้งถัดไป แล้วปรับสถานะใช้งานเป็น "รอสอบเทียบ" ให้อัตโนมัติ
-    if(autoUpdateCalibStatus()){
-      changed = true;
-      await saveEquipment();
-    }
-    if(changed) render();
+    applyEquipmentListUpdate(eq);
+    applyBorrowsListUpdate(br);
   }catch(e){ /* เงียบไว้ ไม่รบกวนผู้ใช้ถ้าเน็ตหลุดชั่วคราว */ }
   finally{ _syncBusy = false; }
 }
-function startRealtimeSync(intervalMs){
-  setInterval(pollRealtimeUpdates, intervalMs || 6000);
-  // ซิงก์ทันทีเมื่อผู้ใช้กลับมาที่แท็บ/หน้าต่างนี้อีกครั้ง
+
+function startRealtimeSync(){
+  let listenersOk = false;
+  try{
+    _unsubEquipmentList = db.collection(FS_COLLECTION).doc('equipment:list')
+      .onSnapshot(
+        snap=>{ if(snap.exists){ const d=snap.data(); applyEquipmentListUpdate(d && d.value); } },
+        err=>{ console.warn('equipment realtime listener error, fallback to polling', err); startFallbackPolling(); }
+      );
+    _unsubBorrowsList = db.collection(FS_COLLECTION).doc('borrows:list')
+      .onSnapshot(
+        snap=>{ if(snap.exists){ const d=snap.data(); applyBorrowsListUpdate(d && d.value); } },
+        err=>{ console.warn('borrows realtime listener error, fallback to polling', err); startFallbackPolling(); }
+      );
+    listenersOk = true;
+  }catch(e){ console.warn('onSnapshot ใช้งานไม่ได้, ใช้ polling แทน', e); }
+
+  if(!listenersOk) startFallbackPolling();
+
+  // ซิงก์ทันทีเมื่อผู้ใช้กลับมาที่แท็บ/หน้าต่างนี้อีกครั้ง (เผื่อพลาดอัปเดตตอนแท็บถูกพักไว้)
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pollRealtimeUpdates(); });
+}
+
+let _fallbackPollStarted = false;
+function startFallbackPolling(){
+  if(_fallbackPollStarted) return;
+  _fallbackPollStarted = true;
+  setInterval(pollRealtimeUpdates, 6000);
 }
 
 /* ===================== นาฬิกาแสดงวันที่/เวลาปัจจุบันบนหัวเว็บ ===================== */
@@ -2737,7 +2767,7 @@ function startLiveClock(){
 (async function boot(){
   await initData();
   render();
-  startRealtimeSync(1800000); // 30 นาที (30 * 60 * 1000 ms)
+  startRealtimeSync(); // real-time listener (onSnapshot) — อัปเดตทันทีที่มีการเปลี่ยนแปลง
   startLiveClock();
 })();
 
