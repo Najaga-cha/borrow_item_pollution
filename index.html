@@ -731,6 +731,7 @@ function render(){
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
   `;
   attachHandlers();
+  updateLiveClock();
 
   if(activeId){
     const el = document.getElementById(activeId);
