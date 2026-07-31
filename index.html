@@ -421,6 +421,7 @@ const state = {
   returnSubTab: 'all',
   lastCreatedReturnId: null,
   notif: { open: false },
+  viewingBorrowId: null,
 };
 
 /* ===================== ระบบแจ้งเตือน (กระดิ่ง) — เฉพาะ admin ที่ login แล้ว =====================
@@ -725,6 +726,7 @@ function render(){
     </div>
     ${renderPrintSlipContainer()}
     ${state.pendingBorrow ? renderConfirmBorrowModal() : ''}
+    ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
   `;
   attachHandlers();
 
@@ -942,12 +944,75 @@ function renderReturnTab(){
             <div class="text-xs mt-1">${borrowStatusBadge(b)}</div>
           </div>
           <div class="flex gap-2 items-start">
+            <button class="btn-ghost" data-act="view-borrow" data-id="${b.id}">🔍 ดูรายละเอียด</button>
             <button class="btn-early-return" style="${btnStyle}" data-act="return-now" data-id="${b.id}">${btnLabel}</button>
           </div>
         </div>
       </div>`;
       }).join('')
     }
+  </div>`;
+}
+
+function renderBorrowDetailModal(){
+  const b = state.borrows.find(x=>x.id===state.viewingBorrowId);
+  if(!b) return '';
+  const groups = itemGroupsForBorrow(b);
+  return `
+  <div class="modal-backdrop" data-act="close-modal">
+    <div class="modal-card">
+      <div class="flex items-start justify-between gap-3 mb-1">
+        <h3 class="text-lg font-bold">รายละเอียดใบยืม ${esc(b.code||'')}</h3>
+        <button class="icon-btn" data-act="close-modal" title="ปิด">✖️</button>
+      </div>
+      <div class="mb-4">${borrowStatusBadge(b)}</div>
+
+      <div class="grid md:grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
+        <div><span class="subtle">หน่วยงานผู้ยืม:</span> <span class="font-semibold">${esc(b.dept||'-')}</span></div>
+        <div><span class="subtle">ผู้ยืม:</span> <span class="font-semibold">${esc(b.name||'-')}</span></div>
+        <div><span class="subtle">ตำแหน่ง:</span> <span class="font-semibold">${esc(b.position||'-')}</span></div>
+        <div><span class="subtle">เบอร์โทร:</span> <span class="font-semibold">${esc(b.phone||'-')}</span></div>
+        <div><span class="subtle">วันที่ยืม:</span> <span class="font-semibold">${fmtDateBE(b.borrowDate)}</span></div>
+        <div><span class="subtle">กำหนดคืน:</span> <span class="font-semibold">${fmtDateBE(b.returnDate)}</span></div>
+        <div><span class="subtle">พื้นที่ที่นำไปใช้งาน:</span> <span class="font-semibold">${esc(b.province||'-')}</span></div>
+        <div><span class="subtle">วันที่สร้างใบยืม:</span> <span class="font-semibold">${esc(b.createdTime||'')} ${b.createdAt?fmtDateBE(b.createdAt.slice(0,10)):''}</span></div>
+        ${b.actualReturnedAt ? `<div class="md:col-span-2"><span class="subtle">คืนจริงเมื่อ:</span> <span class="font-semibold">${fmtDateBE(b.actualReturnedAt.slice(0,10))}</span></div>` : ''}
+        ${b.notes ? `<div class="md:col-span-2"><span class="subtle">หมายเหตุ:</span> <span class="font-semibold">${esc(b.notes)}</span></div>` : ''}
+      </div>
+
+      <div class="mb-2">
+        <label class="lbl mb-2">รายการเครื่องมือ (${groups.length} รายการ)</label>
+        <div style="border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+          <table class="w-full text-sm">
+            <thead>
+              <tr style="background:var(--chip-bg);">
+                <th class="text-left p-2">ชื่อเครื่องมือ</th>
+                <th class="text-left p-2">รหัสครุภัณฑ์</th>
+                <th class="text-left p-2">หมวด</th>
+                <th class="text-center p-2">จำนวน</th>
+                <th class="text-center p-2">สถานะคืน</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${groups.map(g=>`
+                <tr style="border-top:1px solid var(--border);">
+                  <td class="p-2">${esc(g.name)}</td>
+                  <td class="p-2">${esc(g.assetCode||'-')}</td>
+                  <td class="p-2">${esc(g.category||'-')}</td>
+                  <td class="p-2 text-center">${g.qty}</td>
+                  <td class="p-2 text-center">${g.returnedQty>0 ? `คืนแล้ว ${g.returnedQty}/${g.qty}` : 'ยังไม่คืน'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-5">
+        <button class="btn-ghost" data-act="print-slip" data-id="${b.id}">🖨️ พิมพ์ใบยืม</button>
+        ${b.status==='active' ? `<button class="btn-early-return" data-act="return-now" data-id="${b.id}">📦 คืนเครื่องมือ</button>` : ''}
+        <button class="btn-ghost" data-act="close-modal">ปิด</button>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -2156,7 +2221,8 @@ function onClick(e){
   if(act==='mview'){ state.manage.view = el.dataset.v; render(); return; }
   if(act==='add-equip'){ state.manage.editing='new'; render(); return; }
   if(act==='edit-equip'){ state.manage.editing=el.dataset.id; render(); return; }
-  if(act==='close-modal'){ state.manage.editing=null; render(); return; }
+  if(act==='view-borrow'){ state.viewingBorrowId=el.dataset.id; render(); return; }
+  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; render(); return; }
   if(act==='save-equip'){ saveEquipModal(el.dataset.id); return; }
   if(act==='del-equip'){ delEquip(el.dataset.id); return; }
   if(act==='clear-equip'){ clearEquip(); return; }
