@@ -143,6 +143,18 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .notif-time{ font-size:10.5px; color:var(--subtle); margin-top:3px; }
 .notif-dot{ width:7px; height:7px; border-radius:999px; background:#dc2626; flex-shrink:0; margin-top:5px; }
 .notif-empty{ padding:32px 16px; text-align:center; color:var(--subtle); font-size:13px; }
+
+/* ===== Notification Toast (พรีวิวแจ้งเตือนแบบเด้งจางๆ) ===== */
+.notif-toast-container{ position:fixed; top:76px; right:16px; z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; max-width:92vw; }
+@media (max-width:480px){ .notif-toast-container{ left:16px; right:16px; top:auto; bottom:16px; align-items:stretch; } }
+.notif-toast{ pointer-events:auto; display:flex; gap:10px; align-items:flex-start; background:var(--card); color:var(--text); border:1px solid var(--border); box-shadow:var(--shadow); border-radius:14px; padding:11px 14px; width:300px; max-width:100%; opacity:0; transform:translateY(-10px) scale(.98); transition:opacity .35s ease, transform .35s ease; }
+@media (max-width:480px){ .notif-toast{ width:100%; } }
+.notif-toast.show{ opacity:1; transform:translateY(0) scale(1); }
+.notif-toast-icon{ width:30px; height:30px; border-radius:9px; background:rgba(15,118,110,.12); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.notif-toast-icon.late{ background:rgba(220,38,38,.12); }
+.notif-toast-text{ flex:1; min-width:0; }
+.notif-toast-title{ font-size:13px; font-weight:700; }
+.notif-toast-sub{ font-size:12px; color:var(--subtle); margin-top:1px; }
 .btn-ghost{ padding:9px 14px; border-radius:10px; background:var(--card); border:1px solid var(--border); color:var(--text); cursor:pointer; font-weight:600; font-size:13.5px; transition:.15s;}
 .btn-ghost:hover{ background: var(--chip-bg); }
 .btn-primary{ padding:10px 18px; border-radius:10px; background: var(--primary); color:#fff; border:none; cursor:pointer; font-weight:700; font-size:14px; box-shadow: 0 4px 12px rgba(15,118,110,.3); transition:.15s;}
@@ -2691,6 +2703,36 @@ window.addEventListener('afterprint', ()=>{
 let _unsubEquipmentList = null;
 let _unsubBorrowsList = null;
 
+/* ----- Toast แจ้งเตือนแบบพรีวิวจางๆ (ขึ้น ~3 วิ แล้วหายเอง) ----- */
+function ensureToastContainer(){
+  let c = document.getElementById('notif-toast-container');
+  if(!c){
+    c = document.createElement('div');
+    c.id = 'notif-toast-container';
+    c.className = 'notif-toast-container';
+    document.body.appendChild(c);
+  }
+  return c;
+}
+function showNotifToast(title, sub, icon, type){
+  const c = ensureToastContainer();
+  const el = document.createElement('div');
+  el.className = 'notif-toast';
+  el.innerHTML = `
+    <div class="notif-toast-icon ${type==='late'?'late':''}">${icon||'🔔'}</div>
+    <div class="notif-toast-text">
+      <div class="notif-toast-title">${esc(title)}</div>
+      ${sub ? `<div class="notif-toast-sub">${esc(sub)}</div>` : ''}
+    </div>`;
+  el.addEventListener('click', ()=>{ el.remove(); });
+  c.appendChild(el);
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ el.classList.add('show'); }); });
+  setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(()=>{ el.remove(); }, 350);
+  }, 3000);
+}
+
 function applyEquipmentListUpdate(eq){
   if(!Array.isArray(eq)) return;
   const cur = JSON.stringify(state.equipment), next = JSON.stringify(eq);
@@ -2703,8 +2745,23 @@ function applyBorrowsListUpdate(br){
   if(!Array.isArray(br)) return;
   const cur = JSON.stringify(state.borrows), next = JSON.stringify(br);
   if(cur === next) return;
+
+  // ตรวจจับใบยืมใหม่ที่เพิ่งเข้ามา (ยังไม่เคยเห็นมาก่อนในเครื่องนี้) เพื่อขึ้น toast แจ้งเตือน
+  const prevIds = new Set(state.borrows.map(b=>b.id));
+  const freshNew = br.filter(b=>!prevIds.has(b.id));
+
   state.borrows = br;
   render();
+
+  if(state.loggedIn && freshNew.length){
+    const shown = freshNew.slice(0, 3);
+    shown.forEach(b=>{
+      showNotifToast(`📥 มีใบยืมใหม่: ${b.code||''}`, `${b.dept||'-'} • ${b.name||'-'}`, '📥', 'new');
+    });
+    if(freshNew.length > shown.length){
+      showNotifToast(`และอีก ${freshNew.length - shown.length} รายการ`, '', '🔔', 'new');
+    }
+  }
 }
 
 // เผื่อกรณี real-time listener เชื่อมต่อไม่ได้ (เน็ตหลุด/ถูกบล็อก) ใช้ polling เป็นตัวสำรอง
