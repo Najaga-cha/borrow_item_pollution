@@ -511,6 +511,15 @@ const CATEGORY_COLOR = {
 };
 
 function beYear(y){ return y + 543; }
+// แปลง Date -> "YYYY-MM-DD" โดยใช้เวลาท้องถิ่น (ห้ามใช้ toISOString() เพราะจะแปลงเป็น UTC
+// ซึ่งในโซนเวลาไทย (+7) จะทำให้เที่ยงคืนของวันนั้นๆ กลายเป็นวันก่อนหน้าใน UTC -> วันที่เพี้ยนไป 1 วัน)
+function toLocalISODate(d){
+  if(!(d instanceof Date) || isNaN(d)) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function fmtDateBE(iso){
   if(!iso) return '-';
   const d = new Date(iso+'T00:00:00');
@@ -528,8 +537,7 @@ function nowTimeStr(){
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.`;
 }
 function todayISO(){
-  const d = new Date();
-  return d.toISOString().slice(0,10);
+  return toLocalISODate(new Date());
 }
 function uid(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -1693,14 +1701,14 @@ function halfRange(mode, fyBE){
   return { start: `${gy}-04-01`, end: `${gy}-09-30` };
 }
 function monthRange(monthIdx, gy){
-  const start = new Date(gy, monthIdx, 1).toISOString().slice(0,10);
-  const end = new Date(gy, monthIdx+1, 0).toISOString().slice(0,10);
+  const start = toLocalISODate(new Date(gy, monthIdx, 1));
+  const end = toLocalISODate(new Date(gy, monthIdx+1, 0));
   return {start, end};
 }
 function weekRange(startISO){
   const s = new Date(startISO+'T00:00:00');
   const e = new Date(s); e.setDate(e.getDate()+6);
-  return { start: startISO, end: e.toISOString().slice(0,10) };
+  return { start: startISO, end: toLocalISODate(e) };
 }
 function getReportRange(){
   const r = state.reports;
@@ -2490,7 +2498,7 @@ async function updateCalibDate(id, value){
   if(value && e.calibCycle){
     const d = new Date(value+'T00:00:00');
     d.setFullYear(d.getFullYear() + parseInt(e.calibCycle||1));
-    e.nextCalib = d.toISOString().slice(0,10);
+    e.nextCalib = toLocalISODate(d);
   }
   // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที
   if(e.nextCalib && e.nextCalib < todayISO()){ e.useStatus = 'รอสอบเทียบ'; }
@@ -2522,7 +2530,7 @@ async function saveEquipModal(id){
   if(obj.lastCalib){
     const d = new Date(obj.lastCalib+'T00:00:00');
     d.setFullYear(d.getFullYear()+obj.calibCycle);
-    obj.nextCalib = d.toISOString().slice(0,10);
+    obj.nextCalib = toLocalISODate(d);
   } else obj.nextCalib = null;
   // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที
   if(obj.nextCalib && obj.nextCalib < todayISO()){ obj.useStatus = 'รอสอบเทียบ'; }
@@ -2579,9 +2587,9 @@ function importExcel(file){
 }
 function excelDateToISO(v){
   if(!v) return null;
-  if(v instanceof Date) return v.toISOString().slice(0,10);
+  if(v instanceof Date) return toLocalISODate(v);
   const d = new Date(v);
-  if(!isNaN(d)) return d.toISOString().slice(0,10);
+  if(!isNaN(d)) return toLocalISODate(d);
   return null;
 }
 
