@@ -808,7 +808,7 @@ function renderNotifPanel(){
 }
 
 function renderHeader(){
-  const lateCount = lateActiveBorrows().length;
+  const lateCount = state.loggedIn ? lateActiveBorrows().length : 0;
   const tabs = [
     {id:'borrow', label:'สร้างใบยืม', icon:'📝'},
     {id:'return', label:'คืนเครื่องมือ', icon:'📦', badge: lateCount>0 ? lateCount : null},
