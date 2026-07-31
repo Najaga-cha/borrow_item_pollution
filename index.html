@@ -739,6 +739,7 @@ function render(){
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
   `;
   attachHandlers();
+  if(typeof updateLiveClock==='function') updateLiveClock();
 
   if(activeId){
     const el = document.getElementById(activeId);
@@ -2736,7 +2737,7 @@ function startLiveClock(){
 (async function boot(){
   await initData();
   render();
-  startRealtimeSync(8000); // 8 วินาที
+  startRealtimeSync(1800000); // 30 นาที (30 * 60 * 1000 ms)
   startLiveClock();
 })();
 
