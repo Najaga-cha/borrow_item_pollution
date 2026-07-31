@@ -731,7 +731,6 @@ function render(){
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
   `;
   attachHandlers();
-  updateLiveClock();
 
   if(activeId){
     const el = document.getElementById(activeId);
@@ -2203,11 +2202,7 @@ function onClick(e){
  
   if(el.classList.contains('modal-backdrop') && e.target !== el) return;
 
-  if(act==='tab'){
-    state.tab = el.dataset.tab; state.lastCreatedBorrowId=null; state.lastCreatedReturnId=null; render();
-    if(['reports','return','manage'].includes(state.tab)) pollRealtimeUpdates();
-    return;
-  }
+  if(act==='tab'){ state.tab = el.dataset.tab; state.lastCreatedBorrowId=null; state.lastCreatedReturnId=null; render(); return; }
   if(act==='toggle-theme'){ toggleTheme(); return; }
   if(act==='logout'){ state.loggedIn=false; state.loggedInUser=null; state.notif.open=false; stSet('auth:session', null, false); render(); return; }
   if(act==='toggle-notif'){ toggleNotifPanel(); return; }
@@ -2733,7 +2728,7 @@ function startLiveClock(){
 (async function boot(){
   await initData();
   render();
-  startRealtimeSync(25000); // 25 วินาที (ให้ dashboard/รายงานอัปเดตใกล้เคียง real-time โดยไม่เปลืองการอ่านข้อมูลมากเกินไป)
+  startRealtimeSync(8000); // 8 วินาที
   startLiveClock();
 })();
 
