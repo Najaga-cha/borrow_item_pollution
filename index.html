@@ -2294,7 +2294,8 @@ function onDragHandlePointerDown(e){
   dragCtx = {
     row, container,
     startY: e.clientY,
-    startTop: rowRect.top,
+    baseTop: rowRect.top,      // ตำแหน่ง top ตอนเริ่มลาก (คงที่ตลอดการลาก ใช้อ้างอิงตำแหน่งที่ "ควรอยู่" ตามเมาส์/นิ้ว)
+    curStaticTop: rowRect.top, // ตำแหน่ง top จริงในเลย์เอาต์ปัจจุบัน (อัปเดตทุกครั้งที่มีการสลับตำแหน่งกับแถวข้างเคียง)
     height: rowRect.height,
     cat: row.dataset.cat,
     lastDY: 0,
@@ -2314,31 +2315,42 @@ function onRowPointerMove(e){
 function updateDragFrame(){
   dragRAF = null;
   if(!dragCtx) return;
-  const dy = dragCtx.lastDY;
-  dragCtx.row.style.transform = `translateY(${dy}px)`;
-  const rows = Array.from(dragCtx.container.querySelectorAll('.reorder-row'));
-  const curIndex = rows.indexOf(dragCtx.row);
-  const draggedCenter = dragCtx.startTop + dragCtx.height/2 + dy;
+  const { row, container } = dragCtx;
+  const desiredTop = dragCtx.baseTop + dragCtx.lastDY; // ตำแหน่งที่อยากให้แถวไปอยู่ ณ ตอนนี้ (ตามเมาส์)
+  const desiredCenter = desiredTop + dragCtx.height/2;
+  const rows = Array.from(container.querySelectorAll('.reorder-row'));
+  const curIndex = rows.indexOf(row);
+
   if(curIndex>0){
     const prev = rows[curIndex-1];
     const prevRect = prev.getBoundingClientRect();
-    if(draggedCenter < prevRect.top + prevRect.height/2){
-      dragCtx.container.insertBefore(dragCtx.row, prev);
-      dragCtx.startTop -= prevRect.height;
+    if(desiredCenter < prevRect.top + prevRect.height/2){
+      container.insertBefore(row, prev);
+      dragCtx.curStaticTop -= prevRect.height;
       flipSibling(prev, prevRect);
+      applyDragTransform();
       return;
     }
   }
   if(curIndex < rows.length-1){
     const next = rows[curIndex+1];
     const nextRect = next.getBoundingClientRect();
-    if(draggedCenter > nextRect.top + nextRect.height/2){
-      dragCtx.container.insertBefore(next, dragCtx.row);
-      dragCtx.startTop += nextRect.height;
+    if(desiredCenter > nextRect.top + nextRect.height/2){
+      container.insertBefore(next, row);
+      dragCtx.curStaticTop += nextRect.height;
       flipSibling(next, nextRect);
+      applyDragTransform();
       return;
     }
   }
+  applyDragTransform();
+}
+// ตั้งค่า transform ของแถวที่ลากอยู่ ให้ตำแหน่งที่ "แสดงผลจริง" (ตำแหน่งในเลย์เอาต์ + transform)
+// เท่ากับตำแหน่งที่ต้องการ (desiredTop) เสมอ ไม่ว่าจะสลับตำแหน่งในลิสต์ไปกี่ครั้งก็ตาม — จึงไม่มีการกระตุก/กระโดด
+function applyDragTransform(){
+  const desiredTop = dragCtx.baseTop + dragCtx.lastDY;
+  const transformY = desiredTop - dragCtx.curStaticTop;
+  dragCtx.row.style.transform = `translateY(${transformY}px)`;
 }
 // FLIP animation: ทำให้แถวที่ถูกสลับตำแหน่ง เลื่อนแบบนุ่มนวลแทนการกระโดดทันที
 function flipSibling(el, oldRect){
