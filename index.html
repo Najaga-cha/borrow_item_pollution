@@ -244,7 +244,8 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .reorder-row{ background:var(--card); touch-action:none; }
 .drag-handle{ cursor:grab; font-size:18px; line-height:1; color:var(--sub-text,#9ca3af); padding:2px 6px; user-select:none; touch-action:none; }
 .drag-handle:active{ cursor:grabbing; }
-.reorder-row.dragging-row{ position:relative; z-index:30; background:var(--chip-bg); box-shadow:0 6px 18px rgba(0,0,0,.18); border-radius:10px; }
+.reorder-row.dragging-row{ position:relative; z-index:30; background:var(--chip-bg); box-shadow:0 6px 18px rgba(0,0,0,.18); border-radius:10px; will-change:transform; }
+.reorder-row:not(.dragging-row){ will-change:transform; }
 .reorder-row.drop-ghost{ opacity:.4; }
 
 .tool-tab{ padding:8px 14px; border-radius:10px; background:var(--card); border:1px solid var(--border); cursor:pointer; font-weight:600; font-size:13.5px; }
@@ -797,7 +798,10 @@ function nextReturnCode(dept){
 
 
 const root = document.getElementById('app');
+let dragCtx = null;
+let dragRAF = null;
 function render(){
+  if(dragCtx) return; // ระหว่างลากจัดลำดับ ห้ามวาดหน้าจอใหม่ (กันรายการหลุด/กระตุกจากข้อมูล realtime ที่เข้ามาระหว่างลาก)
   const active = document.activeElement;
   const activeId = active && active.id;
   const selStart = (active && typeof active.selectionStart==='number') ? active.selectionStart : null;
@@ -2278,7 +2282,6 @@ function attachHandlers(){
 }
 
 /* ===================== ลากจัดลำดับเครื่องมือแบบอิสระ (คล้ายจัดลำดับเพลย์ลิสต์) ===================== */
-let dragCtx = null;
 function onDragHandlePointerDown(e){
   if(e.button!==undefined && e.button!==0) return; // เฉพาะคลิกซ้าย/แตะ
   const handle = e.target.closest('.drag-handle');
@@ -2294,6 +2297,7 @@ function onDragHandlePointerDown(e){
     startTop: rowRect.top,
     height: rowRect.height,
     cat: row.dataset.cat,
+    lastDY: 0,
   };
   row.classList.add('dragging-row');
   try{ row.setPointerCapture(e.pointerId); }catch(err){}
@@ -2303,7 +2307,14 @@ function onDragHandlePointerDown(e){
 }
 function onRowPointerMove(e){
   if(!dragCtx) return;
-  const dy = e.clientY - dragCtx.startY;
+  dragCtx.lastDY = e.clientY - dragCtx.startY;
+  if(dragRAF) return;
+  dragRAF = requestAnimationFrame(updateDragFrame);
+}
+function updateDragFrame(){
+  dragRAF = null;
+  if(!dragCtx) return;
+  const dy = dragCtx.lastDY;
   dragCtx.row.style.transform = `translateY(${dy}px)`;
   const rows = Array.from(dragCtx.container.querySelectorAll('.reorder-row'));
   const curIndex = rows.indexOf(dragCtx.row);
@@ -2314,6 +2325,7 @@ function onRowPointerMove(e){
     if(draggedCenter < prevRect.top + prevRect.height/2){
       dragCtx.container.insertBefore(dragCtx.row, prev);
       dragCtx.startTop -= prevRect.height;
+      flipSibling(prev, prevRect);
       return;
     }
   }
@@ -2323,13 +2335,27 @@ function onRowPointerMove(e){
     if(draggedCenter > nextRect.top + nextRect.height/2){
       dragCtx.container.insertBefore(next, dragCtx.row);
       dragCtx.startTop += nextRect.height;
+      flipSibling(next, nextRect);
       return;
     }
   }
 }
+// FLIP animation: ทำให้แถวที่ถูกสลับตำแหน่ง เลื่อนแบบนุ่มนวลแทนการกระโดดทันที
+function flipSibling(el, oldRect){
+  const newRect = el.getBoundingClientRect();
+  const delta = oldRect.top - newRect.top;
+  if(!delta) return;
+  el.style.transition = 'none';
+  el.style.transform = `translateY(${delta}px)`;
+  requestAnimationFrame(()=>{
+    el.style.transition = 'transform 140ms ease';
+    el.style.transform = '';
+  });
+}
 async function onRowPointerUp(e){
   if(!dragCtx) return;
   const {row, container, cat} = dragCtx;
+  if(dragRAF){ cancelAnimationFrame(dragRAF); dragRAF = null; }
   row.classList.remove('dragging-row');
   row.style.transform = '';
   row.removeEventListener('pointermove', onRowPointerMove);
