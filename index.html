@@ -1315,11 +1315,11 @@ function buildSlipHTML(b){
     <div class="slip-header-line">ใบยืมเครื่องมือ กตพ.</div>
 
     <div class="slip-field-row"><b>รหัสอ้างอิง:</b> ${esc(b.code)}</div>
-    <div class="slip-field-row"><b>หน่วยงาน:</b> ${esc(b.dept)}</div>
+    <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ.</b></div>
     <div class="slip-field-row"><b>ชื่อ-นามสกุล ผู้ยืม:</b> ${esc(b.name)}</div>
     <div class="slip-field-row slip-field-two">
-      <div><b>วันที่ยืม:</b> ${esc(b.borrowDate)}</div>
-      <div><b>ถึงวันที่ (คาดการณ์):</b> ${esc(b.returnDate)}</div>
+      <div><b>วันที่ยืม:</b> ${esc(b.borrowDate)}${b.createdTime?' เวลา '+esc(b.createdTime):''}</div>
+      <div><b>ถึงวันที่:</b> ${esc(b.returnDate)}</div>
     </div>
     <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน:</b> ${esc(b.province)}${b.notes?' • หมายเหตุ: '+esc(b.notes):''}</div>
 
