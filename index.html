@@ -241,6 +241,11 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .icon-btn:disabled{ opacity:.3; cursor:not-allowed; }
 .icon-btn:disabled:hover{ background:none; }
 .reorder-index{ display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 4px; border-radius:999px; background:var(--chip-bg); font-size:12px; font-weight:700; }
+.reorder-row{ background:var(--card); touch-action:none; }
+.drag-handle{ cursor:grab; font-size:18px; line-height:1; color:var(--sub-text,#9ca3af); padding:2px 6px; user-select:none; touch-action:none; }
+.drag-handle:active{ cursor:grabbing; }
+.reorder-row.dragging-row{ position:relative; z-index:30; background:var(--chip-bg); box-shadow:0 6px 18px rgba(0,0,0,.18); border-radius:10px; }
+.reorder-row.drop-ghost{ opacity:.4; }
 
 .tool-tab{ padding:8px 14px; border-radius:10px; background:var(--card); border:1px solid var(--border); cursor:pointer; font-weight:600; font-size:13.5px; }
 .tool-tab-active{ background:var(--primary); color:#fff; border-color:var(--primary); }
@@ -1599,7 +1604,8 @@ function renderReorderTab(){
       <div class="tool-panel-head">${catIcon(cat)} ${cat} — ${groups.length} รายการ</div>
       <div class="tool-list">
         ${groups.length===0 ? `<div class="empty-hint">ยังไม่มีข้อมูลเครื่องมือในหมวดนี้</div>` : groups.map((g,idx)=>`
-          <div class="tool-row">
+          <div class="tool-row reorder-row" data-cat="${cat}" data-name="${escAttr(g.name)}">
+            <span class="drag-handle" title="ลากเพื่อจัดลำดับ">⠿</span>
             <span class="reorder-index">${idx+1}</span>
             <span class="flex-1 min-w-0 truncate font-medium">${esc(g.name)}</span>
             <span class="qty-badge">${g.items.length} เครื่อง</span>
@@ -2268,6 +2274,73 @@ function attachHandlers(){
   bindPhoneInput('f-phone');
 
   document.addEventListener('click', onDocumentClickCloseFilterDropdown);
+  root.addEventListener('pointerdown', onDragHandlePointerDown);
+}
+
+/* ===================== ลากจัดลำดับเครื่องมือแบบอิสระ (คล้ายจัดลำดับเพลย์ลิสต์) ===================== */
+let dragCtx = null;
+function onDragHandlePointerDown(e){
+  if(e.button!==undefined && e.button!==0) return; // เฉพาะคลิกซ้าย/แตะ
+  const handle = e.target.closest('.drag-handle');
+  if(!handle) return;
+  const row = handle.closest('.reorder-row');
+  if(!row) return;
+  e.preventDefault();
+  const container = row.parentElement;
+  const rowRect = row.getBoundingClientRect();
+  dragCtx = {
+    row, container,
+    startY: e.clientY,
+    startTop: rowRect.top,
+    height: rowRect.height,
+    cat: row.dataset.cat,
+  };
+  row.classList.add('dragging-row');
+  try{ row.setPointerCapture(e.pointerId); }catch(err){}
+  row.addEventListener('pointermove', onRowPointerMove);
+  row.addEventListener('pointerup', onRowPointerUp);
+  row.addEventListener('pointercancel', onRowPointerUp);
+}
+function onRowPointerMove(e){
+  if(!dragCtx) return;
+  const dy = e.clientY - dragCtx.startY;
+  dragCtx.row.style.transform = `translateY(${dy}px)`;
+  const rows = Array.from(dragCtx.container.querySelectorAll('.reorder-row'));
+  const curIndex = rows.indexOf(dragCtx.row);
+  const draggedCenter = dragCtx.startTop + dragCtx.height/2 + dy;
+  if(curIndex>0){
+    const prev = rows[curIndex-1];
+    const prevRect = prev.getBoundingClientRect();
+    if(draggedCenter < prevRect.top + prevRect.height/2){
+      dragCtx.container.insertBefore(dragCtx.row, prev);
+      dragCtx.startTop -= prevRect.height;
+      return;
+    }
+  }
+  if(curIndex < rows.length-1){
+    const next = rows[curIndex+1];
+    const nextRect = next.getBoundingClientRect();
+    if(draggedCenter > nextRect.top + nextRect.height/2){
+      dragCtx.container.insertBefore(next, dragCtx.row);
+      dragCtx.startTop += nextRect.height;
+      return;
+    }
+  }
+}
+async function onRowPointerUp(e){
+  if(!dragCtx) return;
+  const {row, container, cat} = dragCtx;
+  row.classList.remove('dragging-row');
+  row.style.transform = '';
+  row.removeEventListener('pointermove', onRowPointerMove);
+  row.removeEventListener('pointerup', onRowPointerUp);
+  row.removeEventListener('pointercancel', onRowPointerUp);
+  try{ row.releasePointerCapture(e.pointerId); }catch(err){}
+  const rows = Array.from(container.querySelectorAll('.reorder-row'));
+  const newNames = rows.map(r=>r.dataset.name);
+  dragCtx = null;
+  await saveEquipmentOrder(cat, newNames);
+  render();
 }
 function onDocumentClickCloseFilterDropdown(e){
   if(state.reports.openFilterDropdown && !e.target.closest('[data-dropdown]')){
