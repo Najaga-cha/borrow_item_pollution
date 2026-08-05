@@ -238,6 +238,9 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 
 .icon-btn{ background:none; border:none; cursor:pointer; font-size:15px; padding:4px 6px; border-radius:6px; }
 .icon-btn:hover{ background: var(--chip-bg); }
+.icon-btn:disabled{ opacity:.3; cursor:not-allowed; }
+.icon-btn:disabled:hover{ background:none; }
+.reorder-index{ display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 4px; border-radius:999px; background:var(--chip-bg); font-size:12px; font-weight:700; }
 
 .tool-tab{ padding:8px 14px; border-radius:10px; background:var(--card); border:1px solid var(--border); cursor:pointer; font-weight:600; font-size:13.5px; }
 .tool-tab-active{ background:var(--primary); color:#fff; border-color:var(--primary); }
@@ -581,7 +584,11 @@ async function initData(){
     await stSet('equipment:list', eq, true);
   }
   state.equipment = eq;
-  if(autoUpdateCalibStatus()){ await saveEquipment(); }
+  {
+    const calibChanged = autoUpdateCalibStatus();
+    const orderChanged = ensureEquipOrder();
+    if(calibChanged || orderChanged){ await saveEquipment(); }
+  }
 
   let br = await stGet('borrows:list', true);
   if(!br || !Array.isArray(br)) br = [];
@@ -714,8 +721,61 @@ function groupEquipment(category){
     if(isReadyBorrowable(e)) groups[key].readyItems.push(e);
     else if(isPendingCalibBorrowable(e)) groups[key].pendingItems.push(e);
   });
-  Object.values(groups).forEach(g=>{ g.availItems = g.readyItems.concat(g.pendingItems); });
-  return Object.values(groups).sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  Object.values(groups).forEach(g=>{
+    g.availItems = g.readyItems.concat(g.pendingItems);
+    g.order = Math.min(...g.items.map(x=> (typeof x.order==='number') ? x.order : Infinity));
+  });
+  return Object.values(groups).sort((a,b)=>{
+    if(a.order!==b.order) return a.order-b.order;
+    return a.name.localeCompare(b.name,'th');
+  });
+}
+
+// เรียงลำดับใหม่: ให้กลุ่มเครื่องมือ (ชื่อเดียวกัน) ในหมวดหมู่หนึ่ง ๆ เรียงตาม newOrderNames ที่แอดมินกำหนด
+async function saveEquipmentOrder(category, newOrderNames){
+  newOrderNames.forEach((name, idx)=>{
+    state.equipment.forEach(e=>{
+      if(e.category===category && e.name===name){ e.order = idx; }
+    });
+  });
+  await saveEquipment();
+}
+
+async function moveEquipGroup(category, name, dir){
+  const groups = groupEquipment(category);
+  const idx = groups.findIndex(g=>g.name===name);
+  const swapIdx = idx + dir;
+  if(idx<0 || swapIdx<0 || swapIdx>=groups.length) return;
+  const names = groups.map(g=>g.name);
+  [names[idx], names[swapIdx]] = [names[swapIdx], names[idx]];
+  await saveEquipmentOrder(category, names);
+  render();
+}
+
+function nextOrderForCategory(cat){
+  let max = -1;
+  state.equipment.forEach(e=>{
+    if(e.category===cat && typeof e.order==='number') max = Math.max(max, e.order);
+  });
+  return max+1;
+}
+
+// กำหนดค่า order เริ่มต้นให้เครื่องมือที่ยังไม่มีค่า (เรียกครั้งแรกหลังโหลดข้อมูล)
+function ensureEquipOrder(){
+  let changed = false;
+  const seenInCat = {};
+  state.equipment.forEach(e=>{
+    if(typeof e.order !== 'number'){
+      const key = e.category;
+      if(seenInCat[key]===undefined) seenInCat[key] = 0;
+      e.order = seenInCat[key]++;
+      changed = true;
+    } else {
+      const key = e.category;
+      seenInCat[key] = Math.max(seenInCat[key]||0, e.order+1);
+    }
+  });
+  return changed;
 }
 
 
@@ -1515,11 +1575,41 @@ function renderManageTab(){
   <div class="mt-5 space-y-6">
     <div class="flex flex-wrap gap-2 items-center justify-between">
       <div class="flex gap-2 flex-wrap">
-        <button class="tool-tab ${state.manage.view!=='calendar'?'tool-tab-active':''}" data-act="mview" data-v="table">📋 รายการเครื่องมือ</button>
+        <button class="tool-tab ${(!state.manage.view||state.manage.view==='table')?'tool-tab-active':''}" data-act="mview" data-v="table">📋 รายการเครื่องมือ</button>
         <button class="tool-tab ${state.manage.view==='calendar'?'tool-tab-active':''}" data-act="mview" data-v="calendar">📅 ปฏิทินการยืม</button>
+        <button class="tool-tab ${state.manage.view==='order'?'tool-tab-active':''}" data-act="mview" data-v="order">🔀 จัดลำดับเครื่องมือ</button>
       </div>
     </div>
-    ${state.manage.view==='calendar' ? renderCalendar() : renderEquipTable(list)}
+    ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : renderEquipTable(list))}
+  </div>`;
+}
+
+function renderReorderTab(){
+  if(!state.manage.reorderCat) state.manage.reorderCat = CATEGORIES[0];
+  const cat = state.manage.reorderCat;
+  const groups = groupEquipment(cat);
+  const col = CATEGORY_COLOR[cat];
+  return `
+  <div class="card p-5">
+    <p class="text-sm subtle mb-4">จัดลำดับการแสดงผลของเครื่องมือแต่ละประเภท — ลำดับนี้จะถูกใช้ทั้งในหน้า "ยืมเครื่องมือ" (ขั้นตอนที่ 3) และหน้า "รายการเครื่องมือ"</p>
+    <div class="flex flex-wrap gap-2 mb-5">
+      ${CATEGORIES.map(c=>`<button class="tool-tab ${state.manage.reorderCat===c?'tool-tab-active':''}" data-act="reorder-cat" data-cat="${c}">${catIcon(c)} ${c}</button>`).join('')}
+    </div>
+    <div class="tool-panel" style="--c:${col.bg};--c2:${col.bg2}">
+      <div class="tool-panel-head">${catIcon(cat)} ${cat} — ${groups.length} รายการ</div>
+      <div class="tool-list">
+        ${groups.length===0 ? `<div class="empty-hint">ยังไม่มีข้อมูลเครื่องมือในหมวดนี้</div>` : groups.map((g,idx)=>`
+          <div class="tool-row">
+            <span class="reorder-index">${idx+1}</span>
+            <span class="flex-1 min-w-0 truncate font-medium">${esc(g.name)}</span>
+            <span class="qty-badge">${g.items.length} เครื่อง</span>
+            <div class="flex gap-1">
+              <button class="icon-btn" data-act="reorder-up" data-cat="${cat}" data-name="${escAttr(g.name)}" ${idx===0?'disabled':''} title="เลื่อนขึ้น">⬆️</button>
+              <button class="icon-btn" data-act="reorder-down" data-cat="${cat}" data-name="${escAttr(g.name)}" ${idx===groups.length-1?'disabled':''} title="เลื่อนลง">⬇️</button>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -2242,6 +2332,9 @@ function onClick(e){
   if(act==='download-slip-pdf'){ downloadSlipPDF(el.dataset.id); return; }
   if(act==='mailto-notify'){ notifyAdmin(el.dataset.id); return; }
   if(act==='mview'){ state.manage.view = el.dataset.v; render(); return; }
+  if(act==='reorder-cat'){ state.manage.reorderCat = el.dataset.cat; render(); return; }
+  if(act==='reorder-up'){ moveEquipGroup(el.dataset.cat, el.dataset.name, -1); return; }
+  if(act==='reorder-down'){ moveEquipGroup(el.dataset.cat, el.dataset.name, 1); return; }
   if(act==='add-equip'){ state.manage.editing='new'; render(); return; }
   if(act==='edit-equip'){ state.manage.editing=el.dataset.id; render(); return; }
   if(act==='view-borrow'){ state.viewingBorrowId=el.dataset.id; render(); return; }
@@ -2553,6 +2646,7 @@ async function saveEquipModal(id){
     Object.assign(e, obj);
   } else {
     obj.id = uid('EQ');
+    obj.order = nextOrderForCategory(obj.category);
     state.equipment.push(obj);
   }
   await saveEquipment();
@@ -2571,17 +2665,21 @@ function importExcel(file){
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false});
       const header = rows[0];
       const newItems = [];
+      const orderCounters = {};
       for(let i=1;i<rows.length;i++){
         const r = rows[i];
         if(!r || !r[1]) continue;
+        const cat = r[0]||'';
+        if(orderCounters[cat]===undefined) orderCounters[cat] = nextOrderForCategory(cat);
         newItems.push({
           id: uid('EQ'),
-          category: r[0]||'', name: r[1]||'', dept: r[2]||'', yearGot: r[3]||'',
+          category: cat, name: r[1]||'', dept: r[2]||'', yearGot: r[3]||'',
           condition: r[4]||'', calibStatus: r[5]||'', useStatus: r[6]||'ใช้งานได้',
           lastCalib: r[7]? excelDateToISO(r[7]) : null,
           calibCycle: r[8]||1,
           nextCalib: r[9]? excelDateToISO(r[9]) : null,
           brand: r[10]||'', model: r[11]||'', serial: r[12]||'', assetCode: r[13]||'', params: r[14]||'',
+          order: orderCounters[cat]++,
         });
       }
       if(newItems.length===0){ alert('ไม่พบข้อมูลเครื่องมือในไฟล์ที่นำเข้า'); return; }
@@ -2738,7 +2836,11 @@ function applyEquipmentListUpdate(eq){
   const cur = JSON.stringify(state.equipment), next = JSON.stringify(eq);
   if(cur === next) return;
   state.equipment = eq;
-  if(autoUpdateCalibStatus()){ saveEquipment(); }
+  {
+    const calibChanged = autoUpdateCalibStatus();
+    const orderChanged = ensureEquipOrder();
+    if(calibChanged || orderChanged){ saveEquipment(); }
+  }
   render();
 }
 function applyBorrowsListUpdate(br){
