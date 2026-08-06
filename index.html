@@ -257,7 +257,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .cal-grid{ display:grid; grid-template-columns: repeat(7,1fr); gap:6px; }
 .cal-grid-head{ margin-bottom:4px; }
 .cal-headcell{ text-align:center; font-size:12px; font-weight:700; color:var(--subtle); padding:4px; }
-.cal-cell{ min-height:64px; border:1px solid var(--border); border-radius:10px; padding:6px; cursor:pointer; transition:.1s; }
+.cal-cell{ min-height:76px; border:1px solid var(--border); border-radius:10px; padding:6px; cursor:pointer; transition:.1s; }
 .cal-cell:hover{ background: var(--chip-bg); }
 .cal-empty{ border:none; cursor:default; }
 .cal-daynum{ font-size:12.5px; font-weight:700; }
@@ -281,6 +281,20 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .avail-legend-dot{ width:11px; height:11px; border-radius:4px; display:inline-block; margin-right:5px; vertical-align:-1px; }
 .tool-avail-btn{ font-size:12px; font-weight:600; color:var(--primary); background:none; border:none; cursor:pointer; padding:2px 4px; white-space:nowrap; }
 .tool-avail-btn:hover{ text-decoration:underline; }
+/* ===== Admin borrow calendar — แยกสีตามสถานะ: จอง / ยืมอยู่ / คืนแล้ว ===== */
+.calday-reserved{ background:#fffbeb; border-color:#fbbf24; }
+:root[data-theme="dark"] .calday-reserved{ background:#2a2007; border-color:#b45309; }
+.calday-active{ background:#fef2f2; border-color:#f87171; }
+:root[data-theme="dark"] .calday-active{ background:#2a0f0f; border-color:#dc2626; }
+.calday-returned{ background:#f1f5f4; border-color:#cbd5d1; }
+:root[data-theme="dark"] .calday-returned{ background:#16211f; border-color:#3a4a46; }
+.calday-badges{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }
+.calday-badge{ font-size:9.5px; font-weight:700; line-height:1.3; }
+.calday-badge-reserved{ color:#b45309; }
+:root[data-theme="dark"] .calday-badge-reserved{ color:#fbbf24; }
+.calday-badge-active{ color:#b91c1c; }
+:root[data-theme="dark"] .calday-badge-active{ color:#f87171; }
+.calday-badge-returned{ color:var(--subtle); }
 
 .borrow-item-card{ padding:12px 14px; border:1px solid var(--border); border-radius:12px; margin-bottom:10px; background:var(--chip-bg); }
 
@@ -1786,24 +1800,40 @@ function renderCalendar(){
   const first = new Date(c.year, c.month, 1);
   const startDow = first.getDay();
   const daysInMonth = new Date(c.year, c.month+1, 0).getDate();
+  const today = todayISO();
   // สำหรับแต่ละวันในเดือนนี้ ให้รวบรวม "ใบยืมทุกใบที่ช่วงวันยืม-คืนครอบคลุมวันนั้น"
   // (ไม่ใช่แค่ใบยืมที่เริ่มยืมวันนั้นวันเดียวเหมือนเดิม) เพื่อให้ admin เห็นภาพรวมว่าวันไหน
   // มีเครื่องมือถูกจอง/ถืออยู่บ้าง ตลอดทั้งช่วงที่ยืม ไม่ใช่แค่วันแรกที่สร้างใบยืม
+  // แต่ละใบยืมในแต่ละวันจะถูกจัดกลุ่มเป็น 3 สถานะ:
+  //   - "คืนแล้ว"  : ใบยืมนั้นถูกกดคืนไปแล้วจริง (status ไม่ใช่ active)
+  //   - "ยืมอยู่"  : ใบยืม active และวันนั้นมาถึงแล้วหรือคือวันนี้ (ของจริงถูกถืออยู่/เคยถูกถืออยู่วันนั้น)
+  //   - "จอง"     : ใบยืม active แต่วันนั้นยังไม่มาถึง (จองล่วงหน้าไว้ ยังไม่ได้มารับเครื่องมือ)
   const borrowsByDay = {};
   for(let d=1; d<=daysInMonth; d++){
     const dayISO = `${c.year}-${String(c.month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dayBorrows = state.borrows.filter(b=> b.borrowDate && b.returnDate && dateRangesOverlap(b.borrowDate, b.returnDate, dayISO, dayISO));
-    if(dayBorrows.length) borrowsByDay[d] = dayBorrows;
+    if(dayBorrows.length) borrowsByDay[d] = dayBorrows.map(b=>{
+      let cat = 'returned';
+      if(b.status==='active') cat = (dayISO <= today) ? 'active' : 'reserved';
+      return { b, cat };
+    });
   }
   let cells = '';
   for(let i=0;i<startDow;i++) cells += `<div class="cal-cell cal-empty"></div>`;
   for(let d=1; d<=daysInMonth; d++){
     const items = borrowsByDay[d]||[];
-    const activeN = items.filter(b=>b.status==='active').length;
+    const activeN = items.filter(x=>x.cat==='active').length;
+    const reservedN = items.filter(x=>x.cat==='reserved').length;
+    const returnedN = items.filter(x=>x.cat==='returned').length;
+    const cellCls = activeN>0 ? 'calday-active' : (reservedN>0 ? 'calday-reserved' : (returnedN>0 ? 'calday-returned' : ''));
     const isSel = c.selectedDay===d;
-    cells += `<div class="cal-cell ${isSel?'cal-sel':''} ${items.length?'cal-has':''}" data-act="cal-day" data-day="${d}">
+    cells += `<div class="cal-cell ${cellCls} ${isSel?'cal-sel':''}" data-act="cal-day" data-day="${d}">
       <div class="cal-daynum">${d}</div>
-      ${items.length? `<div class="cal-dot">${items.length} รายการ${activeN?` (ถืออยู่ ${activeN})`:''}</div>`:''}
+      ${items.length? `<div class="calday-badges">
+        ${activeN? `<span class="calday-badge calday-badge-active">🔴 ยืมอยู่ ${activeN}</span>`:''}
+        ${reservedN? `<span class="calday-badge calday-badge-reserved">🟡 จอง ${reservedN}</span>`:''}
+        ${returnedN? `<span class="calday-badge calday-badge-returned">⚪ คืนแล้ว ${returnedN}</span>`:''}
+      </div>`:''}
     </div>`;
   }
   const dayList = c.selectedDay ? (borrowsByDay[c.selectedDay]||[]) : [];
@@ -1814,7 +1844,12 @@ function renderCalendar(){
       <div class="font-bold text-lg">${THAI_MONTHS[c.month]} พ.ศ. ${beYear(c.year)}</div>
       <button class="btn-ghost" data-act="cal-next">เดือนถัดไป ›</button>
     </div>
-    <p class="text-sm subtle mb-3">แต้มเขียวคือวันที่มีเครื่องมือถูกจอง/ยืมครอบคลุมอยู่ (นับตลอดช่วงวันที่ยืม-คืนของทุกใบยืม ไม่ใช่แค่วันที่สร้างใบยืม) คลิกวันที่เพื่อดูรายละเอียด</p>
+    <p class="text-sm subtle mb-2">นับตลอดช่วงวันที่ยืม-คืนของทุกใบยืม ไม่ใช่แค่วันที่สร้างใบยืม — คลิกวันที่เพื่อดูรายละเอียด</p>
+    <div class="avail-legend mb-3">
+      <span><span class="avail-legend-dot" style="background:#f87171"></span>🔴 ยืมอยู่ (ถือเครื่องมืออยู่จริง)</span>
+      <span><span class="avail-legend-dot" style="background:#fbbf24"></span>🟡 จอง (จองล่วงหน้า ยังไม่มารับ)</span>
+      <span><span class="avail-legend-dot" style="background:#cbd5d1"></span>⚪ คืนแล้ว</span>
+    </div>
     <div class="cal-grid cal-grid-head">
       ${['อา','จ','อ','พ','พฤ','ศ','ส'].map(d=>`<div class="cal-headcell">${d}</div>`).join('')}
     </div>
@@ -1823,7 +1858,7 @@ function renderCalendar(){
   ${c.selectedDay? `
   <div class="card p-5 mt-4">
     <h3 class="font-bold mb-3">รายการที่มีเครื่องมือถูกจอง/ยืมในวันที่ ${c.selectedDay} ${THAI_MONTHS[c.month]} พ.ศ. ${beYear(c.year)}</h3>
-    ${dayList.length===0? `<div class="empty-hint">ไม่มีรายการในวันนี้</div>` : dayList.map(b=>`
+    ${dayList.length===0? `<div class="empty-hint">ไม่มีรายการในวันนี้</div>` : dayList.map(x=>{ const b=x.b; return `
       <div class="borrow-item-card">
         <div class="flex justify-between flex-wrap gap-2">
           <div>
@@ -1837,7 +1872,7 @@ function renderCalendar(){
             ${b.status==='active' ? `<button class="btn-early-return" data-act="return-now" data-id="${b.id}">📦 คืนเครื่องมือ</button>` : ''}
           </div>
         </div>
-      </div>`).join('')}
+      </div>`;}).join('')}
   </div>` : ''}
   `;
 }
