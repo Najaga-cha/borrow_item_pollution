@@ -207,7 +207,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .tool-panel-head{ padding:10px 14px; font-weight:700; background: var(--c2); color:var(--text); }
 :root[data-theme="dark"] .tool-panel-head{ background:rgba(255,255,255,.03); }
 .tool-list{ padding:6px 10px 10px; }
-.tool-row{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid var(--border); }
+.tool-row{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
 .tool-row:last-child{ border-bottom:none; }
 .tool-row-disabled{ opacity:.5; }
 .chk{ width:17px; height:17px; accent-color: var(--primary); }
@@ -266,6 +266,21 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .cal-sel{ outline:2px solid var(--primary); }
 .cal-dot{ font-size:10px; margin-top:4px; color:#15803d; font-weight:700; }
 :root[data-theme="dark"] .cal-dot{ color:#4ade80; }
+/* ===== Availability calendar (public-facing booking status per equipment) ===== */
+.avail-free{ background:#ecfdf5; border-color:#6ee7b7; }
+:root[data-theme="dark"] .avail-free{ background:#0e2a1c; border-color:#14532d; }
+.avail-partial{ background:#fffbeb; border-color:#fcd34d; }
+:root[data-theme="dark"] .avail-partial{ background:#2a2007; border-color:#78350f; }
+.avail-full{ background:#fef2f2; border-color:#fca5a5; }
+:root[data-theme="dark"] .avail-full{ background:#2a0f0f; border-color:#7f1d1d; }
+.avail-dot{ font-size:10px; margin-top:4px; font-weight:700; }
+.avail-free .avail-dot{ color:#15803d; }
+.avail-partial .avail-dot{ color:#b45309; }
+.avail-full .avail-dot{ color:#b91c1c; }
+.avail-legend{ display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--subtle); }
+.avail-legend-dot{ width:11px; height:11px; border-radius:4px; display:inline-block; margin-right:5px; vertical-align:-1px; }
+.tool-avail-btn{ font-size:12px; font-weight:600; color:var(--primary); background:none; border:none; cursor:pointer; padding:2px 4px; white-space:nowrap; }
+.tool-avail-btn:hover{ text-decoration:underline; }
 
 .borrow-item-card{ padding:12px 14px; border:1px solid var(--border); border-radius:12px; margin-bottom:10px; background:var(--chip-bg); }
 
@@ -436,6 +451,7 @@ const state = {
   },
   manage: { catFilter:'', statusFilter:'', search:'', editing:null },
   calendar: { year: new Date().getFullYear(), month: new Date().getMonth(), selectedDay:null },
+  availCal: null, // { cat, name, year, month, selectedDay } — ปฏิทินสถานะการจองต่อรายการเครื่องมือ (เปิดดูได้โดยไม่ต้องล็อกอิน)
   reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''} },
   lastCreatedBorrowId: null,
   pendingBorrow: null,
@@ -633,16 +649,30 @@ async function toggleTheme(){
 }
 
 /* ===================== Availability logic ===================== */
-// A unit is unavailable if referenced by an 'active' borrow
-function unitIsHeld(equipmentId){
+// ตรวจว่าช่วงวันที่สองช่วงทับซ้อนกันหรือไม่ (แบบ inclusive, เทียบสตริง YYYY-MM-DD ได้ตรงๆ)
+function dateRangesOverlap(startA, endA, startB, endB){
+  if(!startA || !endA || !startB || !endB) return true; // ถ้าไม่มีข้อมูลวันที่ครบ ให้ถือว่าอาจทับซ้อน (ปลอดภัยไว้ก่อน)
+  return startA <= endB && startB <= endA;
+}
+// เครื่องมือชิ้นนี้ถูกจอง/ถืออยู่ "ในช่วงวันที่ที่ต้องการยืม" หรือไม่
+// (แทนที่ตรรกะเดิมที่เช็คแค่ "มีใบยืม active อยู่หรือเปล่า" โดยไม่สนวันที่เลย
+//  ซึ่งทำให้ใบยืมที่จองวันในอนาคตไปแล้ว บล็อกใบยืมอื่นที่วันที่ไม่ได้ทับซ้อนกันจริง)
+function unitIsHeldForRange(equipmentId, borrowDate, returnDate){
   for(const b of state.borrows){
     if(b.status !== 'active') continue;
     const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : b.items;
-    for(const it of list){
-      if(it.equipmentId === equipmentId && !it.returned) return true;
-    }
+    const usesUnit = list.some(it=> it.equipmentId === equipmentId && !it.returned);
+    if(!usesUnit) continue;
+    if(dateRangesOverlap(b.borrowDate, b.returnDate, borrowDate, returnDate)) return true;
   }
   return false;
+}
+// เผื่อเรียกโดยไม่ระบุช่วงวันที่ (เช่น หน้าจัดการเครื่องมือทั่วไป) — ใช้ "วันนี้" เป็นค่าเริ่มต้น
+// เพื่อบอกว่าตอนนี้ ณ ขณะนี้ เครื่องมือถูกถืออยู่จริงหรือไม่
+function unitIsHeld(equipmentId, borrowDate, returnDate){
+  const bd = borrowDate || todayISO();
+  const rd = returnDate || todayISO();
+  return unitIsHeldForRange(equipmentId, bd, rd);
 }
 
 /* ===================== Per-item return tracking ===================== */
@@ -707,25 +737,26 @@ function autoUpdateCalibStatus(list){
   });
   return changed;
 }
-function isReadyBorrowable(item){
-  return item.useStatus === 'ใช้งานได้' && !isCalibExpired(item) && !unitIsHeld(item.id);
+function isReadyBorrowable(item, borrowDate, returnDate){
+  return item.useStatus === 'ใช้งานได้' && !isCalibExpired(item) && !unitIsHeld(item.id, borrowDate, returnDate);
 }
-function isPendingCalibBorrowable(item){
-  if(unitIsHeld(item.id)) return false;
+function isPendingCalibBorrowable(item, borrowDate, returnDate){
+  if(unitIsHeld(item.id, borrowDate, returnDate)) return false;
   return item.useStatus === 'รอสอบเทียบ' || (item.useStatus === 'ใช้งานได้' && isCalibExpired(item));
 }
-function isBorrowable(item){
-  return isReadyBorrowable(item) || isPendingCalibBorrowable(item);
+function isBorrowable(item, borrowDate, returnDate){
+  return isReadyBorrowable(item, borrowDate, returnDate) || isPendingCalibBorrowable(item, borrowDate, returnDate);
 }
 // group by category+name -> { readyItems (พร้อมใช้ ให้ยืมก่อน), pendingItems (รอสอบเทียบ ให้ยืมทีหลัง), availItems (รวม เรียงพร้อมใช้ก่อน) }
-function groupEquipment(category){
+// borrowDate/returnDate = ช่วงวันที่ที่ต้องการยืม ถ้าไม่ส่งมาจะ default เป็น "วันนี้" (สถานะ ณ ปัจจุบัน)
+function groupEquipment(category, borrowDate, returnDate){
   const groups = {};
   state.equipment.filter(e=>e.category===category).forEach(e=>{
     const key = e.name;
     if(!groups[key]) groups[key] = { name: e.name, category, items: [], readyItems: [], pendingItems: [], availItems: [] };
     groups[key].items.push(e);
-    if(isReadyBorrowable(e)) groups[key].readyItems.push(e);
-    else if(isPendingCalibBorrowable(e)) groups[key].pendingItems.push(e);
+    if(isReadyBorrowable(e, borrowDate, returnDate)) groups[key].readyItems.push(e);
+    else if(isPendingCalibBorrowable(e, borrowDate, returnDate)) groups[key].pendingItems.push(e);
   });
   Object.values(groups).forEach(g=>{
     g.availItems = g.readyItems.concat(g.pendingItems);
@@ -818,6 +849,7 @@ function render(){
     ${renderPrintSlipContainer()}
     ${state.pendingBorrow ? renderConfirmBorrowModal() : ''}
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
+    ${state.availCal ? renderAvailabilityCalendarModal() : ''}
   `;
   attachHandlers();
   if(typeof updateLiveClock==='function') updateLiveClock();
@@ -1128,8 +1160,9 @@ function renderBorrowTab(){
           const active = f.selectedCats.includes(c);
           const total = state.equipment.filter(e=>e.category===c).length;
           const catItems = state.equipment.filter(e=>e.category===c);
-          const avail = catItems.filter(e=>isBorrowable(e)).length;
-          const pendingCalib = catItems.filter(e=>isPendingCalibBorrowable(e)).length;
+          const _bd = f.borrowDate || todayISO(), _rd = f.returnDate || todayISO();
+          const avail = catItems.filter(e=>isBorrowable(e,_bd,_rd)).length;
+          const pendingCalib = catItems.filter(e=>isPendingCalibBorrowable(e,_bd,_rd)).length;
           return `
           <button type="button" class="cat-card ${active?'cat-card-active':''}" style="--c:${col.bg};--c2:${col.bg2}" data-act="toggle-cat" data-cat="${c}">
             <span class="cat-card-check">${active? '✔️' : ''}</span>
@@ -1197,9 +1230,10 @@ function renderToolPicker(){
   <div class="mb-6">
     <label class="lbl mb-2">3) เลือกเครื่องมือและจำนวนที่ต้องการยืม</label>
     <p class="hint-be mb-3">ระบบจะจัดสรรเครื่องมือที่ "พร้อมใช้งาน" ให้ยืมก่อนโดยอัตโนมัติ หากไม่พอจึงจะจัดสรรเครื่องมือที่ "รอสอบเทียบ" ให้ยืมทีหลัง</p>
+    ${(!f.borrowDate || !f.returnDate) ? `<p class="hint-be mb-3" style="color:#b45309">⚠️ กรุณาเลือกวันที่ยืม-วันที่คืนก่อน ระบบจะได้คำนวณจำนวนที่ว่างจริงในช่วงวันดังกล่าว (ตอนนี้แสดงจำนวนว่าง ณ วันนี้ไปก่อน)</p>` : ''}
     <div class="space-y-4">
       ${f.selectedCats.map(cat=>{
-        const groups = groupEquipment(cat);
+        const groups = groupEquipment(cat, f.borrowDate || todayISO(), f.returnDate || todayISO());
         const col = CATEGORY_COLOR[cat];
         return `
         <div class="tool-panel" style="--c:${col.bg};--c2:${col.bg2}">
@@ -1217,6 +1251,7 @@ function renderToolPicker(){
                     data-act="toggle-tool" data-cat="${cat}" data-name="${escAttr(g.name)}"/>
                   <span class="truncate">${esc(g.name)}</span>
                 </label>
+                <button type="button" class="tool-avail-btn" data-act="open-avail-cal" data-cat="${cat}" data-name="${escAttr(g.name)}" title="ดูว่าเครื่องมือนี้ถูกจอง/ยืมวันไหนไปแล้วบ้าง">📅 ดูคิวการจอง</button>
                 <span class="qty-badge ${remain===0?'qty-zero':''}">คงเหลือ ${remain}</span>
                 ${pendingN>0 ? `<span class="qty-badge" style="background:#fef3c7;color:#92400e" title="เครื่องมือที่รอสอบเทียบ จะถูกจัดสรรให้ยืมหลังเครื่องมือที่พร้อมใช้หมดก่อน">⏳ รอสอบเทียบ ${pendingN}</span>` : ''}
                 <input type="number" min="1" max="${remain}" value="${qty||1}" class="qty-input"
@@ -1315,7 +1350,7 @@ function buildSlipHTML(b){
     <div class="slip-header-line">ใบยืมเครื่องมือ กตพ.</div>
 
     <div class="slip-field-row"><b>รหัสอ้างอิง:</b> ${esc(b.code)}</div>
-    <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ. ${esc(b.dept)}</b></div>
+    <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ.</b></div>
     <div class="slip-field-row"><b>ชื่อ-นามสกุล ผู้ยืม:</b> ${esc(b.name)}</div>
     <div class="slip-field-row slip-field-two">
       <div><b>วันที่ยืม:</b> ${esc(b.borrowDate)}${b.createdTime?' เวลา '+esc(b.createdTime):''}</div>
@@ -1334,7 +1369,7 @@ function buildSlipHTML(b){
         <div class="sig-line">ลงชื่อ....................................................ผู้ยืมพัสดุ</div>
         <div class="sig-sub sig-sub-indent">( ${esc(b.name)} )</div>
         <div class="sig-sub sig-sub-indent">ตำแหน่ง ${esc(b.position||'')}</div>
-        <div class="sig-sub">วัน เดือน ปี/เวลา .......................... / .................. นาฬิกา</div>
+        <div class="sig-sub">วัน เดือน ปี/เวลา ${esc(fmtDateBE(b.borrowDate))} / ${esc((b.createdTime||'').replace(' น.','').trim())} นาฬิกา</div>
       </div>
       <div class="sig-box">
         <div class="sig-line">ลงชื่อ....................................................ผู้ให้ยืมพัสดุ</div>
@@ -1666,7 +1701,7 @@ function renderEquipTable(list){
         </tr></thead>
         <tbody>
           ${list.map(e=>{
-            const held = unitIsHeld(e.id);
+            const held = unitIsHeld(e.id, todayISO(), todayISO());
             const expired = isCalibExpired(e);
             return `
             <tr>
@@ -1802,6 +1837,111 @@ function renderCalendar(){
       </div>`).join('')}
   </div>` : ''}
   `;
+}
+
+/* ===================== ปฏิทินสถานะการจอง/ยืม ต่อรายการเครื่องมือ (public, ไม่ต้องล็อกอิน) =====================
+   ให้ user ทั่วไปเห็นว่าเครื่องมือแต่ละชื่อ มีวันไหนที่ถูกจอง/ยืมไปแล้วบ้าง ก่อนกรอกใบยืม
+   หมายเหตุด้านความเป็นส่วนตัว: หน้าจอนี้เปิดให้บุคคลทั่วไปดูได้โดยไม่ต้องล็อกอิน จึงแสดงเฉพาะ
+   "จำนวนว่าง/ไม่ว่างรวม" ต่อวันเท่านั้น ไม่แสดงชื่อ-เบอร์โทร-หน่วยงานของผู้ยืมคนอื่น
+   (ถ้าล็อกอินเป็นเจ้าหน้าที่อยู่แล้ว จะเห็นรายละเอียดใบยืมเพิ่มเติมเมื่อกดที่วันนั้นๆ) */
+function openAvailabilityCalendar(cat, name){
+  const f = state.form;
+  const base = f.borrowDate || todayISO();
+  const d = new Date(base+'T00:00:00');
+  state.availCal = { cat, name, year: d.getFullYear(), month: d.getMonth(), selectedDay: null };
+  render();
+}
+function availCalShift(dir){
+  const c = state.availCal;
+  if(!c) return;
+  let m = c.month + dir, y = c.year;
+  if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+  c.month = m; c.year = y; c.selectedDay = null;
+  render();
+}
+function unitsForToolName(cat, name){
+  return state.equipment.filter(e=>e.category===cat && e.name===name);
+}
+function renderAvailabilityCalendarModal(){
+  const c = state.availCal;
+  if(!c) return '';
+  const units = unitsForToolName(c.cat, c.name);
+  const total = units.length;
+  const first = new Date(c.year, c.month, 1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(c.year, c.month+1, 0).getDate();
+
+  function dayStats(dayISO){
+    const bookedIds = units.filter(u=>unitIsHeldForRange(u.id, dayISO, dayISO)).map(u=>u.id);
+    return { total, booked: bookedIds.length, free: total - bookedIds.length };
+  }
+  let cells = '';
+  for(let i=0;i<startDow;i++) cells += `<div class="cal-cell cal-empty"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dayISO = `${c.year}-${String(c.month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const s = dayStats(dayISO);
+    const cls = s.free<=0 ? 'avail-full' : (s.free<total ? 'avail-partial' : 'avail-free');
+    const isSel = c.selectedDay===d;
+    cells += `<div class="cal-cell ${cls} ${isSel?'cal-sel':''}" data-act="avail-cal-day" data-day="${d}">
+      <div class="cal-daynum">${d}</div>
+      <div class="avail-dot">ว่าง ${s.free}/${s.total}</div>
+    </div>`;
+  }
+
+  let dayDetail = '';
+  if(c.selectedDay){
+    const dayISO = `${c.year}-${String(c.month+1).padStart(2,'0')}-${String(c.selectedDay).padStart(2,'0')}`;
+    const s = dayStats(dayISO);
+    dayDetail = `
+    <div class="mt-4" style="border-top:1px solid var(--border); padding-top:14px;">
+      <div class="font-bold mb-2">วันที่ ${c.selectedDay} ${THAI_MONTHS[c.month]} พ.ศ. ${beYear(c.year)}</div>
+      <div class="text-sm subtle mb-2">ว่างให้ยืม ${s.free} จากทั้งหมด ${s.total} เครื่อง${s.booked>0? ` • ถูกจอง/ยืมอยู่ ${s.booked} เครื่อง`:''}</div>
+      ${state.loggedIn ? renderAvailDayBorrowList(c.cat, c.name, dayISO) : (s.booked>0? `<div class="hint-be">เข้าสู่ระบบในฐานะเจ้าหน้าที่เพื่อดูรายละเอียดใบยืมที่จองวันนี้</div>` : '')}
+    </div>`;
+  }
+
+  return `
+  <div class="modal-backdrop" data-act="close-modal">
+    <div class="modal-card">
+      <div class="flex items-start justify-between gap-3 mb-1">
+        <h3 class="text-lg font-bold">📅 คิวการจอง/ยืม — ${esc(c.name)}</h3>
+        <button class="icon-btn" data-act="close-modal" title="ปิด">✖️</button>
+      </div>
+      <div class="text-sm subtle mb-4">มีทั้งหมด ${total} เครื่อง — เลือกวันในปฏิทินเพื่อดูจำนวนว่างของวันนั้น</div>
+      <div class="flex items-center justify-between mb-3">
+        <button class="btn-ghost" data-act="avail-cal-prev">‹ เดือนก่อน</button>
+        <div class="font-bold">${THAI_MONTHS[c.month]} พ.ศ. ${beYear(c.year)}</div>
+        <button class="btn-ghost" data-act="avail-cal-next">เดือนถัดไป ›</button>
+      </div>
+      <div class="cal-grid cal-grid-head">
+        ${['อา','จ','อ','พ','พฤ','ศ','ส'].map(d=>`<div class="cal-headcell">${d}</div>`).join('')}
+      </div>
+      <div class="cal-grid">${cells}</div>
+      <div class="avail-legend mt-3">
+        <span><span class="avail-legend-dot" style="background:#6ee7b7"></span>ว่างทั้งหมด</span>
+        <span><span class="avail-legend-dot" style="background:#fcd34d"></span>ว่างบางส่วน</span>
+        <span><span class="avail-legend-dot" style="background:#fca5a5"></span>เต็ม/ไม่ว่าง</span>
+      </div>
+      ${dayDetail}
+    </div>
+  </div>`;
+}
+// รายละเอียดใบยืมที่จองวันนั้น — แสดงเฉพาะกับผู้ที่ล็อกอินแล้ว (เจ้าหน้าที่) เพื่อไม่ให้บุคคลทั่วไปเห็นข้อมูลผู้ยืมคนอื่น
+function renderAvailDayBorrowList(cat, name, dayISO){
+  const units = unitsForToolName(cat, name);
+  const unitIds = new Set(units.map(u=>u.id));
+  const matches = state.borrows.filter(b=>{
+    if(b.status!=='active') return false;
+    if(!dateRangesOverlap(b.borrowDate, b.returnDate, dayISO, dayISO)) return false;
+    const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : b.items;
+    return list.some(it=>unitIds.has(it.equipmentId) && !it.returned);
+  });
+  if(!matches.length) return `<div class="hint-be">ไม่มีใบยืมในวันนี้</div>`;
+  return matches.map(b=>`
+    <div class="borrow-item-card">
+      <div class="font-bold">${esc(b.code)} — ${esc(b.dept)}</div>
+      <div class="text-sm subtle">ยืม ${fmtDateBE(b.borrowDate)} ถึง ${fmtDateBE(b.returnDate)}</div>
+    </div>`).join('');
 }
 
 function fiscalRange(fyBE){
@@ -2449,7 +2589,11 @@ function onClick(e){
   if(act==='add-equip'){ state.manage.editing='new'; render(); return; }
   if(act==='edit-equip'){ state.manage.editing=el.dataset.id; render(); return; }
   if(act==='view-borrow'){ state.viewingBorrowId=el.dataset.id; render(); return; }
-  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; render(); return; }
+  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; state.availCal=null; render(); return; }
+  if(act==='open-avail-cal'){ openAvailabilityCalendar(el.dataset.cat, el.dataset.name); return; }
+  if(act==='avail-cal-prev'){ availCalShift(-1); return; }
+  if(act==='avail-cal-next'){ availCalShift(1); return; }
+  if(act==='avail-cal-day'){ state.availCal.selectedDay = parseInt(el.dataset.day); render(); return; }
   if(act==='save-equip'){ saveEquipModal(el.dataset.id); return; }
   if(act==='del-equip'){ delEquip(el.dataset.id); return; }
   if(act==='clear-equip'){ clearEquip(); return; }
@@ -2473,8 +2617,8 @@ function onChange(e){
   const el = e.target;
   const act = el.dataset && el.dataset.act;
 
-  if(el.id==='f-borrowdate'){ state.form.borrowDate = el.value; updateDateHint(el); return; }
-  if(el.id==='f-returndate'){ state.form.returnDate = el.value; updateDateHint(el); return; }
+  if(el.id==='f-borrowdate'){ state.form.borrowDate = el.value; render(); return; }
+  if(el.id==='f-returndate'){ state.form.returnDate = el.value; render(); return; }
 
   if(act==='qty-tool'){ setQty(el.dataset.cat, el.dataset.name, parseInt(el.value)||1); return; }
   if(act==='edit-status'){ updateEquipField(el.dataset.id,'useStatus',el.value); return; }
@@ -2580,9 +2724,9 @@ function buildBorrowDraft(){
     const lastSep = key.lastIndexOf('|');
     const name = key.slice(0,lastSep), cat = key.slice(lastSep+1);
     const qty = f.picks[key];
-    const group = groupEquipment(cat).find(g=>g.name===name);
+    const group = groupEquipment(cat, f.borrowDate, f.returnDate).find(g=>g.name===name);
     if(!group || group.availItems.length < qty){
-      return { errs: [`เครื่องมือ "${name}" มีจำนวนคงเหลือไม่พอ (เหลือ ${group?group.availItems.length:0})`] };
+      return { errs: [`เครื่องมือ "${name}" มีจำนวนว่างไม่พอสำหรับช่วงวันที่ ${fmtDateBE(f.borrowDate)} ถึง ${fmtDateBE(f.returnDate)} (ว่างจริง ${group?group.availItems.length:0} เครื่อง มีคนจองช่วงวันที่ทับซ้อนอยู่แล้ว)`] };
     }
     const chosen = group.availItems.slice(0, qty);
     chosen.forEach(u=>{
@@ -2667,7 +2811,7 @@ async function notifyAdmin(id, opts={}){
   const bodyPlain = `มีใบยืมเครื่องมือใหม่เข้าระบบ\n\nรหัสใบยืม: ${b.code}\nผู้ยืม: ${b.name} (${b.dept})\nวันที่ยืม: ${fmtDateBE(b.borrowDate)}\nวันที่คืน: ${fmtDateBE(b.returnDate)}\nรายการ: ${itemsText}\n${slipLink ? ('\nไฟล์ใบยืม (PDF): '+slipLink+'\n') : ''}\n(ส่งจากระบบใบยืมเครื่องมือ)`;
 
   const baseParams = {
-    to_email: 'pcdathit@gmail.com',
+    to_email: 'bank.nj15@gmail.com',
     subject, code: b.code, name: b.name, dept: b.dept,
     borrow_date: fmtDateBE(b.borrowDate), return_date: fmtDateBE(b.returnDate),
     items: itemsText, message: bodyPlain,
@@ -2680,21 +2824,21 @@ async function notifyAdmin(id, opts={}){
       state.notifyStatus[id] = slipLink ? 'sent' : 'sent_no_link';
       if(!auto){
         alert(slipLink
-          ? 'ส่งอีเมลแจ้งเตือนไปที่ pcdathit@gmail.com สำเร็จแล้ว พร้อมลิงก์ดาวน์โหลด PDF'
+          ? 'ส่งอีเมลแจ้งเตือนไปที่ bank.nj15@gmail.com สำเร็จแล้ว พร้อมลิงก์ดาวน์โหลด PDF'
           : 'ส่งอีเมลแจ้งเตือนสำเร็จ แต่ไม่มีลิงก์ไฟล์ (ยังไม่ได้ตั้งค่า Cloudinary หรืออัปโหลดไม่สำเร็จ)');
       }
     }catch(err){
       state.notifyStatus[id] = 'failed';
       if(!auto){
         alert('ส่งอีเมลอัตโนมัติไม่สำเร็จ (' + (err && err.text || err) + ')\nจะเปิดโปรแกรมอีเมลให้กดส่งเองแทน');
-        window.location.href = `mailto:pcdathit@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyPlain)}`;
+        window.location.href = `mailto:bank.nj15@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyPlain)}`;
       }
     }
   } else {
     // ยังไม่ได้ตั้งค่า EmailJS -> ใช้ mailto (เปิดโปรแกรมอีเมลของเครื่อง แล้วผู้ใช้กดส่งเอง)
     state.notifyStatus[id] = 'failed';
     if(!auto){
-      window.location.href = `mailto:pcdathit@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyPlain)}`;
+      window.location.href = `mailto:bank.nj15@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyPlain)}`;
     }
   }
   render();
