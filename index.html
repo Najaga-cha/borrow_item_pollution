@@ -1151,36 +1151,10 @@ function renderBorrowTab(){
       <button class="btn-ghost" data-act="reset-form">↩️ ย้อนกลับ / เริ่มใหม่</button>
     </div>
 
-    <!-- ประเภทเครื่องมือ (top) -->
-    <div class="mb-6">
-      <label class="lbl mb-2">1) เลือกประเภทเครื่องมือที่ต้องการยืม (เลือกได้หลายด้าน)</label>
-      <div class="cat-grid">
-        ${CATEGORIES.map(c=>{
-          const col = CATEGORY_COLOR[c];
-          const active = f.selectedCats.includes(c);
-          const total = state.equipment.filter(e=>e.category===c).length;
-          const catItems = state.equipment.filter(e=>e.category===c);
-          const _bd = f.borrowDate || todayISO(), _rd = f.returnDate || todayISO();
-          const avail = catItems.filter(e=>isBorrowable(e,_bd,_rd)).length;
-          const pendingCalib = catItems.filter(e=>isPendingCalibBorrowable(e,_bd,_rd)).length;
-          return `
-          <button type="button" class="cat-card ${active?'cat-card-active':''}" style="--c:${col.bg};--c2:${col.bg2}" data-act="toggle-cat" data-cat="${c}">
-            <span class="cat-card-check">${active? '✔️' : ''}</span>
-            <span class="cat-card-icon">${catIcon(c)}</span>
-            <span class="cat-card-name">${c}</span>
-            <span class="cat-card-count">${avail}/${total} พร้อมยืม</span>
-            ${pendingCalib>0 ? `<span class="cat-card-count" style="color:#b45309">⏳ รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
-          </button>`;
-        }).join('')}
-      </div>
-    </div>
-
-    ${f.selectedCats.length? renderToolPicker() : `<div class="empty-hint mb-6">เลือกประเภทเครื่องมือด้านบนเพื่อแสดงรายการเครื่องมือที่ยืมได้</div>`}
-
     <!-- ผู้ยืม -->
     <div class="grid md:grid-cols-2 gap-4 mb-2 mt-2">
       <div>
-        ${renderFormSearchSelect('dept', '2) หน่วยงานผู้ยืม *', DEPTS, f.dept, '-- เลือกหน่วยงาน --')}
+        ${renderFormSearchSelect('dept', '1) หน่วยงานผู้ยืม *', DEPTS, f.dept, '-- เลือกหน่วยงาน --')}
       </div>
       <div>
         <label class="lbl">ชื่อ-นามสกุล ผู้ยืม *</label>
@@ -1212,6 +1186,32 @@ function renderBorrowTab(){
         <input id="f-notes" class="inp" value="${esc(f.notes)}" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"/>
       </div>
     </div>
+
+    <!-- ประเภทเครื่องมือ -->
+    <div class="mb-6 mt-6">
+      <label class="lbl mb-2">2) เลือกประเภทเครื่องมือที่ต้องการยืม (เลือกได้หลายด้าน)</label>
+      <div class="cat-grid">
+        ${CATEGORIES.map(c=>{
+          const col = CATEGORY_COLOR[c];
+          const active = f.selectedCats.includes(c);
+          const total = state.equipment.filter(e=>e.category===c).length;
+          const catItems = state.equipment.filter(e=>e.category===c);
+          const _bd = f.borrowDate || todayISO(), _rd = f.returnDate || todayISO();
+          const avail = catItems.filter(e=>isBorrowable(e,_bd,_rd)).length;
+          const pendingCalib = catItems.filter(e=>isPendingCalibBorrowable(e,_bd,_rd)).length;
+          return `
+          <button type="button" class="cat-card ${active?'cat-card-active':''}" style="--c:${col.bg};--c2:${col.bg2}" data-act="toggle-cat" data-cat="${c}">
+            <span class="cat-card-check">${active? '✔️' : ''}</span>
+            <span class="cat-card-icon">${catIcon(c)}</span>
+            <span class="cat-card-name">${c}</span>
+            <span class="cat-card-count">${avail}/${total} พร้อมยืม</span>
+            ${pendingCalib>0 ? `<span class="cat-card-count" style="color:#b45309">⏳ รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>
+
+    ${f.selectedCats.length? renderToolPicker() : `<div class="empty-hint mb-6">เลือกประเภทเครื่องมือด้านบนเพื่อแสดงรายการเครื่องมือที่ยืมได้</div>`}
 
     <div class="mt-6 flex justify-end gap-2">
       <button class="btn-ghost" data-act="reset-form">ล้างฟอร์ม</button>
