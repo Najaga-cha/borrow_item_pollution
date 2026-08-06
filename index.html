@@ -1786,22 +1786,24 @@ function renderCalendar(){
   const first = new Date(c.year, c.month, 1);
   const startDow = first.getDay();
   const daysInMonth = new Date(c.year, c.month+1, 0).getDate();
+  // สำหรับแต่ละวันในเดือนนี้ ให้รวบรวม "ใบยืมทุกใบที่ช่วงวันยืม-คืนครอบคลุมวันนั้น"
+  // (ไม่ใช่แค่ใบยืมที่เริ่มยืมวันนั้นวันเดียวเหมือนเดิม) เพื่อให้ admin เห็นภาพรวมว่าวันไหน
+  // มีเครื่องมือถูกจอง/ถืออยู่บ้าง ตลอดทั้งช่วงที่ยืม ไม่ใช่แค่วันแรกที่สร้างใบยืม
   const borrowsByDay = {};
-  state.borrows.forEach(b=>{
-    const d = new Date(b.borrowDate+'T00:00:00');
-    if(d.getFullYear()===c.year && d.getMonth()===c.month){
-      const day = d.getDate();
-      borrowsByDay[day] = (borrowsByDay[day]||[]).concat([b]);
-    }
-  });
+  for(let d=1; d<=daysInMonth; d++){
+    const dayISO = `${c.year}-${String(c.month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayBorrows = state.borrows.filter(b=> b.borrowDate && b.returnDate && dateRangesOverlap(b.borrowDate, b.returnDate, dayISO, dayISO));
+    if(dayBorrows.length) borrowsByDay[d] = dayBorrows;
+  }
   let cells = '';
   for(let i=0;i<startDow;i++) cells += `<div class="cal-cell cal-empty"></div>`;
   for(let d=1; d<=daysInMonth; d++){
     const items = borrowsByDay[d]||[];
+    const activeN = items.filter(b=>b.status==='active').length;
     const isSel = c.selectedDay===d;
     cells += `<div class="cal-cell ${isSel?'cal-sel':''} ${items.length?'cal-has':''}" data-act="cal-day" data-day="${d}">
       <div class="cal-daynum">${d}</div>
-      ${items.length? `<div class="cal-dot">${items.length} รายการ</div>`:''}
+      ${items.length? `<div class="cal-dot">${items.length} รายการ${activeN?` (ถืออยู่ ${activeN})`:''}</div>`:''}
     </div>`;
   }
   const dayList = c.selectedDay ? (borrowsByDay[c.selectedDay]||[]) : [];
@@ -1812,6 +1814,7 @@ function renderCalendar(){
       <div class="font-bold text-lg">${THAI_MONTHS[c.month]} พ.ศ. ${beYear(c.year)}</div>
       <button class="btn-ghost" data-act="cal-next">เดือนถัดไป ›</button>
     </div>
+    <p class="text-sm subtle mb-3">แต้มเขียวคือวันที่มีเครื่องมือถูกจอง/ยืมครอบคลุมอยู่ (นับตลอดช่วงวันที่ยืม-คืนของทุกใบยืม ไม่ใช่แค่วันที่สร้างใบยืม) คลิกวันที่เพื่อดูรายละเอียด</p>
     <div class="cal-grid cal-grid-head">
       ${['อา','จ','อ','พ','พฤ','ศ','ส'].map(d=>`<div class="cal-headcell">${d}</div>`).join('')}
     </div>
@@ -1819,8 +1822,8 @@ function renderCalendar(){
   </div>
   ${c.selectedDay? `
   <div class="card p-5 mt-4">
-    <h3 class="font-bold mb-3">รายการยืมวันที่ ${c.selectedDay} ${THAI_MONTHS[c.month]} พ.ศ. ${beYear(c.year)}</h3>
-    ${dayList.length===0? `<div class="empty-hint">ไม่มีรายการยืมในวันนี้</div>` : dayList.map(b=>`
+    <h3 class="font-bold mb-3">รายการที่มีเครื่องมือถูกจอง/ยืมในวันที่ ${c.selectedDay} ${THAI_MONTHS[c.month]} พ.ศ. ${beYear(c.year)}</h3>
+    ${dayList.length===0? `<div class="empty-hint">ไม่มีรายการในวันนี้</div>` : dayList.map(b=>`
       <div class="borrow-item-card">
         <div class="flex justify-between flex-wrap gap-2">
           <div>
