@@ -12,6 +12,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@500;600;700&display=swap');
 
@@ -313,10 +314,14 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .slip-field-two{ display:flex; gap:24px; }
 .slip-field-two > div{ flex:1; }
 .slip-section-title{ font-weight:700; font-size:16pt; margin:18px 0 8px; }
+.slip-section-title-row{ display:flex; justify-content:space-between; align-items:flex-end; margin:18px 0 8px; }
+.slip-section-title-row .slip-section-title{ margin:0; }
+.slip-time-corner{ font-size:12pt; font-weight:600; text-align:right; white-space:nowrap; }
 .slip-table{ width:100%; border-collapse:collapse; font-size:16pt; margin:6px 0 18px; }
 .slip-table th,.slip-table td{ border:1px solid #000; padding:6px 8px; }
 .slip-table th{ background:#f0f0f0; text-align:left; }
 .slip-table td.c{ text-align:center; }
+.slip-table td.assetcode-cell{ line-height:1.4; }
 .slip-table tr{ break-inside:avoid; page-break-inside:avoid; }
 .sig-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 24px; margin-top:48px; break-inside:avoid; page-break-inside:avoid; }
 .sig-box{ font-size:14pt; }
@@ -412,6 +417,20 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const FS_COLLECTION = 'borrow_item_store';
+
+// เข้าสู่ระบบแบบไม่ระบุตัวตน (ผู้ใช้ไม่เห็น ไม่ต้องกรอกอะไร)
+// จำเป็นเพราะ Firestore Rules ตอนนี้บังคับว่าต้อง auth != null ถึงจะเขียน/แก้ไข/ลบข้อมูลได้
+const authReady = new Promise((resolve) => {
+  firebase.auth().onAuthStateChanged((user) => {
+    if(user){
+      resolve(user);
+    } else {
+      firebase.auth().signInAnonymously().catch((error) => {
+        console.error("Anonymous sign-in error:", error.code, error.message);
+      });
+    }
+  });
+});
 
 const MEM = {}; // fallback in-memory store (used if Firestore is unreachable)
 
@@ -1351,28 +1370,39 @@ function renderPrintSlipContainer(){
   return `<div id="print-area"></div>`;
 }
 function buildSlipHTML(b){
-  const itemsRows = b.items.map((it,i)=>`
+  const itemsRows = b.items.map((it,i)=>{
+    const codes = String(it.assetCode||'-').split(',').map(s=>s.trim()).filter(Boolean);
+    const codeHtml = (codes.length? codes.map(c=>esc(c)).join('<br/>') : '-');
+    return `
     <tr>
       <td class="c">${i+1}</td>
       <td>${esc(it.category||'-')}</td>
       <td>${esc(it.name)}</td>
-      <td>${esc(it.assetCode||'-')}</td>
+      <td class="assetcode-cell">${codeHtml}</td>
       <td class="c">${it.qty}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+  const bookingDateISO = b.createdAt ? b.createdAt.slice(0,10) : null;
   return `
   <div class="slip-page">
     <div class="slip-header-line">ใบยืมเครื่องมือ กตพ.</div>
 
-    <div class="slip-field-row"><b>รหัสอ้างอิง:</b> ${esc(b.code)}</div>
-    <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ.</b></div>
-    <div class="slip-field-row"><b>ชื่อ-นามสกุล ผู้ยืม:</b> ${esc(b.name)}</div>
     <div class="slip-field-row slip-field-two">
-      <div><b>วันที่ยืม:</b> ${esc(b.borrowDate)}${b.createdTime?' เวลา '+esc(b.createdTime):''}</div>
-      <div><b>ถึงวันที่:</b> ${esc(b.returnDate)}</div>
+      <div><b>รหัสอ้างอิง:</b> ${esc(b.code)}</div>
+      <div><b>วันที่จอง:</b> ${bookingDateISO? esc(fmtDateBE(bookingDateISO)) : '-'}</div>
+    </div>
+    <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ.</b></div>
+    <div class="slip-field-row"><b>ชื่อ-นามสกุล ผู้ยืม:</b> ${esc(b.name)}${b.position?'&nbsp;&nbsp;&nbsp;&nbsp;<b>ตำแหน่ง</b> '+esc(b.position):''}</div>
+    <div class="slip-field-row slip-field-two">
+      <div><b>วันที่ยืม:</b> ${esc(fmtDateBE(b.borrowDate))}</div>
+      <div><b>ถึงวันที่:</b> ${esc(fmtDateBE(b.returnDate))}</div>
     </div>
     <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน:</b> ${esc(b.province)}${b.notes?' • หมายเหตุ: '+esc(b.notes):''}</div>
 
-    <div class="slip-section-title">รายการเครื่องมือที่ยืม (แจกแจงรายเครื่อง)</div>
+    <div class="slip-section-title-row">
+      <div class="slip-section-title">รายการเครื่องมือที่ยืม (แจกแจงรายเครื่อง)</div>
+      <div class="slip-time-corner">${b.createdTime? 'เวลาที่ทำใบยืม '+esc(b.createdTime) : ''}</div>
+    </div>
     <table class="slip-table">
       <thead><tr><th style="width:7%">ลำดับ</th><th style="width:16%">ประเภท</th><th>ชื่อเครื่องมือ</th><th style="width:24%">รหัสครุภัณฑ์ / S.N.</th><th style="width:9%">จำนวน</th></tr></thead>
       <tbody>${itemsRows}</tbody>
@@ -1381,9 +1411,9 @@ function buildSlipHTML(b){
     <div class="sig-grid">
       <div class="sig-box">
         <div class="sig-line">ลงชื่อ....................................................ผู้ยืมพัสดุ</div>
-        <div class="sig-sub sig-sub-indent">( ${esc(b.name)} )</div>
-        <div class="sig-sub sig-sub-indent">ตำแหน่ง ${esc(b.position||'')}</div>
-        <div class="sig-sub">วัน เดือน ปี/เวลา ${esc(fmtDateBE(b.borrowDate))} / ${esc((b.createdTime||'').replace(' น.','').trim())} นาฬิกา</div>
+        <div class="sig-sub sig-sub-indent">( .................................................... )</div>
+        <div class="sig-sub sig-sub-indent">ตำแหน่ง ....................................................</div>
+        <div class="sig-sub">วัน เดือน ปี/เวลา .......................... / .................. นาฬิกา</div>
       </div>
       <div class="sig-box">
         <div class="sig-line">ลงชื่อ....................................................ผู้ให้ยืมพัสดุ</div>
@@ -1445,10 +1475,14 @@ const SLIP_STANDALONE_CSS = `
   .slip-field-two{ display:flex; gap:24px; }
   .slip-field-two > div{ flex:1; }
   .slip-section-title{ font-weight:700; font-size:16pt; margin:18px 0 8px; }
+  .slip-section-title-row{ display:flex; justify-content:space-between; align-items:flex-end; margin:18px 0 8px; }
+  .slip-section-title-row .slip-section-title{ margin:0; }
+  .slip-time-corner{ font-size:12pt; font-weight:600; text-align:right; white-space:nowrap; }
   .slip-table{ width:100%; border-collapse:collapse; font-size:16pt; margin:6px 0 18px; }
   .slip-table th,.slip-table td{ border:1px solid #000; padding:6px 8px; }
   .slip-table th{ background:#f0f0f0; text-align:left; }
   .slip-table td.c{ text-align:center; }
+  .slip-table td.assetcode-cell{ line-height:1.4; }
 .slip-table tr{ break-inside:avoid; page-break-inside:avoid; }
   .sig-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 24px; margin-top:48px; break-inside:avoid; page-break-inside:avoid; }
   .sig-box{ font-size:14pt; }
@@ -3217,6 +3251,7 @@ function startLiveClock(){
 
 /* ===================== Boot ===================== */
 (async function boot(){
+  await authReady; // รอให้ล็อกอินแบบไม่ระบุตัวตนเสร็จก่อน ป้องกัน error permission-denied
   await initData();
   render();
   startRealtimeSync(); // real-time listener (onSnapshot) — อัปเดตทันทีที่มีการเปลี่ยนแปลง
