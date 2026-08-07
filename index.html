@@ -325,12 +325,15 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .assetcode-line{ margin-bottom:6px; white-space:nowrap; }
 .assetcode-line:last-child{ margin-bottom:0; }
 .slip-table tr{ break-inside:avoid; page-break-inside:avoid; }
-.sig-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 24px; margin-top:48px; break-inside:avoid; page-break-inside:avoid; }
+.sig-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 40px; margin-top:48px; break-inside:avoid; page-break-inside:avoid; }
 .sig-box{ font-size:14pt; }
-.sig-role{ font-weight:700; margin-bottom:22px; }
-.sig-line{ margin-bottom:14px; }
-.sig-sub{ margin-bottom:4px; }
-.sig-sub-indent{ margin-left:2.6em; }
+.sig-row{ display:flex; align-items:flex-end; margin-bottom:14px; }
+.sig-row:last-child{ margin-bottom:0; }
+.sig-row-indent-1{ margin-left:3.2em; }
+.sig-row-indent-2{ margin-left:1.3em; }
+.sig-label{ white-space:nowrap; }
+.sig-dots{ flex:1 1 auto; border-bottom:1px dotted #000; margin:0 4px; height:1em; min-width:10px; }
+.sig-trailing{ white-space:nowrap; margin-left:2px; }
 
 @media print{
   .header-band{ display:none !important; }
@@ -1371,6 +1374,15 @@ function renderConfirmBorrowModal(){
 function renderPrintSlipContainer(){
   return `<div id="print-area"></div>`;
 }
+function buildSigBox(roleLabel){
+  return `
+  <div class="sig-box">
+    <div class="sig-row"><span class="sig-label">ลงชื่อ</span><span class="sig-dots"></span><span class="sig-trailing">${esc(roleLabel)}</span></div>
+    <div class="sig-row sig-row-indent-1"><span class="sig-label">(</span><span class="sig-dots"></span><span class="sig-trailing">)</span></div>
+    <div class="sig-row sig-row-indent-2"><span class="sig-label">ตำแหน่ง</span><span class="sig-dots"></span></div>
+    <div class="sig-row"><span class="sig-label">วัน เดือน ปี/เวลา</span><span class="sig-dots"></span><span class="sig-trailing">/</span><span class="sig-dots"></span><span class="sig-trailing">นาฬิกา</span></div>
+  </div>`;
+}
 function buildSlipHTML(b){
   const itemsRows = b.items.map((it,i)=>{
     const codes = String(it.assetCode||'-').split(',').map(s=>s.trim()).filter(Boolean);
@@ -1415,30 +1427,10 @@ function buildSlipHTML(b){
 
 
     <div class="sig-grid">
-      <div class="sig-box">
-        <div class="sig-line">ลงชื่อ....................................................ผู้ยืมพัสดุ</div>
-        <div class="sig-sub sig-sub-indent">( .................................................... )</div>
-        <div class="sig-sub sig-sub-indent">ตำแหน่ง ....................................................</div>
-        <div class="sig-sub">วัน เดือน ปี/เวลา .......................... / .................. นาฬิกา</div>
-      </div>
-      <div class="sig-box">
-        <div class="sig-line">ลงชื่อ....................................................ผู้ให้ยืมพัสดุ</div>
-        <div class="sig-sub sig-sub-indent">( .................................................... )</div>
-        <div class="sig-sub sig-sub-indent">ตำแหน่ง ....................................................</div>
-        <div class="sig-sub">วัน เดือน ปี/เวลา .......................... / .................. นาฬิกา</div>
-      </div>
-      <div class="sig-box">
-        <div class="sig-line">ลงชื่อ....................................................ผู้คืนพัสดุ</div>
-        <div class="sig-sub sig-sub-indent">( .................................................... )</div>
-        <div class="sig-sub sig-sub-indent">ตำแหน่ง ....................................................</div>
-        <div class="sig-sub">วัน เดือน ปี/เวลา .......................... / .................. นาฬิกา</div>
-      </div>
-      <div class="sig-box">
-        <div class="sig-line">ลงชื่อ....................................................ผู้รับคืนพัสดุ</div>
-        <div class="sig-sub sig-sub-indent">( .................................................... )</div>
-        <div class="sig-sub sig-sub-indent">ตำแหน่ง ....................................................</div>
-        <div class="sig-sub">วัน เดือน ปี/เวลา .......................... / .................. นาฬิกา</div>
-      </div>
+      ${buildSigBox('ผู้ยืมพัสดุ')}
+      ${buildSigBox('ผู้ให้ยืมพัสดุ')}
+      ${buildSigBox('ผู้คืนพัสดุ')}
+      ${buildSigBox('ผู้รับคืนพัสดุ')}
     </div>
   </div>`;
 }
@@ -1492,12 +1484,15 @@ const SLIP_STANDALONE_CSS = `
 .assetcode-line{ margin-bottom:6px; white-space:nowrap; }
 .assetcode-line:last-child{ margin-bottom:0; }
 .slip-table tr{ break-inside:avoid; page-break-inside:avoid; }
-  .sig-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 24px; margin-top:48px; break-inside:avoid; page-break-inside:avoid; }
+  .sig-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 40px; margin-top:48px; break-inside:avoid; page-break-inside:avoid; }
   .sig-box{ font-size:14pt; }
-  .sig-role{ font-weight:700; margin-bottom:22px; }
-  .sig-line{ margin-bottom:14px; }
-  .sig-sub{ margin-bottom:4px; }
-  .sig-sub-indent{ margin-left:2.6em; }
+  .sig-row{ display:flex; align-items:flex-end; margin-bottom:14px; }
+  .sig-row:last-child{ margin-bottom:0; }
+  .sig-row-indent-1{ margin-left:3.2em; }
+  .sig-row-indent-2{ margin-left:1.3em; }
+  .sig-label{ white-space:nowrap; }
+  .sig-dots{ flex:1 1 auto; border-bottom:1px dotted #000; margin:0 4px; height:1em; min-width:10px; }
+  .sig-trailing{ white-space:nowrap; margin-left:2px; }
   @media print{ @page{ size:A4; margin:10mm; } }
 `;
 function buildSlipStandaloneHTML(b){
