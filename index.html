@@ -329,9 +329,9 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-box{ font-size:14pt; }
 .sig-row{ display:flex; align-items:flex-end; margin-bottom:14px; }
 .sig-row:last-child{ margin-bottom:0; }
-.sig-row-indent-1{ margin-left:3.2em; }
-.sig-row-indent-2{ margin-left:1.3em; }
-.sig-label{ white-space:nowrap; }
+.sig-label{ display:inline-block; box-sizing:border-box; width:9.2em; white-space:nowrap; }
+.sig-row-indent-1 .sig-label{ padding-left:3.2em; }
+.sig-row-indent-2 .sig-label{ padding-left:1.3em; }
 .sig-dots{ flex:1 1 auto; border-bottom:1px dotted #000; margin:0 4px; height:1em; min-width:10px; }
 .sig-trailing{ white-space:nowrap; margin-left:2px; }
 
@@ -1488,9 +1488,9 @@ const SLIP_STANDALONE_CSS = `
   .sig-box{ font-size:14pt; }
   .sig-row{ display:flex; align-items:flex-end; margin-bottom:14px; }
   .sig-row:last-child{ margin-bottom:0; }
-  .sig-row-indent-1{ margin-left:3.2em; }
-  .sig-row-indent-2{ margin-left:1.3em; }
-  .sig-label{ white-space:nowrap; }
+  .sig-label{ display:inline-block; box-sizing:border-box; width:9.2em; white-space:nowrap; }
+  .sig-row-indent-1 .sig-label{ padding-left:3.2em; }
+  .sig-row-indent-2 .sig-label{ padding-left:1.3em; }
   .sig-dots{ flex:1 1 auto; border-bottom:1px dotted #000; margin:0 4px; height:1em; min-width:10px; }
   .sig-trailing{ white-space:nowrap; margin-left:2px; }
   @media print{ @page{ size:A4; margin:10mm; } }
