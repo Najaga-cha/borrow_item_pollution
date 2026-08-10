@@ -334,6 +334,14 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-row-indent-2 .sig-label{ padding-left:1.3em; }
 .sig-dots{ flex:1 1 auto; border-bottom:1px dotted #000; margin:0 4px; height:1em; min-width:10px; }
 .sig-trailing{ white-space:nowrap; margin-left:2px; }
+/* แถว "ลงชื่อ" (เซ็นชื่อจริง) แยกเป็น 2 บรรทัด: บรรทัดบนคือข้อความ, บรรทัดล่างคือเส้นประสำหรับเซ็นจริง
+   วางเส้นให้ตรงใต้ช่องว่างของบรรทัดบนพอดี โดยใช้ข้อความเดียวกัน (ซ่อนไว้) เพื่อให้ความกว้างเท่ากันเป๊ะ */
+.sig-signrow{ margin-bottom:14px; }
+.sig-signrow-text, .sig-signrow-line{ display:flex; align-items:baseline; }
+.sig-signrow-gap{ flex:1 1 auto; margin:0 4px; min-width:10px; }
+.sig-signrow-line{ line-height:.5; margin-top:2px; }
+.sig-signrow-line .sig-line{ border-bottom:1px solid #000; height:0; }
+.sig-signrow-ghost{ visibility:hidden; }
 
 @media print{
   .header-band{ display:none !important; }
@@ -1377,7 +1385,14 @@ function renderPrintSlipContainer(){
 function buildSigBox(roleLabel){
   return `
   <div class="sig-box">
-    <div class="sig-row"><span class="sig-label">ลงชื่อ</span><span class="sig-dots"></span><span class="sig-trailing">${esc(roleLabel)}</span></div>
+    <div class="sig-signrow">
+      <div class="sig-signrow-text">
+        <span class="sig-label">ลงชื่อ</span><span class="sig-signrow-gap"></span><span class="sig-trailing">${esc(roleLabel)}</span>
+      </div>
+      <div class="sig-signrow-line">
+        <span class="sig-label sig-signrow-ghost">ลงชื่อ</span><span class="sig-signrow-gap sig-line"></span><span class="sig-trailing sig-signrow-ghost">${esc(roleLabel)}</span>
+      </div>
+    </div>
     <div class="sig-row sig-row-indent-1"><span class="sig-label">(</span><span class="sig-dots"></span><span class="sig-trailing">)</span></div>
     <div class="sig-row sig-row-indent-2"><span class="sig-label">ตำแหน่ง</span><span class="sig-dots"></span></div>
     <div class="sig-row"><span class="sig-label">วัน เดือน ปี/เวลา</span><span class="sig-dots"></span><span class="sig-trailing">/</span><span class="sig-dots"></span><span class="sig-trailing">นาฬิกา</span></div>
@@ -1493,6 +1508,12 @@ const SLIP_STANDALONE_CSS = `
   .sig-row-indent-2 .sig-label{ padding-left:1.3em; }
   .sig-dots{ flex:1 1 auto; border-bottom:1px dotted #000; margin:0 4px; height:1em; min-width:10px; }
   .sig-trailing{ white-space:nowrap; margin-left:2px; }
+  .sig-signrow{ margin-bottom:14px; }
+  .sig-signrow-text, .sig-signrow-line{ display:flex; align-items:baseline; }
+  .sig-signrow-gap{ flex:1 1 auto; margin:0 4px; min-width:10px; }
+  .sig-signrow-line{ line-height:.5; margin-top:2px; }
+  .sig-signrow-line .sig-line{ border-bottom:1px solid #000; height:0; }
+  .sig-signrow-ghost{ visibility:hidden; }
   @media print{ @page{ size:A4; margin:10mm; } }
 `;
 function buildSlipStandaloneHTML(b){
