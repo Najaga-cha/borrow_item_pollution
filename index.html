@@ -240,6 +240,9 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .data-table th{ text-align:left; padding:9px 10px; background:var(--chip-bg); color:var(--subtle); font-weight:700; white-space:nowrap; border-bottom:2px solid var(--border);}
 .data-table td{ padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
 .data-table tr:hover td{ background: var(--chip-bg); }
+.calib-asset-code{ white-space:nowrap; }
+.calib-plan-table th{ white-space:nowrap; }
+.calib-plan-table td{ vertical-align:top; }
 
 .icon-btn{ background:none; border:none; cursor:pointer; font-size:15px; padding:4px 6px; border-radius:6px; }
 .icon-btn:hover{ background: var(--chip-bg); }
@@ -620,6 +623,28 @@ function fmtDateShortCE(iso){
   const d = new Date(iso+'T00:00:00');
   if(isNaN(d)) return iso;
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+// รูปแบบย่อแบบตารางแผนการสอบเทียบ: "3 เม.ย. 68"
+function fmtDateBEShort2(iso){
+  if(!iso) return '-';
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return `${d.getDate()} ${THAI_MONTHS_SHORT[d.getMonth()]} ${String(beYear(d.getFullYear())).slice(-2)}`;
+}
+// รูปแบบย่อ "เดือน ปี" แบบตารางแผนการสอบเทียบ: "เม.ย. 69"
+function fmtMonthYearBEShort(iso){
+  if(!iso) return '-';
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return `${THAI_MONTHS_SHORT[d.getMonth()]} ${String(beYear(d.getFullYear())).slice(-2)}`;
+}
+// รวมข้อความ "ยี่ห้อ ... รุ่น ... S/N ..." สำหรับรายละเอียดพัสดุ
+function equipDetailLine(e){
+  const parts = [];
+  if(e.brand) parts.push('ยี่ห้อ '+e.brand);
+  if(e.model) parts.push('รุ่น '+e.model);
+  if(e.serial) parts.push('S/N '+e.serial);
+  return parts.join('  ');
 }
 function nowTimeStr(){
   const d = new Date();
@@ -1774,21 +1799,35 @@ function renderCalibTab(){
     </div>
     <div class="text-sm subtle mb-2">พบ ${items.length} รายการ (แสดงเฉพาะเครื่องมือที่มีข้อมูลสอบเทียบ)</div>
     <div class="table-wrap">
-      <table class="data-table">
+      <table class="data-table calib-plan-table">
         <thead><tr>
-          <th>ประเภท</th><th>ชื่อเครื่องมือ</th><th>รหัสครุภัณฑ์</th><th>ยี่ห้อ/รุ่น</th>
-          <th>สอบเทียบล่าสุด</th><th>สอบเทียบครั้งถัดไป</th><th>สถานะ</th>
+          <th>ประเภท</th>
+          <th class="text-center">ลำดับที่</th>
+          <th>รหัสพัสดุ</th>
+          <th>รายละเอียดพัสดุ</th>
+          <th class="text-center">จำนวน</th>
+          <th>รายการที่ต้องสอบเทียบ</th>
+          <th>กำหนดสอบเทียบ</th>
+          <th class="text-right">ราคา</th>
+          <th>สอบเทียบล่าสุด</th>
+          <th>หมายเหตุ</th>
         </tr></thead>
         <tbody>
-          ${items.length===0 ? `<tr><td colspan="7" class="text-center subtle py-6">ไม่พบข้อมูล</td></tr>` : items.map(e=>`
+          ${items.length===0 ? `<tr><td colspan="10" class="text-center subtle py-6">ไม่พบข้อมูล</td></tr>` : items.map((e,idx)=>`
             <tr class="${e.calibInfo.cls}">
               <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${e.category}</span></td>
-              <td class="font-medium">${esc(e.name)}</td>
-              <td class="font-mono text-xs">${esc(e.assetCode||'-')}</td>
-              <td class="text-xs">${esc(e.brand||'')} ${esc(e.model||'')}</td>
-              <td class="text-xs">${e.lastCalib?fmtDateShortCE(e.lastCalib.slice(0,10)):'-'}</td>
-              <td class="text-xs font-semibold">${fmtDateShortCE(e.nextCalib.slice(0,10))}</td>
-              <td><span class="pill ${e.calibInfo.pill}">${e.calibInfo.label}</span></td>
+              <td class="text-center">${idx+1}</td>
+              <td class="font-mono text-xs calib-asset-code">${esc(e.assetCode||'-')}</td>
+              <td class="text-xs">
+                <div class="font-medium">${esc(e.name)}</div>
+                ${equipDetailLine(e) ? `<div class="subtle">${esc(equipDetailLine(e))}</div>` : ''}
+              </td>
+              <td class="text-center text-xs">1 เครื่อง</td>
+              <td class="text-xs">${e.calibItem ? esc(e.calibItem) : '<span class="subtle">-</span>'}</td>
+              <td class="text-xs font-semibold">${fmtMonthYearBEShort(e.nextCalib.slice(0,10))}</td>
+              <td class="text-xs text-right">${e.price ? Number(e.price).toLocaleString('th-TH') : '<span class="subtle">-</span>'}</td>
+              <td class="text-xs">${e.lastCalib?fmtDateBEShort2(e.lastCalib.slice(0,10)):'<span class="subtle">-</span>'}</td>
+              <td class="text-xs">${e.remark ? esc(e.remark) : ''}</td>
             </tr>`).join('')}
         </tbody>
       </table>
