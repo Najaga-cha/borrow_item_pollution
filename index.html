@@ -281,6 +281,22 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .calib-confirm-detail{ background:var(--chip-bg); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
 .calib-confirm-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; }
 .calib-confirm-row b{ text-align:right; }
+.calib-confirm-list{ max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.calib-confirm-list-item{ background:var(--chip-bg); border:1px solid var(--border); border-radius:10px; padding:9px 12px; }
+.calib-confirm-list-name{ font-size:13px; font-weight:700; color:var(--text); }
+.calib-confirm-list-sub{ font-size:11.5px; color:var(--subtle); margin-top:2px; }
+.calib-checkbox{ width:17px; height:17px; cursor:pointer; accent-color:#059669; }
+.calib-row-selected{ background:rgba(5,150,105,.07); }
+:root[data-theme="dark"] .calib-row-selected{ background:rgba(16,185,129,.1); }
+.calib-selection-bar{ position:fixed; right:24px; bottom:24px; z-index:60; display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,.18); border-radius:999px; padding:10px 12px 10px 18px; animation:calibBarIn .2s ease; }
+@keyframes calibBarIn{ from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:translateY(0);} }
+.calib-selection-count{ font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; }
+.calib-selection-clear{ padding:8px 12px; font-size:12.5px; border-radius:999px; }
+.calib-selection-confirm{ padding:9px 16px; font-size:12.5px; }
+@media (max-width:640px){
+  .calib-selection-bar{ left:16px; right:16px; bottom:16px; justify-content:space-between; }
+  .calib-selection-count{ flex-shrink:0; }
+}
 
 .cal-grid{ display:grid; grid-template-columns: repeat(7,1fr); gap:6px; }
 .cal-grid-head{ margin-bottom:4px; }
@@ -524,7 +540,8 @@ const state = {
   reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''} },
   lastCreatedBorrowId: null,
   pendingBorrow: null,
-  calibConfirmId: null,
+  calibConfirmIds: null,
+  calibSelected: new Set(),
   notifyStatus: {},
   returnSearch: '',
   returnSubTab: 'all',
@@ -978,7 +995,7 @@ function render(){
     ${state.pendingBorrow ? renderConfirmBorrowModal() : ''}
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
     ${state.availCal ? renderAvailabilityCalendarModal() : ''}
-    ${state.calibConfirmId ? renderCalibConfirmModal() : ''}
+    ${state.calibConfirmIds ? renderCalibConfirmModal() : ''}
   `;
   attachHandlers();
   if(typeof updateLiveClock==='function') updateLiveClock();
@@ -1479,12 +1496,30 @@ function renderConfirmBorrowModal(){
 }
 
 function renderCalibConfirmModal(){
-  const e = state.equipment.find(x=>x.id===state.calibConfirmId);
-  if(!e){ state.calibConfirmId=null; return ''; }
-  const cycle = e.calibCycle || 1;
-  const d = new Date(todayISO()+'T00:00:00');
-  d.setFullYear(d.getFullYear()+cycle);
-  const nextDate = toLocalISODate(d);
+  const ids = state.calibConfirmIds || [];
+  const list = ids.map(id=>state.equipment.find(x=>x.id===id)).filter(Boolean);
+  if(list.length===0){ state.calibConfirmIds=null; return ''; }
+  const nextDateFor = (e)=>{
+    const cycle = e.calibCycle || 1;
+    const d = new Date(todayISO()+'T00:00:00');
+    d.setFullYear(d.getFullYear()+cycle);
+    return toLocalISODate(d);
+  };
+  const isMulti = list.length>1;
+  const bodyHtml = isMulti
+    ? `<div class="calib-confirm-list">
+        ${list.map(e=>`
+          <div class="calib-confirm-list-item">
+            <div class="calib-confirm-list-name">${esc(e.name)}</div>
+            <div class="calib-confirm-list-sub">${esc(e.assetCode||'-')} &nbsp;•&nbsp; กำหนดใหม่ ${fmtDateBEShort2(nextDateFor(e))}</div>
+          </div>`).join('')}
+      </div>`
+    : `<div class="calib-confirm-detail">
+        <div class="calib-confirm-row"><span class="subtle">รายการ</span><b>${esc(list[0].name)}</b></div>
+        <div class="calib-confirm-row"><span class="subtle">รหัสพัสดุ</span><span>${esc(list[0].assetCode||'-')}</span></div>
+        <div class="calib-confirm-row"><span class="subtle">วันที่สอบเทียบ (วันนี้)</span><span>${fmtDateBEShort2(todayISO())}</span></div>
+        <div class="calib-confirm-row"><span class="subtle">กำหนดสอบเทียบครั้งถัดไป</span><span>${fmtDateBEShort2(nextDateFor(list[0]))}</span></div>
+      </div>`;
   return `
   <div class="modal-backdrop" data-act="cancel-calib-confirm">
     <div class="modal-card calib-confirm-card">
@@ -1492,16 +1527,11 @@ function renderCalibConfirmModal(){
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       <h3 class="text-lg font-bold mb-1 text-center">ยืนยันผลการสอบเทียบ</h3>
-      <p class="text-sm subtle mb-4 text-center">ยืนยันว่าเครื่องมือนี้ได้ทำการสอบเทียบเสร็จเรียบร้อยแล้วใช่หรือไม่?</p>
-      <div class="calib-confirm-detail">
-        <div class="calib-confirm-row"><span class="subtle">รายการ</span><b>${esc(e.name)}</b></div>
-        <div class="calib-confirm-row"><span class="subtle">รหัสพัสดุ</span><span>${esc(e.assetCode||'-')}</span></div>
-        <div class="calib-confirm-row"><span class="subtle">วันที่สอบเทียบ (วันนี้)</span><span>${fmtDateBEShort2(todayISO())}</span></div>
-        <div class="calib-confirm-row"><span class="subtle">กำหนดสอบเทียบครั้งถัดไป</span><span>${fmtDateBEShort2(nextDate)}</span></div>
-      </div>
+      <p class="text-sm subtle mb-4 text-center">${isMulti ? `ยืนยันว่าเครื่องมือทั้ง ${list.length} รายการนี้ได้ทำการสอบเทียบเสร็จเรียบร้อยแล้วใช่หรือไม่?` : 'ยืนยันว่าเครื่องมือนี้ได้ทำการสอบเทียบเสร็จเรียบร้อยแล้วใช่หรือไม่?'}</p>
+      ${bodyHtml}
       <div class="mt-6 flex justify-end gap-2">
         <button class="btn-ghost" data-act="cancel-calib-confirm">ยกเลิก</button>
-        <button class="btn-primary" data-act="confirm-calib-done" data-id="${e.id}">✅ ยืนยัน สอบเทียบแล้ว</button>
+        <button class="btn-primary" data-act="confirm-calib-done">✅ ยืนยัน สอบเทียบแล้ว${isMulti?` (${list.length})`:''}</button>
       </div>
     </div>
   </div>`;
@@ -1902,6 +1932,7 @@ function renderCalibTab(){
     <div class="table-wrap">
       <table class="data-table calib-plan-table">
         <thead><tr>
+          <th class="text-center" style="width:36px"><input type="checkbox" class="calib-checkbox" id="calib-select-all" ${items.length>0 && items.every(e=>state.calibSelected.has(e.id))?'checked':''}/></th>
           <th>ประเภท</th>
           <th class="text-center">ลำดับที่</th>
           <th>รหัสพัสดุ</th>
@@ -1913,11 +1944,11 @@ function renderCalibTab(){
           <th>สอบเทียบล่าสุด</th>
           <th>เวลาคงเหลือ</th>
           <th>หมายเหตุ</th>
-          <th class="text-center">จัดการ</th>
         </tr></thead>
         <tbody>
           ${items.length===0 ? `<tr><td colspan="12" class="text-center subtle py-6">ไม่พบข้อมูล</td></tr>` : items.map((e,idx)=>`
-            <tr class="${e.calibInfo.cls}">
+            <tr class="${e.calibInfo.cls} ${state.calibSelected.has(e.id)?'calib-row-selected':''}">
+              <td class="text-center"><input type="checkbox" class="calib-checkbox calib-row-check" data-id="${e.id}" ${state.calibSelected.has(e.id)?'checked':''}/></td>
               <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${e.category}</span></td>
               <td class="text-center">${idx+1}</td>
               <td class="font-mono text-xs calib-asset-code">${esc(e.assetCode||'-')}</td>
@@ -1932,16 +1963,25 @@ function renderCalibTab(){
               <td class="text-xs">${e.lastCalib?fmtDateBEShort2(e.lastCalib.slice(0,10)):'<span class="subtle">-</span>'}</td>
               <td class="text-xs"><span class="pill ${e.calibInfo.pill}">${e.calibInfo.label}</span></td>
               <td class="text-xs">${e.remark ? esc(e.remark) : ''}</td>
-              <td class="text-center calib-qty-cell">
-                <button class="btn-calib-done" data-act="mark-calibrated" data-id="${e.id}" title="กดยืนยันว่าเครื่องมือนี้สอบเทียบเสร็จแล้ว">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  สอบเทียบแล้ว
-                </button>
-              </td>
             </tr>`).join('')}
         </tbody>
       </table>
     </div>
+  </div>
+  ${renderCalibSelectionBar()}`;
+}
+
+function renderCalibSelectionBar(){
+  const n = state.calibSelected.size;
+  if(n===0) return '';
+  return `
+  <div class="calib-selection-bar">
+    <span class="calib-selection-count">เลือกแล้ว ${n} รายการ</span>
+    <button class="btn-ghost calib-selection-clear" data-act="calib-clear-selection">ล้างการเลือก</button>
+    <button class="btn-calib-done calib-selection-confirm" data-act="calib-confirm-selected">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ยืนยันสอบเทียบแล้ว
+    </button>
   </div>`;
 }
 
@@ -2939,9 +2979,16 @@ function onClick(e){
   if(act==='save-equip'){ saveEquipModal(el.dataset.id); return; }
   if(act==='del-equip'){ delEquip(el.dataset.id); return; }
   if(act==='clear-equip'){ clearEquip(); return; }
-  if(act==='mark-calibrated'){ state.calibConfirmId = el.dataset.id; render(); return; }
-  if(act==='cancel-calib-confirm'){ state.calibConfirmId = null; render(); return; }
-  if(act==='confirm-calib-done'){ markCalibrated(el.dataset.id); state.calibConfirmId = null; return; }
+  if(act==='calib-clear-selection'){ state.calibSelected.clear(); render(); return; }
+  if(act==='calib-confirm-selected'){ state.calibConfirmIds = Array.from(state.calibSelected); render(); return; }
+  if(act==='cancel-calib-confirm'){ state.calibConfirmIds = null; render(); return; }
+  if(act==='confirm-calib-done'){
+    const ids = state.calibConfirmIds || [];
+    markCalibratedBulk(ids);
+    ids.forEach(id=>state.calibSelected.delete(id));
+    state.calibConfirmIds = null;
+    return;
+  }
   if(act==='cal-prev'){ calShift(-1); return; }
   if(act==='cal-next'){ calShift(1); return; }
   if(act==='cal-day'){ state.calendar.selectedDay = parseInt(el.dataset.day); render(); return; }
@@ -2973,6 +3020,24 @@ function onChange(e){
   if(el.id==='m-status'){ state.manage.statusFilter = el.value; render(); return; }
   if(el.id==='cb-cat'){ state.manage.calib.catFilter = el.value; render(); return; }
   if(el.id==='cb-status'){ state.manage.calib.statusFilter = el.value; render(); return; }
+  if(el.id==='calib-select-all'){
+    const cm = state.manage.calib || {};
+    let items = state.equipment.filter(x=>!!x.nextCalib);
+    if(cm.catFilter) items = items.filter(x=>x.category===cm.catFilter);
+    if(cm.search) items = items.filter(x=>(x.name+x.assetCode+x.brand+x.model).toLowerCase().includes(cm.search.toLowerCase()));
+    items = items.map(x=>({...x, calibInfo:calibStatusInfo(x.nextCalib)}));
+    if(cm.statusFilter==='danger') items = items.filter(x=>x.calibInfo.pill==='pill-danger');
+    else if(cm.statusFilter==='warn') items = items.filter(x=>x.calibInfo.pill==='pill-warn');
+    else if(cm.statusFilter==='ok') items = items.filter(x=>x.calibInfo.pill==='pill-ok');
+    if(el.checked){ items.forEach(x=>state.calibSelected.add(x.id)); }
+    else { items.forEach(x=>state.calibSelected.delete(x.id)); }
+    render(); return;
+  }
+  if(el.classList && el.classList.contains('calib-row-check')){
+    if(el.checked) state.calibSelected.add(el.dataset.id);
+    else state.calibSelected.delete(el.dataset.id);
+    renderSoft(); return;
+  }
   if(el.id==='import-file'){ importExcel(el.files[0]); return; }
 
   if(el.id==='r-mode'){ state.reports.mode = el.value; render(); return; }
@@ -3259,21 +3324,31 @@ async function saveEquipModal(id){
 // กดยืนยันว่าเครื่องมือชิ้นนี้ "สอบเทียบเสร็จแล้ว" — อัปเดตวันสอบเทียบล่าสุด/ครั้งถัดไป
 // พร้อมเชื่อมข้อมูลสถานะการใช้งานและสถานะสอบเทียบให้ตรงกันทั้งระบบทันที
 async function markCalibrated(id){
-  const e = state.equipment.find(x=>x.id===id);
-  if(!e) return;
+  return markCalibratedBulk([id]);
+}
+
+async function markCalibratedBulk(ids){
+  const list = ids.map(id=>state.equipment.find(x=>x.id===id)).filter(Boolean);
+  if(list.length===0) return;
   const todayStr = todayISO();
-  const cycle = e.calibCycle || 1;
-  const d = new Date(todayStr+'T00:00:00');
-  d.setFullYear(d.getFullYear()+cycle);
-  e.lastCalib = todayStr;
-  e.nextCalib = toLocalISODate(d);
-  e.calibStatus = ' สอบเทียบแล้ว';
-  e.useStatus = 'ใช้งานได้';
-  // เครื่องมือนี้เพิ่งสอบเทียบเสร็จแล้ว ถือว่า "เคยเห็นแล้ว" ไม่ต้องขึ้นแจ้งเตือนซ้ำที่กระดิ่งอีก
-  notifReadCalib.add(e.id);
+  list.forEach(e=>{
+    const cycle = e.calibCycle || 1;
+    const d = new Date(todayStr+'T00:00:00');
+    d.setFullYear(d.getFullYear()+cycle);
+    e.lastCalib = todayStr;
+    e.nextCalib = toLocalISODate(d);
+    e.calibStatus = ' สอบเทียบแล้ว';
+    e.useStatus = 'ใช้งานได้';
+    // เครื่องมือนี้เพิ่งสอบเทียบเสร็จแล้ว ถือว่า "เคยเห็นแล้ว" ไม่ต้องขึ้นแจ้งเตือนซ้ำที่กระดิ่งอีก
+    notifReadCalib.add(e.id);
+  });
   await persistNotifReadState();
   await saveEquipment();
-  showNotifToast('บันทึกผลการสอบเทียบแล้ว', `${e.name} — กำหนดครั้งถัดไป ${fmtDateBEShort2(e.nextCalib)}`, '✅', 'new');
+  if(list.length===1){
+    showNotifToast('บันทึกผลการสอบเทียบแล้ว', `${list[0].name} — กำหนดครั้งถัดไป ${fmtDateBEShort2(list[0].nextCalib)}`, '✅', 'new');
+  } else {
+    showNotifToast('บันทึกผลการสอบเทียบแล้ว', `บันทึกผลสำเร็จ ${list.length} รายการ`, '✅', 'new');
+  }
   render();
 }
 
