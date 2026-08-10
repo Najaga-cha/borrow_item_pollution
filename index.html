@@ -702,6 +702,12 @@ async function repairCalibDates(){
   const details = [];
   state.equipment.forEach(e=>{
     let changed = false;
+    // normalize calibCycle ให้เป็นตัวเลขจริงเสมอ (ป้องกันบั๊กปีเพี้ยนจากการต่อสตริง เช่น 2026+"1"="20261")
+    if(e.calibCycle!=null && typeof e.calibCycle !== 'number'){
+      const n = parseInt(e.calibCycle,10);
+      e.calibCycle = isNaN(n) ? 1 : n;
+      changed = true;
+    }
     let last = e.lastCalib ? e.lastCalib.slice(0,10) : null;
     if(last && !isValidISODate(last)){
       const salvaged = salvageDateDigits(last);
@@ -714,7 +720,7 @@ async function repairCalibDates(){
     if(next && !isValidISODate(next)){
       const before = e.nextCalib;
       if(e.lastCalib && isValidISODate(e.lastCalib)){
-        const cycle = e.calibCycle || 1;
+        const cycle = parseInt(e.calibCycle,10) || 1;
         const d = new Date(e.lastCalib+'T00:00:00');
         d.setFullYear(d.getFullYear()+cycle);
         e.nextCalib = toLocalISODate(d);
@@ -1558,7 +1564,7 @@ function renderCalibConfirmModal(){
   const list = ids.map(id=>state.equipment.find(x=>x.id===id)).filter(Boolean);
   if(list.length===0){ state.calibConfirmIds=null; return ''; }
   const nextDateFor = (e)=>{
-    const cycle = e.calibCycle || 1;
+    const cycle = parseInt(e.calibCycle,10) || 1;
     const d = new Date(todayISO()+'T00:00:00');
     d.setFullYear(d.getFullYear()+cycle);
     return toLocalISODate(d);
@@ -3392,7 +3398,7 @@ async function markCalibratedBulk(ids){
   if(list.length===0) return;
   const todayStr = todayISO();
   list.forEach(e=>{
-    const cycle = e.calibCycle || 1;
+    const cycle = parseInt(e.calibCycle,10) || 1;
     const d = new Date(todayStr+'T00:00:00');
     d.setFullYear(d.getFullYear()+cycle);
     e.lastCalib = todayStr;
@@ -3434,7 +3440,7 @@ function importExcel(file){
           category: cat, name: r[1]||'', dept: r[2]||'', yearGot: r[3]||'',
           condition: r[4]||'', calibStatus: r[5]||'', useStatus: r[6]||'ใช้งานได้',
           lastCalib: r[7]? excelDateToISO(r[7]) : null,
-          calibCycle: r[8]||1,
+          calibCycle: parseInt(r[8],10)||1,
           nextCalib: r[9]? excelDateToISO(r[9]) : null,
           brand: r[10]||'', model: r[11]||'', serial: r[12]||'', assetCode: r[13]||'', params: r[14]||'',
           order: orderCounters[cat]++,
