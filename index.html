@@ -611,6 +611,12 @@ function fmtDateShort(iso){
   if(isNaN(d)) return iso;
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${beYear(d.getFullYear())}`;
 }
+function fmtDateShortCE(iso){
+  if(!iso) return '-';
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
 function nowTimeStr(){
   const d = new Date();
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.`;
@@ -1798,7 +1804,7 @@ function renderEquipTable(list){
               <td>
                 <input type="date" class="inp-sm" value="${e.lastCalib?e.lastCalib.slice(0,10):''}" data-act="edit-calib" data-id="${e.id}"/>
               </td>
-              <td class="text-xs ${expired?'text-red-500 font-bold':''}">${e.nextCalib? fmtDateShort(e.nextCalib.slice(0,10)) : '-'}</td>
+              <td class="text-xs ${expired?'text-red-500 font-bold':''}">${e.nextCalib? fmtDateShortCE(e.nextCalib.slice(0,10)) : '-'}</td>
               <td>${held?'<span class="pill pill-warn">ถูกยืมอยู่</span>':'<span class="pill pill-ok">ว่าง</span>'}</td>
               <td class="flex gap-1">
                 <button class="icon-btn" data-act="edit-equip" data-id="${e.id}" title="แก้ไข">✏️</button>
