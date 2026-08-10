@@ -330,17 +330,14 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-grid td.sig-cell:first-child{ padding-right:20px; }
 .sig-grid td.sig-cell:last-child{ padding-left:20px; }
 .sig-grid tr:nth-child(2) td.sig-cell{ padding-top:14px; }
-.sig-box-table{ border-collapse:collapse; table-layout:fixed; font-size:14pt; width:100%; }
-.sig-box-table td{ padding:0; height:2.2em; vertical-align:bottom; }
-.sig-label-cell{ width:9.2em; white-space:nowrap; }
-.sig-dots-cell{ padding-bottom:4px; }
-.sig-dots-cell img{ display:block; width:100%; height:8px; }
-.sig-mid-cell{ width:2em; white-space:nowrap; text-align:center; }
-.sig-dots-a{ width:9em; padding-bottom:4px; }
-.sig-dots-a img{ display:block; width:100%; height:8px; }
-.sig-dots-b{ width:7em; padding-bottom:4px; }
-.sig-dots-b img{ display:block; width:100%; height:8px; }
-.sig-trailing-cell{ white-space:nowrap; padding-left:4px; width:6.5em; }
+.sig-box{ font-size:14pt; }
+.sig-row{ display:flex; align-items:flex-end; white-space:nowrap; height:2.3em; }
+.sig-row-label{ flex-shrink:0; }
+.sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted #000; height:0; min-width:1.5em; margin:0 4px 0.3em; }
+.sig-row-role{ flex-shrink:0; padding-left:4px; }
+.sig-row-top .sig-row-role, .sig-row-paren .sig-row-role{ width:6.6em; text-align:left; }
+.sig-row-paren{ padding-left:2.6em; }
+.sig-row-date .sig-row-dots{ flex:0 0 4.2em; }
 
 @media print{
   .header-band{ display:none !important; }
@@ -1381,25 +1378,32 @@ function renderConfirmBorrowModal(){
 function renderPrintSlipContainer(){
   return `<div id="print-area"></div>`;
 }
-function sigDotsImg(emWidth){
-  // เส้นจุดแบบ SVG ที่ยืดเต็มความกว้างเซลล์เสมอ (แม่นยำกว่าการใช้ border หรือ background ซึ่งบางตัวแปลง PDF เรนเดอร์ไม่ครบ)
-  const vb = Math.round(emWidth * 22);
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${vb} 10' preserveAspectRatio='none'><line x1='1' y1='8' x2='${vb-1}' y2='8' stroke='black' stroke-width='2' stroke-linecap='round' stroke-dasharray='0.1,5'/></svg>`;
-  return `<img src="data:image/svg+xml,${encodeURIComponent(svg)}" alt="">`;
-}
 function buildSigBox(roleLabel){
-  const IMG_18 = sigDotsImg(18);     // แถวลงชื่อ/() รวม 3 คอลัมน์ (9+2+7em)
-  const IMG_245 = sigDotsImg(24.5);  // แถวตำแหน่ง รวม 4 คอลัมน์ (9+2+7+6.5em)
-  const IMG_9 = sigDotsImg(9);       // วันเดือนปี ช่องแรก
-  const IMG_7 = sigDotsImg(7);       // วันเดือนปี ช่องหลัง
   return `
   <td class="sig-cell">
-    <table class="sig-box-table"><colgroup><col style="width:9.2em"><col style="width:9em"><col style="width:2em"><col style="width:7em"><col style="width:6.5em"></colgroup>
-      <tr><td class="sig-label-cell">ลงชื่อ</td><td class="sig-dots-cell" colspan="3">${IMG_18}</td><td class="sig-trailing-cell">${esc(roleLabel)}</td></tr>
-      <tr><td class="sig-label-cell" style="padding-left:3.2em">(</td><td class="sig-dots-cell" colspan="3">${IMG_18}</td><td class="sig-trailing-cell">)</td></tr>
-      <tr><td class="sig-label-cell" style="padding-left:1.3em">ตำแหน่ง</td><td class="sig-dots-cell" colspan="4">${IMG_245}</td></tr>
-      <tr><td class="sig-label-cell">วัน เดือน ปี/เวลา</td><td class="sig-dots-a">${IMG_9}</td><td class="sig-mid-cell">/</td><td class="sig-dots-b">${IMG_7}</td><td class="sig-trailing-cell">นาฬิกา</td></tr>
-    </table>
+    <div class="sig-box">
+      <div class="sig-row sig-row-top">
+        <span class="sig-row-label">ลงชื่อ</span>
+        <span class="sig-row-dots"></span>
+        <span class="sig-row-role">${esc(roleLabel)}</span>
+      </div>
+      <div class="sig-row sig-row-paren">
+        <span class="sig-row-label">(</span>
+        <span class="sig-row-dots"></span>
+        <span class="sig-row-role">)</span>
+      </div>
+      <div class="sig-row sig-row-position">
+        <span class="sig-row-label">ตำแหน่ง</span>
+        <span class="sig-row-dots"></span>
+      </div>
+      <div class="sig-row sig-row-date">
+        <span class="sig-row-label">วัน เดือน ปี/เวลา</span>
+        <span class="sig-row-dots"></span>
+        <span class="sig-row-role" style="padding:0 4px;">/</span>
+        <span class="sig-row-dots"></span>
+        <span class="sig-row-role">นาฬิกา</span>
+      </div>
+    </div>
   </td>`;
 }
 function buildSlipHTML(b){
@@ -1506,17 +1510,14 @@ const SLIP_STANDALONE_CSS = `
   .sig-grid td.sig-cell:first-child{ padding-right:20px; }
   .sig-grid td.sig-cell:last-child{ padding-left:20px; }
   .sig-grid tr:nth-child(2) td.sig-cell{ padding-top:14px; }
-  .sig-box-table{ border-collapse:collapse; table-layout:fixed; font-size:14pt; width:100%; }
-  .sig-box-table td{ padding:0; height:2.2em; vertical-align:bottom; }
-  .sig-label-cell{ width:9.2em; white-space:nowrap; }
-  .sig-dots-cell{ padding-bottom:4px; }
-.sig-dots-cell img{ display:block; width:100%; height:8px; }
-  .sig-mid-cell{ width:2em; white-space:nowrap; text-align:center; }
-  .sig-dots-a{ width:9em; padding-bottom:4px; }
-.sig-dots-a img{ display:block; width:100%; height:8px; }
-  .sig-dots-b{ width:7em; padding-bottom:4px; }
-.sig-dots-b img{ display:block; width:100%; height:8px; }
-  .sig-trailing-cell{ white-space:nowrap; padding-left:4px; width:6.5em; }
+  .sig-box{ font-size:14pt; }
+  .sig-row{ display:flex; align-items:flex-end; white-space:nowrap; height:2.3em; }
+  .sig-row-label{ flex-shrink:0; }
+  .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted #000; height:0; min-width:1.5em; margin:0 4px 0.3em; }
+  .sig-row-role{ flex-shrink:0; padding-left:4px; }
+  .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role{ width:6.6em; text-align:left; }
+  .sig-row-paren{ padding-left:2.6em; }
+  .sig-row-date .sig-row-dots{ flex:0 0 4.2em; }
   @media print{ @page{ size:A4; margin:10mm; } }
 `;
 function buildSlipStandaloneHTML(b){
