@@ -274,6 +274,13 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 
 .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
 .modal-card{ background:var(--card); border-radius:18px; padding:24px; max-width:640px; width:100%; max-height:88vh; overflow-y:auto; box-shadow: var(--shadow); }
+.calib-confirm-card{ max-width:420px; }
+.calib-confirm-icon{ width:52px; height:52px; margin:0 auto 14px; border-radius:999px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center; }
+.calib-confirm-icon svg{ width:26px; height:26px; }
+:root[data-theme="dark"] .calib-confirm-icon{ background:rgba(16,185,129,.15); color:#6ee7b7; }
+.calib-confirm-detail{ background:var(--chip-bg); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+.calib-confirm-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; }
+.calib-confirm-row b{ text-align:right; }
 
 .cal-grid{ display:grid; grid-template-columns: repeat(7,1fr); gap:6px; }
 .cal-grid-head{ margin-bottom:4px; }
@@ -517,6 +524,7 @@ const state = {
   reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''} },
   lastCreatedBorrowId: null,
   pendingBorrow: null,
+  calibConfirmId: null,
   notifyStatus: {},
   returnSearch: '',
   returnSubTab: 'all',
@@ -970,6 +978,7 @@ function render(){
     ${state.pendingBorrow ? renderConfirmBorrowModal() : ''}
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
     ${state.availCal ? renderAvailabilityCalendarModal() : ''}
+    ${state.calibConfirmId ? renderCalibConfirmModal() : ''}
   `;
   attachHandlers();
   if(typeof updateLiveClock==='function') updateLiveClock();
@@ -1464,6 +1473,35 @@ function renderConfirmBorrowModal(){
       <div class="mt-6 flex justify-end gap-2">
         <button class="btn-ghost" data-act="cancel-confirm-borrow">ยกเลิก</button>
         <button class="btn-primary" data-act="confirm-submit-borrow">✅ ตกลง ยืนยันคำขอ</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderCalibConfirmModal(){
+  const e = state.equipment.find(x=>x.id===state.calibConfirmId);
+  if(!e){ state.calibConfirmId=null; return ''; }
+  const cycle = e.calibCycle || 1;
+  const d = new Date(todayISO()+'T00:00:00');
+  d.setFullYear(d.getFullYear()+cycle);
+  const nextDate = toLocalISODate(d);
+  return `
+  <div class="modal-backdrop" data-act="cancel-calib-confirm">
+    <div class="modal-card calib-confirm-card">
+      <div class="calib-confirm-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h3 class="text-lg font-bold mb-1 text-center">ยืนยันผลการสอบเทียบ</h3>
+      <p class="text-sm subtle mb-4 text-center">ยืนยันว่าเครื่องมือนี้ได้ทำการสอบเทียบเสร็จเรียบร้อยแล้วใช่หรือไม่?</p>
+      <div class="calib-confirm-detail">
+        <div class="calib-confirm-row"><span class="subtle">รายการ</span><b>${esc(e.name)}</b></div>
+        <div class="calib-confirm-row"><span class="subtle">รหัสพัสดุ</span><span>${esc(e.assetCode||'-')}</span></div>
+        <div class="calib-confirm-row"><span class="subtle">วันที่สอบเทียบ (วันนี้)</span><span>${fmtDateBEShort2(todayISO())}</span></div>
+        <div class="calib-confirm-row"><span class="subtle">กำหนดสอบเทียบครั้งถัดไป</span><span>${fmtDateBEShort2(nextDate)}</span></div>
+      </div>
+      <div class="mt-6 flex justify-end gap-2">
+        <button class="btn-ghost" data-act="cancel-calib-confirm">ยกเลิก</button>
+        <button class="btn-primary" data-act="confirm-calib-done" data-id="${e.id}">✅ ยืนยัน สอบเทียบแล้ว</button>
       </div>
     </div>
   </div>`;
@@ -2901,7 +2939,9 @@ function onClick(e){
   if(act==='save-equip'){ saveEquipModal(el.dataset.id); return; }
   if(act==='del-equip'){ delEquip(el.dataset.id); return; }
   if(act==='clear-equip'){ clearEquip(); return; }
-  if(act==='mark-calibrated'){ markCalibrated(el.dataset.id); return; }
+  if(act==='mark-calibrated'){ state.calibConfirmId = el.dataset.id; render(); return; }
+  if(act==='cancel-calib-confirm'){ state.calibConfirmId = null; render(); return; }
+  if(act==='confirm-calib-done'){ markCalibrated(el.dataset.id); state.calibConfirmId = null; return; }
   if(act==='cal-prev'){ calShift(-1); return; }
   if(act==='cal-next'){ calShift(1); return; }
   if(act==='cal-day'){ state.calendar.selectedDay = parseInt(el.dataset.day); render(); return; }
@@ -3221,7 +3261,6 @@ async function saveEquipModal(id){
 async function markCalibrated(id){
   const e = state.equipment.find(x=>x.id===id);
   if(!e) return;
-  if(!confirm(`ยืนยันว่า "${e.name}" (${e.assetCode||'-'}) ได้ทำการสอบเทียบเสร็จเรียบร้อยแล้ว?\nระบบจะบันทึกวันที่วันนี้เป็นวันสอบเทียบล่าสุด และคำนวณกำหนดสอบเทียบครั้งถัดไปให้อัตโนมัติ`)) return;
   const todayStr = todayISO();
   const cycle = e.calibCycle || 1;
   const d = new Date(todayStr+'T00:00:00');
