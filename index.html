@@ -120,6 +120,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 }
 .notif-badge{ position:absolute; top:-5px; right:-5px; min-width:17px; height:17px; padding:0 4px; border-radius:999px; background:#dc2626; color:#fff; font-size:10px; font-weight:800; line-height:17px; text-align:center; box-shadow:0 0 0 2px var(--primary,#0f766e); }
 .notif-badge.pulse{ animation: notifBadgePulse 1.4s ease-in-out infinite; }
+.tab-corner-badge{ position:absolute; top:-7px; right:-7px; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:#dc2626; color:#fff; font-size:10.5px; font-weight:800; line-height:18px; text-align:center; box-shadow:0 0 0 2px var(--card,#fff); animation: notifBadgePulse 1.4s ease-in-out infinite; }
 @keyframes notifBadgePulse{
   0%,100%{ box-shadow:0 0 0 2px var(--primary,#0f766e), 0 0 0 0 rgba(220,38,38,.65); }
   50%{ box-shadow:0 0 0 2px var(--primary,#0f766e), 0 0 0 6px rgba(220,38,38,0); }
@@ -523,17 +524,21 @@ const state = {
 ====================================================================================== */
 let notifReadBorrows = new Set();
 let notifReadLate = new Set();
+let notifReadCalib = new Set();
 async function loadNotifReadState(){
   const seeded = await stGet('notif:seeded', false);
   const rb = await stGet('notif:readBorrows', false);
   const rl = await stGet('notif:readLate', false);
+  const rc = await stGet('notif:readCalib', false);
   notifReadBorrows = new Set(Array.isArray(rb) ? rb : []);
   notifReadLate = new Set(Array.isArray(rl) ? rl : []);
+  notifReadCalib = new Set(Array.isArray(rc) ? rc : []);
   if(!seeded){
     // ครั้งแรกที่เปิดระบบในเครื่องนี้ ให้ถือว่ารายการที่มีอยู่แล้วเป็น "เคยเห็นแล้ว" ทั้งหมด
     // เพื่อไม่ให้แจ้งเตือนย้อนหลังของเก่าทั้งหมดพรวดเดียว
     state.borrows.forEach(b=>notifReadBorrows.add(b.id));
     lateActiveBorrows().forEach(b=>notifReadLate.add(b.id));
+    calibAlertItems().forEach(e=>notifReadCalib.add(e.id));
     await persistNotifReadState();
     await stSet('notif:seeded', true, false);
   }
@@ -541,6 +546,7 @@ async function loadNotifReadState(){
 async function persistNotifReadState(){
   await stSet('notif:readBorrows', Array.from(notifReadBorrows), false);
   await stSet('notif:readLate', Array.from(notifReadLate), false);
+  await stSet('notif:readCalib', Array.from(notifReadCalib), false);
 }
 function unreadNewBorrows(){
   return state.borrows
@@ -550,7 +556,18 @@ function unreadNewBorrows(){
 function unreadLateReturns(){
   return lateActiveBorrows().filter(b=>!notifReadLate.has(b.id));
 }
-function notifUnreadCount(){ return unreadNewBorrows().length + unreadLateReturns().length; }
+// เครื่องมือที่ถึงกำหนด/ใกล้ถึงกำหนดสอบเทียบภายใน 30 วัน (รวมที่เลยกำหนดแล้ว)
+function calibAlertItems(){
+  return state.equipment.filter(e=>{
+    if(!e.nextCalib) return false;
+    const days = calibDaysLeft(e.nextCalib);
+    return days!==null && days<=30;
+  }).sort((a,b)=> (a.nextCalib||'').localeCompare(b.nextCalib||''));
+}
+function unreadCalibAlerts(){
+  return calibAlertItems().filter(e=>!notifReadCalib.has(e.id));
+}
+function notifUnreadCount(){ return unreadNewBorrows().length + unreadLateReturns().length + unreadCalibAlerts().length; }
 function notifTimeAgo(iso){
   if(!iso) return '';
   const then = new Date(iso).getTime();
@@ -571,15 +588,29 @@ async function toggleNotifPanel(){
 async function markAllNotifRead(){
   state.borrows.forEach(b=>notifReadBorrows.add(b.id));
   lateActiveBorrows().forEach(b=>notifReadLate.add(b.id));
+  calibAlertItems().forEach(e=>notifReadCalib.add(e.id));
   await persistNotifReadState();
   render();
 }
 async function openNotifItem(type, id){
   if(type==='new'){ notifReadBorrows.add(id); }
-  else{ notifReadLate.add(id); }
+  else if(type==='late'){ notifReadLate.add(id); }
+  else if(type==='calib'){ notifReadCalib.add(id); }
   await persistNotifReadState();
-  const b = state.borrows.find(x=>x.id===id);
   state.notif.open = false;
+  if(type==='calib'){
+    if(!state.loggedIn){ render(); return; }
+    state.tab = 'manage';
+    state.manage.view = 'calib';
+    const e = state.equipment.find(x=>x.id===id);
+    if(e){
+      state.manage.calib = state.manage.calib || {catFilter:'', statusFilter:'', search:''};
+      state.manage.calib.search = e.assetCode || e.name || '';
+    }
+    render();
+    return;
+  }
+  const b = state.borrows.find(x=>x.id===id);
   if(!state.loggedIn){ render(); return; }
   state.tab = 'return';
   state.returnSubTab = type==='late' ? 'late' : 'all';
@@ -966,12 +997,14 @@ function renderNotifBell(){
 function renderNotifPanel(){
   const newBorrows = unreadNewBorrows();
   const lateReturns = unreadLateReturns();
+  const calibDue = unreadCalibAlerts();
   const items = [
     ...newBorrows.map(b=>({ type:'new', b })),
     ...lateReturns.map(b=>({ type:'late', b })),
+    ...calibDue.map(e=>({ type:'calib', e })),
   ].sort((x,y)=>{
-    const tx = x.type==='new' ? (x.b.createdAt||'') : (x.b.returnDate||'');
-    const ty = y.type==='new' ? (y.b.createdAt||'') : (y.b.returnDate||'');
+    const tx = x.type==='new' ? (x.b.createdAt||'') : (x.type==='late' ? (x.b.returnDate||'') : (x.e.nextCalib||''));
+    const ty = y.type==='new' ? (y.b.createdAt||'') : (y.type==='late' ? (y.b.returnDate||'') : (y.e.nextCalib||''));
     return ty.localeCompare(tx);
   });
   const total = items.length;
@@ -995,7 +1028,7 @@ function renderNotifPanel(){
             </div>
             <div class="notif-dot"></div>
           </div>`;
-        }else{
+        }else if(it.type==='late'){
           const b = it.b;
           const dl = daysLate(b);
           return `
@@ -1005,6 +1038,20 @@ function renderNotifPanel(){
               <div class="notif-title">ส่งคืนสาย: ${esc(b.code||'')}</div>
               <div class="notif-sub">${esc(b.dept||'-')} • ${esc(b.name||'-')} • เลยกำหนด ${dl} วัน</div>
               <div class="notif-time">กำหนดคืน ${esc(b.returnDate||'-')}</div>
+            </div>
+            <div class="notif-dot"></div>
+          </div>`;
+        }else{
+          const e = it.e;
+          const days = calibDaysLeft(e.nextCalib);
+          const overdue = days<0;
+          return `
+          <div class="notif-item unread" data-act="notif-open" data-type="calib" data-id="${e.id}">
+            <div class="notif-icon ${overdue?'late':'new'}">🧪</div>
+            <div class="notif-text">
+              <div class="notif-title">${overdue?'เลยกำหนดสอบเทียบ':'ใกล้ถึงกำหนดสอบเทียบ'}: ${esc(e.name||'')}</div>
+              <div class="notif-sub">${esc(e.assetCode||'-')} • ${overdue?`เลยกำหนด ${Math.abs(days)} วัน`:`เหลือ ${days} วัน`}</div>
+              <div class="notif-time">กำหนดสอบเทียบ ${fmtDateBEShort2(e.nextCalib.slice(0,10))}</div>
             </div>
             <div class="notif-dot"></div>
           </div>`;
@@ -1731,13 +1778,17 @@ function renderManageTab(){
     if(m.search && !(e.name+e.assetCode+e.brand+e.model).toLowerCase().includes(m.search.toLowerCase())) return false;
     return true;
   });
+  const calibAlertCount = calibAlertItems().length;
   return `
   <div class="mt-5 space-y-6">
     <div class="flex flex-wrap gap-2 items-center justify-between">
       <div class="flex gap-2 flex-wrap">
         <button class="tool-tab ${(!state.manage.view||state.manage.view==='table')?'tool-tab-active':''}" data-act="mview" data-v="table">📋 รายการเครื่องมือ</button>
         <button class="tool-tab ${state.manage.view==='calendar'?'tool-tab-active':''}" data-act="mview" data-v="calendar">📅 ปฏิทินการยืม</button>
-        <button class="tool-tab ${state.manage.view==='calib'?'tool-tab-active':''}" data-act="mview" data-v="calib">🧪 การสอบเทียบ</button>
+        <button class="tool-tab ${state.manage.view==='calib'?'tool-tab-active':''}" data-act="mview" data-v="calib" style="position:relative">
+          🧪 การสอบเทียบ
+          ${calibAlertCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ต้องสอบเทียบ (เลยกำหนด/ใกล้ถึงกำหนดภายใน 30 วัน)">${calibAlertCount>99?'99+':calibAlertCount}</span>` : ''}
+        </button>
         <button class="tool-tab ${state.manage.view==='order'?'tool-tab-active':''}" data-act="mview" data-v="order">🔀 จัดลำดับเครื่องมือ</button>
       </div>
     </div>
