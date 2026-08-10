@@ -674,6 +674,64 @@ function toLocalISODate(d){
   const day = String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
+// ตรวจว่าสตริงเป็นวันที่รูปแบบ ISO (YYYY-MM-DD) ที่ถูกต้องจริงหรือไม่
+// ใช้ป้องกันไม่ให้ค่าที่เพี้ยน (เช่น "20261-08-1" จากข้อมูลเก่าที่เสียหาย) หลุดไปแสดงผลตรงๆ
+function isValidISODate(s){
+  if(!s || typeof s !== 'string') return false;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s+'T00:00:00');
+  return !isNaN(d) && toLocalISODate(d)===s;
+}
+// พยายามกู้วันที่จากสตริงที่เพี้ยน โดยดึงเฉพาะตัวเลขทั้งหมดแล้วตีความเป็น YYYYMMDD
+// คืนค่า Date ที่ถูกต้อง หรือ null ถ้ากู้ไม่ได้
+function salvageDateDigits(s){
+  if(!s) return null;
+  const digits = String(s).replace(/\D/g,'');
+  if(digits.length<8) return null;
+  const y = parseInt(digits.slice(0,4),10);
+  const mo = parseInt(digits.slice(4,6),10);
+  const da = parseInt(digits.slice(6,8),10);
+  if(y<1900||y>2200||mo<1||mo>12||da<1||da>31) return null;
+  const d = new Date(y, mo-1, da);
+  return isNaN(d) ? null : d;
+}
+// ซ่อมรายการเครื่องมือที่ lastCalib/nextCalib เพี้ยนรูปแบบ (ไม่ใช่ YYYY-MM-DD ที่ถูกต้อง)
+// คำนวณ nextCalib ใหม่จาก lastCalib (ถ้ากู้ได้) + รอบสอบเทียบ ให้ถูกต้องเสมอ
+async function repairCalibDates(){
+  let fixedCount = 0;
+  const details = [];
+  state.equipment.forEach(e=>{
+    let changed = false;
+    let last = e.lastCalib ? e.lastCalib.slice(0,10) : null;
+    if(last && !isValidISODate(last)){
+      const salvaged = salvageDateDigits(last);
+      const before = e.lastCalib;
+      e.lastCalib = salvaged ? toLocalISODate(salvaged) : null;
+      changed = true;
+      details.push(`${e.name} (${e.assetCode||'-'}): สอบเทียบล่าสุด "${before}" → "${e.lastCalib||'-'}"`);
+    }
+    let next = e.nextCalib ? e.nextCalib.slice(0,10) : null;
+    if(next && !isValidISODate(next)){
+      const before = e.nextCalib;
+      if(e.lastCalib && isValidISODate(e.lastCalib)){
+        const cycle = e.calibCycle || 1;
+        const d = new Date(e.lastCalib+'T00:00:00');
+        d.setFullYear(d.getFullYear()+cycle);
+        e.nextCalib = toLocalISODate(d);
+      } else {
+        const salvaged = salvageDateDigits(next);
+        e.nextCalib = salvaged ? toLocalISODate(salvaged) : null;
+      }
+      changed = true;
+      details.push(`${e.name} (${e.assetCode||'-'}): สอบเทียบครั้งถัดไป "${before}" → "${e.nextCalib||'-'}"`);
+    }
+    if(changed) fixedCount++;
+  });
+  if(fixedCount===0){ alert('ไม่พบวันที่ที่ผิดรูปแบบในระบบ'); return; }
+  await saveEquipment();
+  render();
+  alert(`ซ่อมข้อมูลวันที่สำเร็จ ${fixedCount} รายการ:\n\n${details.join('\n')}`);
+}
 function fmtDateBE(iso){
   if(!iso) return '-';
   const d = new Date(iso+'T00:00:00');
@@ -2046,6 +2104,7 @@ function renderEquipTable(list){
           📥 นำเข้า Excel
           <input type="file" id="import-file" accept=".xlsx,.xls,.csv" class="hidden"/>
         </label>
+        <button class="btn-ghost" data-act="repair-calib-dates" title="ซ่อมรายการที่วันที่สอบเทียบแสดงผลผิดเพี้ยน (เช่น 20261-08-1)">🛠️ ซ่อมวันที่ผิดพลาด</button>
         <button class="btn-danger" data-act="clear-equip">🗑️ ล้างฐานข้อมูลทั้งหมด</button>
       </div>
     </div>
@@ -2979,6 +3038,7 @@ function onClick(e){
   if(act==='save-equip'){ saveEquipModal(el.dataset.id); return; }
   if(act==='del-equip'){ delEquip(el.dataset.id); return; }
   if(act==='clear-equip'){ clearEquip(); return; }
+  if(act==='repair-calib-dates'){ repairCalibDates(); return; }
   if(act==='calib-clear-selection'){ state.calibSelected.clear(); render(); return; }
   if(act==='calib-confirm-selected'){ state.calibConfirmIds = Array.from(state.calibSelected); render(); return; }
   if(act==='cancel-calib-confirm'){ state.calibConfirmIds = null; render(); return; }
