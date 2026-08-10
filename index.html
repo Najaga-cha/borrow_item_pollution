@@ -330,14 +330,14 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-grid td.sig-cell:first-child{ padding-right:20px; }
 .sig-grid td.sig-cell:last-child{ padding-left:20px; }
 .sig-grid tr:nth-child(2) td.sig-cell{ padding-top:14px; }
-.sig-box-table{ border-collapse:collapse; table-layout:fixed; font-size:14pt; }
-.sig-box-table td{ padding:0; height:2.2em; vertical-align:bottom; }
-.sig-label-cell{ width:9.2em; white-space:nowrap; }
-.sig-dots-cell{ border-bottom:1px dotted #000; }
-.sig-mid-cell{ width:2em; white-space:nowrap; text-align:center; }
-.sig-dots-a{ width:9em; border-bottom:1px dotted #000; }
-.sig-dots-b{ width:7em; border-bottom:1px dotted #000; }
-.sig-trailing-cell{ white-space:nowrap; padding-left:4px; width:6.5em; }
+.sig-box{ font-size:14pt; width:100%; }
+.sig-row{ display:flex; align-items:flex-end; width:100%; height:2.2em; }
+.sig-label{ flex:0 0 9.2em; width:9.2em; white-space:nowrap; }
+.sig-blank{ flex:1 1 auto; min-width:0; align-self:stretch; border-bottom:1px dotted #000; margin-bottom:0.35em; }
+.sig-blank-a{ flex:9 1 0; min-width:0; align-self:stretch; border-bottom:1px dotted #000; margin-bottom:0.35em; }
+.sig-blank-b{ flex:7 1 0; min-width:0; align-self:stretch; border-bottom:1px dotted #000; margin-bottom:0.35em; }
+.sig-mid{ flex:0 0 2em; width:2em; white-space:nowrap; text-align:center; }
+.sig-trailing{ flex:0 0 6.5em; white-space:nowrap; padding-left:4px; width:6.5em; }
 
 @media print{
   .header-band{ display:none !important; }
@@ -1381,12 +1381,12 @@ function renderPrintSlipContainer(){
 function buildSigBox(roleLabel){
   return `
   <td class="sig-cell">
-    <table class="sig-box-table"><colgroup><col style="width:9.2em"><col style="width:9em"><col style="width:2em"><col style="width:7em"><col style="width:6.5em"></colgroup>
-      <tr><td class="sig-label-cell">ลงชื่อ</td><td class="sig-dots-cell" colspan="3"></td><td class="sig-trailing-cell">${esc(roleLabel)}</td></tr>
-      <tr><td class="sig-label-cell" style="padding-left:3.2em">(</td><td class="sig-dots-cell" colspan="3"></td><td class="sig-trailing-cell">)</td></tr>
-      <tr><td class="sig-label-cell" style="padding-left:1.3em">ตำแหน่ง</td><td class="sig-dots-cell" colspan="4"></td></tr>
-      <tr><td class="sig-label-cell">วัน เดือน ปี/เวลา</td><td class="sig-dots-a"></td><td class="sig-mid-cell">/</td><td class="sig-dots-b"></td><td class="sig-trailing-cell">นาฬิกา</td></tr>
-    </table>
+    <div class="sig-box">
+      <div class="sig-row"><span class="sig-label">ลงชื่อ</span><span class="sig-blank"></span><span class="sig-trailing">${esc(roleLabel)}</span></div>
+      <div class="sig-row"><span class="sig-label" style="padding-left:3.2em">(</span><span class="sig-blank"></span><span class="sig-trailing">)</span></div>
+      <div class="sig-row"><span class="sig-label" style="padding-left:1.3em">ตำแหน่ง</span><span class="sig-blank"></span></div>
+      <div class="sig-row"><span class="sig-label">วัน เดือน ปี/เวลา</span><span class="sig-blank-a"></span><span class="sig-mid">/</span><span class="sig-blank-b"></span><span class="sig-trailing">นาฬิกา</span></div>
+    </div>
   </td>`;
 }
 function buildSlipHTML(b){
@@ -1493,14 +1493,14 @@ const SLIP_STANDALONE_CSS = `
   .sig-grid td.sig-cell:first-child{ padding-right:20px; }
   .sig-grid td.sig-cell:last-child{ padding-left:20px; }
   .sig-grid tr:nth-child(2) td.sig-cell{ padding-top:14px; }
-  .sig-box-table{ border-collapse:collapse; table-layout:fixed; font-size:14pt; }
-  .sig-box-table td{ padding:0; height:2.2em; vertical-align:bottom; }
-  .sig-label-cell{ width:9.2em; white-space:nowrap; }
-  .sig-dots-cell{ border-bottom:1px dotted #000; }
-  .sig-mid-cell{ width:2em; white-space:nowrap; text-align:center; }
-  .sig-dots-a{ width:9em; border-bottom:1px dotted #000; }
-  .sig-dots-b{ width:7em; border-bottom:1px dotted #000; }
-  .sig-trailing-cell{ white-space:nowrap; padding-left:4px; width:6.5em; }
+  .sig-box{ font-size:14pt; width:100%; }
+  .sig-row{ display:flex; align-items:flex-end; width:100%; height:2.2em; }
+  .sig-label{ flex:0 0 9.2em; width:9.2em; white-space:nowrap; }
+  .sig-blank{ flex:1 1 auto; min-width:0; align-self:stretch; border-bottom:1px dotted #000; margin-bottom:0.35em; }
+  .sig-blank-a{ flex:9 1 0; min-width:0; align-self:stretch; border-bottom:1px dotted #000; margin-bottom:0.35em; }
+  .sig-blank-b{ flex:7 1 0; min-width:0; align-self:stretch; border-bottom:1px dotted #000; margin-bottom:0.35em; }
+  .sig-mid{ flex:0 0 2em; width:2em; white-space:nowrap; text-align:center; }
+  .sig-trailing{ flex:0 0 6.5em; white-space:nowrap; padding-left:4px; width:6.5em; }
   @media print{ @page{ size:A4; margin:10mm; } }
 `;
 function buildSlipStandaloneHTML(b){
