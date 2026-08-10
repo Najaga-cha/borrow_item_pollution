@@ -228,6 +228,10 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 :root[data-theme="dark"] .pill-warn{ background:#3a2a0e; color:#fbbf24; }
 .pill-danger{ background:#fee2e2; color:#b91c1c; }
 :root[data-theme="dark"] .pill-danger{ background:#3a1414; color:#f87171; }
+.calib-row-danger{ background:rgba(254,226,226,.5); }
+.calib-row-warn{ background:rgba(254,243,199,.5); }
+:root[data-theme="dark"] .calib-row-danger{ background:rgba(58,20,20,.4); }
+:root[data-theme="dark"] .calib-row-warn{ background:rgba(58,42,14,.4); }
 .pill-clock{ background:rgba(255,255,255,.16); color:var(--header-text); border:1px solid rgba(255,255,255,.28); font-weight:600; font-size:12.5px; padding:5px 12px; letter-spacing:.2px; }
 .mini-chip{ font-size:11px; padding:2px 8px; border-radius:999px; background: color-mix(in srgb, var(--c) 18%, transparent); border:1px solid var(--c); color:var(--text); white-space:nowrap;}
 
@@ -1704,10 +1708,91 @@ function renderManageTab(){
       <div class="flex gap-2 flex-wrap">
         <button class="tool-tab ${(!state.manage.view||state.manage.view==='table')?'tool-tab-active':''}" data-act="mview" data-v="table">📋 รายการเครื่องมือ</button>
         <button class="tool-tab ${state.manage.view==='calendar'?'tool-tab-active':''}" data-act="mview" data-v="calendar">📅 ปฏิทินการยืม</button>
+        <button class="tool-tab ${state.manage.view==='calib'?'tool-tab-active':''}" data-act="mview" data-v="calib">🧪 การสอบเทียบ</button>
         <button class="tool-tab ${state.manage.view==='order'?'tool-tab-active':''}" data-act="mview" data-v="order">🔀 จัดลำดับเครื่องมือ</button>
       </div>
     </div>
-    ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : renderEquipTable(list))}
+    ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : (state.manage.view==='calib' ? renderCalibTab() : renderEquipTable(list)))}
+  </div>`;
+}
+
+function calibDaysLeft(nextCalib){
+  if(!nextCalib) return null;
+  const today = new Date(todayISO()+'T00:00:00');
+  const next = new Date(nextCalib.slice(0,10)+'T00:00:00');
+  return Math.round((next-today)/86400000);
+}
+function calibStatusInfo(nextCalib){
+  const days = calibDaysLeft(nextCalib);
+  if(days===null) return {cls:'', pill:'', label:'-'};
+  if(days<0) return {cls:'calib-row-danger', pill:'pill-danger', label:`เลยกำหนด ${Math.abs(days)} วัน`};
+  if(days<=90) return {cls:'calib-row-warn', pill:'pill-warn', label:`เหลือ ${days} วัน`};
+  return {cls:'calib-row-ok', pill:'pill-ok', label:`เหลือ ${days} วัน`};
+}
+function renderCalibTab(){
+  const cm = state.manage.calib || (state.manage.calib = {catFilter:'', statusFilter:'', search:''});
+  let items = state.equipment.filter(e=>!!e.nextCalib);
+  if(cm.catFilter) items = items.filter(e=>e.category===cm.catFilter);
+  if(cm.search) items = items.filter(e=>(e.name+e.assetCode+e.brand+e.model).toLowerCase().includes(cm.search.toLowerCase()));
+  items = items.map(e=>({...e, calibInfo:calibStatusInfo(e.nextCalib)}));
+  if(cm.statusFilter==='danger') items = items.filter(e=>e.calibInfo.pill==='pill-danger');
+  else if(cm.statusFilter==='warn') items = items.filter(e=>e.calibInfo.pill==='pill-warn');
+  else if(cm.statusFilter==='ok') items = items.filter(e=>e.calibInfo.pill==='pill-ok');
+  items.sort((a,b)=> (a.nextCalib||'').localeCompare(b.nextCalib||''));
+  const countDanger = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-danger').length;
+  const countWarn = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-warn').length;
+  const countOk = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-ok').length;
+  return `
+  <div class="card p-5">
+    <p class="text-sm subtle mb-4">แสดงกำหนดการสอบเทียบของเครื่องมือ โดยอิงจากวันที่ในช่อง "สอบเทียบครั้งถัดไป" — 🟢 ยังไม่ถึงกำหนด (มากกว่า 90 วัน) &nbsp; 🟡 ใกล้ถึงกำหนด (ภายใน 90 วัน) &nbsp; 🔴 เลยกำหนดสอบเทียบแล้ว</p>
+    <div class="flex flex-wrap gap-3 items-end mb-4">
+      <div>
+        <label class="lbl">หมวดหมู่</label>
+        <select id="cb-cat" class="inp">
+          <option value="">ทั้งหมด</option>
+          ${CATEGORIES.map(c=>`<option value="${c}" ${cm.catFilter===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="lbl">สถานะการสอบเทียบ</label>
+        <select id="cb-status" class="inp">
+          <option value="">ทั้งหมด</option>
+          <option value="danger" ${cm.statusFilter==='danger'?'selected':''}>🔴 เลยกำหนดแล้ว (${countDanger})</option>
+          <option value="warn" ${cm.statusFilter==='warn'?'selected':''}>🟡 ใกล้ถึงกำหนด ≤ 90 วัน (${countWarn})</option>
+          <option value="ok" ${cm.statusFilter==='ok'?'selected':''}>🟢 ยังไม่ถึงกำหนด (${countOk})</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-[180px]">
+        <label class="lbl">ค้นหา</label>
+        <input id="cb-search" class="inp" placeholder="ชื่อเครื่องมือ / รหัสครุภัณฑ์ / ยี่ห้อ" value="${esc(cm.search)}"/>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <span class="pill pill-danger">🔴 เลยกำหนด ${countDanger} เครื่อง</span>
+      <span class="pill pill-warn">🟡 ใกล้ถึงกำหนด ${countWarn} เครื่อง</span>
+      <span class="pill pill-ok">🟢 ยังไม่ถึงกำหนด ${countOk} เครื่อง</span>
+    </div>
+    <div class="text-sm subtle mb-2">พบ ${items.length} รายการ (แสดงเฉพาะเครื่องมือที่มีข้อมูลสอบเทียบ)</div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th>ประเภท</th><th>ชื่อเครื่องมือ</th><th>รหัสครุภัณฑ์</th><th>ยี่ห้อ/รุ่น</th>
+          <th>สอบเทียบล่าสุด</th><th>สอบเทียบครั้งถัดไป</th><th>สถานะ</th>
+        </tr></thead>
+        <tbody>
+          ${items.length===0 ? `<tr><td colspan="7" class="text-center subtle py-6">ไม่พบข้อมูล</td></tr>` : items.map(e=>`
+            <tr class="${e.calibInfo.cls}">
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${e.category}</span></td>
+              <td class="font-medium">${esc(e.name)}</td>
+              <td class="font-mono text-xs">${esc(e.assetCode||'-')}</td>
+              <td class="text-xs">${esc(e.brand||'')} ${esc(e.model||'')}</td>
+              <td class="text-xs">${e.lastCalib?fmtDateShortCE(e.lastCalib.slice(0,10)):'-'}</td>
+              <td class="text-xs font-semibold">${fmtDateShortCE(e.nextCalib.slice(0,10))}</td>
+              <td><span class="pill ${e.calibInfo.pill}">${e.calibInfo.label}</span></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
   </div>`;
 }
 
@@ -2516,6 +2601,7 @@ function attachHandlers(){
   bindTextInput('form-search-dept', v=>{state.form.dropdownSearch.dept=v; render();});
   bindTextInput('form-search-province', v=>{state.form.dropdownSearch.province=v; render();});
   bindTextInput('m-search', v=>{state.manage.search=v; renderSoft();});
+  bindTextInput('cb-search', v=>{state.manage.calib.search=v; renderSoft();});
   bindTextInput('ret-search', v=>{state.returnSearch=v; renderSoft();});
   bindTextInput('r-search-dept', v=>{state.reports.filterSearch.dept=v; renderSoft();});
   bindTextInput('r-search-province', v=>{state.reports.filterSearch.province=v; renderSoft();});
@@ -2733,6 +2819,8 @@ function onChange(e){
 
   if(el.id==='m-cat'){ state.manage.catFilter = el.value; render(); return; }
   if(el.id==='m-status'){ state.manage.statusFilter = el.value; render(); return; }
+  if(el.id==='cb-cat'){ state.manage.calib.catFilter = el.value; render(); return; }
+  if(el.id==='cb-status'){ state.manage.calib.statusFilter = el.value; render(); return; }
   if(el.id==='import-file'){ importExcel(el.files[0]); return; }
 
   if(el.id==='r-mode'){ state.reports.mode = el.value; render(); return; }
