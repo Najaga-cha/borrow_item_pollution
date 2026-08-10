@@ -3397,8 +3397,29 @@ function importExcel(file){
 function excelDateToISO(v){
   if(!v) return null;
   if(v instanceof Date) return toLocalISODate(v);
-  const d = new Date(v);
-  if(!isNaN(d)) return toLocalISODate(d);
+  const s = String(v).trim();
+  // รองรับรูปแบบ วัน/เดือน/ปี หรือ วัน-เดือน-ปี (เช่น 26/02/2026) ซึ่ง Excel/ผู้ใช้มักกรอกเป็นข้อความแบบไทย
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m){
+    let [, dd, mm, yyyy] = m;
+    dd = parseInt(dd,10); mm = parseInt(mm,10); yyyy = parseInt(yyyy,10);
+    // ถ้าปีดูเหมือน พ.ศ. (มากกว่าปีปัจจุบัน ค.ศ. + 400) ให้แปลงเป็น ค.ศ.
+    if(yyyy > 2400) yyyy -= 543;
+    if(mm>=1 && mm<=12 && dd>=1 && dd<=31){
+      const d = new Date(yyyy, mm-1, dd);
+      if(!isNaN(d)) return toLocalISODate(d);
+    }
+  }
+  // รองรับรูปแบบ ปี-เดือน-วัน (ISO) เช่น 2026-02-26
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m){
+    let [, yyyy, mm, dd] = m;
+    const d = new Date(parseInt(yyyy,10), parseInt(mm,10)-1, parseInt(dd,10));
+    if(!isNaN(d)) return toLocalISODate(d);
+  }
+  // เผื่อกรณีอื่นๆ ที่ Excel ส่งมาเป็นเลข serial date หรือรูปแบบที่ JS อ่านได้ตรงๆ
+  const d2 = new Date(v);
+  if(!isNaN(d2)) return toLocalISODate(d2);
   return null;
 }
 
