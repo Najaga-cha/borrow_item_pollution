@@ -1653,7 +1653,7 @@ function buildSlipHTML(b){
 
     <div class="slip-field-row slip-field-two">
       <div><b>รหัสอ้างอิง:</b> ${esc(b.code)}</div>
-      <div class="slip-col2"><b>วันที่จอง:</b> ${bookingDateISO? esc(fmtDateBE(bookingDateISO)) : '-'}${b.createdTime? ' &nbsp; <b>เวลาที่ทำใบยืม</b> '+esc(b.createdTime) : ''}</div>
+      <div class="slip-col2"><b>วันที่จอง:</b> ${bookingDateISO? esc(fmtDateBE(bookingDateISO)) : '-'}${b.createdTime? ' &nbsp; '+esc(b.createdTime)+' น.' : ''}</div>
     </div>
     <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ.${esc(b.dept||'')}</b></div>
     <div class="slip-field-row slip-field-two">
