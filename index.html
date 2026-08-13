@@ -232,11 +232,11 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 
 .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700; background:var(--chip-bg); color:var(--subtle); }
 .pill-ok{ background:#dcfce7; color:#15803d; }
-:root[data-theme="dark"] .pill-ok{ background:#0e2a1c; color:#4ade80; }
+:root[data-theme="dark"] .pill-ok{ background:rgba(34,197,94,.22); color:#4ade80; border:1px solid rgba(74,222,128,.45); }
 .pill-warn{ background:#fef3c7; color:#92400e; }
-:root[data-theme="dark"] .pill-warn{ background:#3a2a0e; color:#fbbf24; }
+:root[data-theme="dark"] .pill-warn{ background:rgba(245,158,11,.24); color:#fcd34d; border:1px solid rgba(251,191,36,.5); }
 .pill-danger{ background:#fee2e2; color:#b91c1c; }
-:root[data-theme="dark"] .pill-danger{ background:#3a1414; color:#f87171; }
+:root[data-theme="dark"] .pill-danger{ background:rgba(239,68,68,.26); color:#fca5a5; border:1px solid rgba(248,113,113,.55); }
 .calib-row-danger{ background:rgba(254,226,226,.5); }
 .calib-row-warn{ background:rgba(254,243,199,.5); }
 :root[data-theme="dark"] .calib-row-danger{ background:rgba(58,20,20,.4); }
@@ -2070,8 +2070,15 @@ function renderCalibTab(){
   if(cm.statusFilter==='danger') items = items.filter(e=>e.calibInfo.pill==='pill-danger');
   else if(cm.statusFilter==='warn') items = items.filter(e=>e.calibInfo.pill==='pill-warn');
   else if(cm.statusFilter==='ok') items = items.filter(e=>e.calibInfo.pill==='pill-ok');
-  // เรียงตาม "ความใกล้ปัจจุบัน" มากไปน้อย — ไม่ว่าจะเลยกำหนดมาแล้วหรือยังไม่ถึงกำหนด วันที่ใกล้วันนี้ที่สุดขึ้นก่อน
-  items.sort((a,b)=> Math.abs(a.calibDaysLeft ?? Infinity) - Math.abs(b.calibDaysLeft ?? Infinity));
+  // เรียงตาม "เวลาคงเหลือ" จากน้อยไปหามาก — ใกล้ถึงกำหนด (ยังไม่เลยกำหนด) ขึ้นก่อน
+  // ถ้าใกล้เคียงกัน (จำนวนวันเท่ากันทั้งสองฝั่ง) รายการที่ "ยังไม่ถึงกำหนด" จะขึ้นก่อนรายการที่ "เลยกำหนดแล้ว"
+  items.sort((a,b)=>{
+    const da = a.calibDaysLeft ?? Infinity;
+    const db = b.calibDaysLeft ?? Infinity;
+    const diff = Math.abs(da) - Math.abs(db);
+    if(diff !== 0) return diff;
+    return db - da;
+  });
   const countDanger = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-danger').length;
   const countWarn = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-warn').length;
   const countOk = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-ok').length;
@@ -2138,7 +2145,7 @@ function renderCalibTab(){
               <td class="text-xs font-semibold calib-asset-code">${fmtDateBEShort2(e.nextCalib.slice(0,10))}</td>
               <td class="text-xs text-right">${e.price ? Number(e.price).toLocaleString('th-TH') : '<span class="subtle">-</span>'}</td>
               <td class="text-xs">${e.lastCalib?fmtDateBEShort2(e.lastCalib.slice(0,10)):'<span class="subtle">-</span>'}</td>
-              <td class="text-xs"><span class="pill ${e.calibInfo.pill}">${e.calibInfo.label}</span></td>
+              <td class="text-xs" style="white-space:nowrap;"><span class="pill ${e.calibInfo.pill}" style="white-space:nowrap;">${e.calibInfo.label}</span></td>
               <td class="text-xs">${e.remark ? esc(e.remark) : ''}</td>
             </tr>`).join('')}
         </tbody>
