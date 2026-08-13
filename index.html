@@ -232,11 +232,11 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 
 .pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700; background:var(--chip-bg); color:var(--subtle); }
 .pill-ok{ background:#dcfce7; color:#15803d; }
-:root[data-theme="dark"] .pill-ok{ background:rgba(34,197,94,.22); color:#4ade80; border:1px solid rgba(74,222,128,.45); }
+:root[data-theme="dark"] .pill-ok{ background:#0e2a1c; color:#4ade80; }
 .pill-warn{ background:#fef3c7; color:#92400e; }
-:root[data-theme="dark"] .pill-warn{ background:rgba(245,158,11,.24); color:#fcd34d; border:1px solid rgba(251,191,36,.5); }
+:root[data-theme="dark"] .pill-warn{ background:#3a2a0e; color:#fbbf24; }
 .pill-danger{ background:#fee2e2; color:#b91c1c; }
-:root[data-theme="dark"] .pill-danger{ background:rgba(239,68,68,.26); color:#fca5a5; border:1px solid rgba(248,113,113,.55); }
+:root[data-theme="dark"] .pill-danger{ background:#3a1414; color:#f87171; }
 .calib-row-danger{ background:rgba(254,226,226,.5); }
 .calib-row-warn{ background:rgba(254,243,199,.5); }
 :root[data-theme="dark"] .calib-row-danger{ background:rgba(58,20,20,.4); }
@@ -379,9 +379,10 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-row-label{ flex-shrink:0; }
 .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
 .sig-row-role{ flex-shrink:0; padding-left:4px; }
-.sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ width:6.6em; text-align:left; }
+.sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ width:6.6em; text-align:right; }
 .sig-row-paren{ padding-left:1.5em; }
-.sig-row-date .sig-row-dots{ flex:0 0 4.2em; }
+.sig-row-date .sig-row-dots{ flex:0 0 3.2em; }
+.sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
 
 @media print{
   .header-band{ display:none !important; }
@@ -549,8 +550,6 @@ const state = {
   lastCreatedReturnId: null,
   notif: { open: false },
   viewingBorrowId: null,
-  partialReturnId: null,      // id ของใบยืมที่กำลังเปิดหน้าต่าง "คืนเครื่องมือแบบรายชิ้น"
-  partialReturnSelected: new Set(), // ชุด equipmentId (unit) ที่ถูกเลือกไว้ให้คืนในหน้าต่างนั้น
 };
 
 /* ===================== ระบบแจ้งเตือน (กระดิ่ง) — เฉพาะ admin ที่ login แล้ว =====================
@@ -1061,7 +1060,6 @@ function render(){
     ${renderPrintSlipContainer()}
     ${state.pendingBorrow ? renderConfirmBorrowModal() : ''}
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
-    ${state.partialReturnId ? renderPartialReturnModal() : ''}
     ${state.availCal ? renderAvailabilityCalendarModal() : ''}
     ${state.calibConfirmIds ? renderCalibConfirmModal() : ''}
   `;
@@ -1266,7 +1264,7 @@ function renderReturnTab(){
   ${successHTML}
   <div class="card p-5 md:p-7 mt-5">
     <h2 class="text-lg font-bold flex items-center gap-2 mb-2">📦 คืนเครื่องมือ (สำหรับ Admin)</h2>
-    <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเปิดหน้าต่างให้เลือกได้ว่าจะคืนกี่ชิ้น (คืนครบทุกชิ้น หรือคืนแค่บางชิ้นก็ได้) แล้วเทียบวันที่คืนจริงกับวันครบกำหนดคืนเพื่อบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อนกำหนด/ตรงเวลา/สาย พร้อมปรับสถานะเครื่องมือที่เลือกคืนให้พร้อมยืมใหม่ทันที ใบยืมจะปิดโดยอัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
+    <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเทียบวันที่คืนจริงกับวันครบกำหนดคืนแล้วบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อนกำหนด/ตรงเวลา/สาย พร้อมปรับสถานะเครื่องมือทุกชิ้นให้พร้อมยืมใหม่ทันที (ระบบจะไม่ปิดใบยืมให้อัตโนมัติอีกต่อไป ต้องกดคืนเองเสมอ)</p>
 
     <div class="tabbar mb-4" style="gap:6px">
       ${subTabs.map(t=>`
@@ -1368,114 +1366,6 @@ function renderBorrowDetailModal(){
       </div>
     </div>
   </div>`;
-}
-
-function renderPartialReturnModal(){
-  const b = state.borrows.find(x=>x.id===state.partialReturnId);
-  if(!b){ state.partialReturnId = null; return ''; }
-  const groups = itemGroupsForBorrow(b);
-  const sel = state.partialReturnSelected;
-  const allRemainingIds = groups.flatMap(g=>g.remainingUnitIds);
-  const selectedCount = allRemainingIds.filter(id=>sel.has(id)).length;
-  const timing = borrowTimingCategory(b);
-  let previewLabel = '↩️ คืนก่อนกำหนด';
-  if(timing==='ontime') previewLabel = '✅ คืนตรงเวลา';
-  if(timing==='late') previewLabel = `⚠️ คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`;
-  return `
-  <div class="modal-backdrop" data-act="close-modal">
-    <div class="modal-card">
-      <div class="flex items-start justify-between gap-3 mb-1">
-        <h3 class="text-lg font-bold">📦 คืนเครื่องมือแบบรายชิ้น — ${esc(b.code||'')}</h3>
-        <button class="icon-btn" data-act="close-modal" title="ปิด">✖️</button>
-      </div>
-      <p class="text-sm subtle mb-4">เลือกเฉพาะรายการ/ชิ้นที่นำมาคืนจริงในครั้งนี้ — รายการที่ยังไม่ถูกเลือกจะยังคงสถานะ "ยืมอยู่" ต่อไป และสามารถกลับมาคืนเพิ่มเติมภายหลังได้ ระบบจะปิดใบยืมให้อัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
-
-      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div class="text-sm">
-          <span class="font-semibold">${esc(b.name)}</span> (${esc(b.dept)}) •
-          กำหนดคืน ${fmtDateBE(b.returnDate)}
-        </div>
-        <div class="flex gap-2">
-          <button type="button" class="btn-ghost" data-act="partial-select-all" data-id="${b.id}">เลือกทั้งหมด</button>
-          <button type="button" class="btn-ghost" data-act="partial-select-none" data-id="${b.id}">ยกเลิกที่เลือกทั้งหมด</button>
-        </div>
-      </div>
-
-      <div style="border:1px solid var(--border); border-radius:12px; overflow:hidden; max-height:50vh; overflow-y:auto;">
-        <table class="w-full text-sm">
-          <thead>
-            <tr style="background:var(--chip-bg); position:sticky; top:0;">
-              <th class="text-center p-2" style="width:40px"></th>
-              <th class="text-left p-2">ชื่อเครื่องมือ</th>
-              <th class="text-left p-2">รหัสครุภัณฑ์ / ชิ้นที่</th>
-              <th class="text-center p-2" style="white-space:nowrap;">สถานะ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${groups.map(g=>{
-              const rows = g.unitIds.map((uid, i)=>{
-                const already = g.returnedUnitIds.includes(uid);
-                const eq = state.equipment.find(x=>x.id===uid);
-                const label = eq ? (eq.assetCode||'-') : (g.unitIds.length>1 ? `${esc(g.name)} #${i+1}` : '-');
-                return `
-                <tr style="border-top:1px solid var(--border); ${already?'opacity:.55;':''}">
-                  <td class="p-2 text-center">
-                    <input type="checkbox" class="partial-return-check" data-unit="${uid}"
-                      ${already?'checked disabled':(sel.has(uid)?'checked':'')} />
-                  </td>
-                  <td class="p-2">${esc(g.name)}</td>
-                  <td class="p-2 font-mono text-xs">${esc(label)}</td>
-                  <td class="p-2 text-center" style="white-space:nowrap;">${already ? '<span class="pill pill-ok" style="white-space:nowrap;">คืนแล้ว</span>' : '<span class="pill pill-warn" style="white-space:nowrap;">ยังไม่คืน</span>'}</td>
-                </tr>`;
-              }).join('');
-              return rows;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="mt-4 flex items-center justify-between flex-wrap gap-2">
-        <div class="text-sm subtle">เลือกไว้ ${selectedCount} จาก ${allRemainingIds.length} ชิ้นที่ยังไม่คืน</div>
-        ${selectedCount>0 ? `<div class="text-xs subtle">ผลลัพธ์ของชิ้นที่คืนครั้งนี้จะถูกบันทึกเป็น: ${previewLabel}</div>` : ''}
-      </div>
-
-      <div class="flex justify-end gap-2 mt-5">
-        <button class="btn-ghost" data-act="close-modal">ยกเลิก</button>
-        <button class="btn-early-return" data-act="partial-confirm-return" data-id="${b.id}" ${selectedCount===0?'disabled':''}>✅ ยืนยันคืน (${selectedCount} ชิ้น)</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function openPartialReturn(id){
-  const b = state.borrows.find(x=>x.id===id);
-  if(!b) return;
-  state.partialReturnId = id;
-  // ค่าเริ่มต้น: เลือกทุกชิ้นที่ยังไม่คืนไว้ก่อน (กด "ยืนยันคืน" เฉยๆ = คืนทั้งหมดเหมือนเดิม)
-  const sel = new Set();
-  itemGroupsForBorrow(b).forEach(g=>g.remainingUnitIds.forEach(uid=>sel.add(uid)));
-  state.partialReturnSelected = sel;
-  render();
-}
-async function returnSelectedItems(id, unitIds){
-  const b = state.borrows.find(x=>x.id===id);
-  if(!b || !unitIds || !unitIds.length) return;
-  const today = todayISO();
-  (b.itemsExpanded||[]).forEach(rec=>{
-    if(!rec.returned && unitIds.includes(rec.equipmentId)){ rec.returned = true; rec.returnedAt = today; }
-  });
-  if(isBorrowFullyReturned(b)){
-    let newStatus;
-    if(!b.returnDate || today < b.returnDate) newStatus = 'early-returned';
-    else if(today === b.returnDate) newStatus = 'returned';
-    else newStatus = 'late-returned';
-    b.status = newStatus;
-    b.actualReturnedAt = new Date().toISOString();
-  }
-  state.partialReturnId = null;
-  state.partialReturnSelected = new Set();
-  await saveBorrows();
-  render();
 }
 
 function renderBorrowTab(){
@@ -1739,7 +1629,7 @@ function buildSigBox(roleLabel){
         <span class="sig-row-label">วัน เดือน ปี/เวลา</span>
         <span class="sig-row-dots"></span>
         <span class="sig-row-role" style="padding:0 4px;">/</span>
-        <span class="sig-row-dots"></span>
+        <span class="sig-row-dots grow"></span>
         <span class="sig-row-role">นาฬิกา</span>
       </div>
     </div>
@@ -1767,7 +1657,7 @@ function buildSlipHTML(b){
       <div><b>รหัสอ้างอิง:</b> ${esc(b.code)}</div>
       <div class="slip-col2"><b>วันที่จอง:</b> ${bookingDateISO? esc(fmtDateBE(bookingDateISO)) : '-'}${b.createdTime? ' &nbsp; '+esc(b.createdTime) : ''}</div>
     </div>
-    <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ.${esc(b.dept||'')}</b></div>
+    <div class="slip-field-row"><b>เรียน หน.ศูนย์สนับสนุนฯ ผ่าน ผอ.${esc(b.dept||'')}</b></div>
     <div class="slip-field-row slip-field-two">
       <div><b>ชื่อ-นามสกุล ผู้ยืม:</b> ${esc(b.name)}</div>
       <div class="slip-col2">${b.position?'<b>ตำแหน่ง</b> '+esc(b.position):''}</div>
@@ -1779,7 +1669,7 @@ function buildSlipHTML(b){
     <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน:</b> ${esc(b.province)}${b.notes?' • หมายเหตุ: '+esc(b.notes):''}</div>
 
     <div class="slip-section-title-row">
-      <div class="slip-section-title">รายการเครื่องมือที่ยืม (แจกแจงรายเครื่อง)</div>
+      <div class="slip-section-title">รายการเครื่องมือที่ยืม</div>
     </div>
     <table class="slip-table">
       <thead><tr><th style="width:6%">ลำดับ</th><th style="width:13%">ประเภท</th><th>ชื่อเครื่องมือ</th><th style="width:32%">รหัสครุภัณฑ์ / S.N.</th><th style="width:8%">จำนวน</th></tr></thead>
@@ -1798,8 +1688,21 @@ function printSlip(id){
   if(!b) return;
   document.getElementById('print-area').innerHTML = buildSlipHTML(b);
   document.body.classList.add('printing-slip');
+
+  // ใส่เลขหน้ามุมขวาบน (เฉพาะตอนพิมพ์ใบยืม) ด้วย CSS @page margin box ล้วนๆ ไม่กระทบวิธีพิมพ์เดิม
+  const pageNumStyle = document.createElement('style');
+  pageNumStyle.id = 'slip-page-number-style';
+  pageNumStyle.textContent = `@media print{
+    @page{ margin-top:18mm; @top-right{ content: counter(page) "/" counter(pages); font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:0; } }
+    body.printing-slip .slip-page{ padding-top:6mm; }
+  }`;
+  document.head.appendChild(pageNumStyle);
+
   window.print();
-  setTimeout(()=>document.body.classList.remove('printing-slip'), 500);
+  setTimeout(()=>{
+    document.body.classList.remove('printing-slip');
+    pageNumStyle.remove();
+  }, 500);
 }
 
 const SLIP_STANDALONE_CSS = `
@@ -1854,9 +1757,10 @@ const SLIP_STANDALONE_CSS = `
   .sig-row-label{ flex-shrink:0; }
   .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
   .sig-row-role{ flex-shrink:0; padding-left:4px; }
-  .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ width:6.6em; text-align:left; }
+  .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ width:6.6em; text-align:right; }
   .sig-row-paren{ padding-left:1.5em; }
-  .sig-row-date .sig-row-dots{ flex:0 0 4.2em; }
+  .sig-row-date .sig-row-dots{ flex:0 0 3.2em; }
+.sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
   @media print{ @page{ size:A4; margin:10mm; } }
 `;
 function buildSlipStandaloneHTML(b){
@@ -1961,6 +1865,16 @@ async function buildPDFDataUriFromHTML(html, css){
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
     }
+
+    // ใส่เลขหน้าที่มุมขวาบนของทุกหน้า
+    const totalPages = pdf.internal.getNumberOfPages();
+    for(let p = 1; p <= totalPages; p++){
+      pdf.setPage(p);
+      pdf.setFontSize(10);
+      pdf.setTextColor(80,80,80);
+      pdf.text(`${p}/${totalPages}`, pageWidth - 10, 8, { align: 'right' });
+    }
+
     dataUri = pdf.output('datauristring');
   } finally {
     document.body.removeChild(container);
@@ -2066,19 +1980,11 @@ function renderCalibTab(){
   let items = state.equipment.filter(e=>!!e.nextCalib);
   if(cm.catFilter) items = items.filter(e=>e.category===cm.catFilter);
   if(cm.search) items = items.filter(e=>(e.name+e.assetCode+e.brand+e.model).toLowerCase().includes(cm.search.toLowerCase()));
-  items = items.map(e=>({...e, calibInfo:calibStatusInfo(e.nextCalib), calibDaysLeft:calibDaysLeft(e.nextCalib)}));
+  items = items.map(e=>({...e, calibInfo:calibStatusInfo(e.nextCalib)}));
   if(cm.statusFilter==='danger') items = items.filter(e=>e.calibInfo.pill==='pill-danger');
   else if(cm.statusFilter==='warn') items = items.filter(e=>e.calibInfo.pill==='pill-warn');
   else if(cm.statusFilter==='ok') items = items.filter(e=>e.calibInfo.pill==='pill-ok');
-  // เรียงตาม "เวลาคงเหลือ" จากน้อยไปหามาก — ใกล้ถึงกำหนด (ยังไม่เลยกำหนด) ขึ้นก่อน
-  // ถ้าใกล้เคียงกัน (จำนวนวันเท่ากันทั้งสองฝั่ง) รายการที่ "ยังไม่ถึงกำหนด" จะขึ้นก่อนรายการที่ "เลยกำหนดแล้ว"
-  items.sort((a,b)=>{
-    const da = a.calibDaysLeft ?? Infinity;
-    const db = b.calibDaysLeft ?? Infinity;
-    const diff = Math.abs(da) - Math.abs(db);
-    if(diff !== 0) return diff;
-    return db - da;
-  });
+  items.sort((a,b)=> (a.nextCalib||'').localeCompare(b.nextCalib||''));
   const countDanger = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-danger').length;
   const countWarn = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-warn').length;
   const countOk = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-ok').length;
@@ -2145,7 +2051,7 @@ function renderCalibTab(){
               <td class="text-xs font-semibold calib-asset-code">${fmtDateBEShort2(e.nextCalib.slice(0,10))}</td>
               <td class="text-xs text-right">${e.price ? Number(e.price).toLocaleString('th-TH') : '<span class="subtle">-</span>'}</td>
               <td class="text-xs">${e.lastCalib?fmtDateBEShort2(e.lastCalib.slice(0,10)):'<span class="subtle">-</span>'}</td>
-              <td class="text-xs" style="white-space:nowrap;"><span class="pill ${e.calibInfo.pill}" style="white-space:nowrap;">${e.calibInfo.label}</span></td>
+              <td class="text-xs"><span class="pill ${e.calibInfo.pill}">${e.calibInfo.label}</span></td>
               <td class="text-xs">${e.remark ? esc(e.remark) : ''}</td>
             </tr>`).join('')}
         </tbody>
@@ -3156,7 +3062,7 @@ function onClick(e){
   if(act==='add-equip'){ state.manage.editing='new'; render(); return; }
   if(act==='edit-equip'){ state.manage.editing=el.dataset.id; render(); return; }
   if(act==='view-borrow'){ state.viewingBorrowId=el.dataset.id; render(); return; }
-  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; state.availCal=null; state.partialReturnId=null; state.partialReturnSelected=new Set(); render(); return; }
+  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; state.availCal=null; render(); return; }
   if(act==='open-avail-cal'){ openAvailabilityCalendar(el.dataset.cat, el.dataset.name); return; }
   if(act==='avail-cal-prev'){ availCalShift(-1); return; }
   if(act==='avail-cal-next'){ availCalShift(1); return; }
@@ -3178,24 +3084,7 @@ function onClick(e){
   if(act==='cal-prev'){ calShift(-1); return; }
   if(act==='cal-next'){ calShift(1); return; }
   if(act==='cal-day'){ state.calendar.selectedDay = parseInt(el.dataset.day); render(); return; }
-  if(act==='return-now'){ openPartialReturn(el.dataset.id); return; }
-  if(act==='open-partial-return'){ openPartialReturn(el.dataset.id); return; }
-  if(act==='partial-select-all'){
-    const b = state.borrows.find(x=>x.id===el.dataset.id);
-    if(b){ itemGroupsForBorrow(b).forEach(g=>g.remainingUnitIds.forEach(uid=>state.partialReturnSelected.add(uid))); render(); }
-    return;
-  }
-  if(act==='partial-select-none'){ state.partialReturnSelected = new Set(); render(); return; }
-  if(act==='partial-confirm-return'){
-    const b = state.borrows.find(x=>x.id===el.dataset.id);
-    const ids = Array.from(state.partialReturnSelected);
-    if(!b || !ids.length) return;
-    const allSelected = itemGroupsForBorrow(b).every(g=>g.remainingUnitIds.every(uid=>ids.includes(uid)));
-    const label = allSelected ? `ทั้งหมด (${ids.length} ชิ้น)` : `บางส่วน (${ids.length} ชิ้น)`;
-    if(!confirm(`ยืนยันคืนเครื่องมือ${label} สำหรับใบยืม ${b.code} (${b.name})?`)) return;
-    returnSelectedItems(b.id, ids);
-    return;
-  }
+  if(act==='return-now'){ returnBorrowNow(el.dataset.id); return; }
   if(act==='return-subtab'){ state.returnSubTab = el.dataset.subtab; render(); return; }
   if(act==='dismiss-return-banner'){ state.lastCreatedReturnId=null; render(); return; }
   if(act==='export-excel'){ exportExcel(); return; }
@@ -3241,13 +3130,6 @@ function onChange(e){
     else state.calibSelected.delete(el.dataset.id);
     renderSoft(); return;
   }
-  if(el.classList && el.classList.contains('partial-return-check')){
-    const uid = el.dataset.unit;
-    if(el.checked) state.partialReturnSelected.add(uid);
-    else state.partialReturnSelected.delete(uid);
-    render(); return;
-  }
-
   if(el.id==='import-file'){ importExcel(el.files[0]); return; }
 
   if(el.id==='r-mode'){ state.reports.mode = el.value; render(); return; }
