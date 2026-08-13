@@ -1656,7 +1656,7 @@ function buildSlipHTML(b){
       <div><b>รหัสอ้างอิง:</b> ${esc(b.code)}</div>
       <div class="slip-col2"><b>วันที่จอง:</b> ${bookingDateISO? esc(fmtDateBE(bookingDateISO)) : '-'}${b.createdTime? ' &nbsp; '+esc(b.createdTime) : ''}</div>
     </div>
-    <div class="slip-field-row"><b>เรียน หน.หน้าศูนย์สนับสนุนฯ ผ่าน ผอ.${esc(b.dept||'')}</b></div>
+    <div class="slip-field-row"><b>เรียน หน.ศูนย์สนับสนุนฯ ผ่าน ผอ.${esc(b.dept||'')}</b></div>
     <div class="slip-field-row slip-field-two">
       <div><b>ชื่อ-นามสกุล ผู้ยืม:</b> ${esc(b.name)}</div>
       <div class="slip-col2">${b.position?'<b>ตำแหน่ง</b> '+esc(b.position):''}</div>
@@ -1668,7 +1668,7 @@ function buildSlipHTML(b){
     <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน:</b> ${esc(b.province)}${b.notes?' • หมายเหตุ: '+esc(b.notes):''}</div>
 
     <div class="slip-section-title-row">
-      <div class="slip-section-title">รายการเครื่องมือที่ยืม (แจกแจงรายเครื่อง)</div>
+      <div class="slip-section-title">รายการเครื่องมือที่ยืม</div>
     </div>
     <table class="slip-table">
       <thead><tr><th style="width:6%">ลำดับ</th><th style="width:13%">ประเภท</th><th>ชื่อเครื่องมือ</th><th style="width:32%">รหัสครุภัณฑ์ / S.N.</th><th style="width:8%">จำนวน</th></tr></thead>
@@ -1850,6 +1850,16 @@ async function buildPDFDataUriFromHTML(html, css){
       pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
     }
+
+    // ใส่เลขหน้าที่มุมขวาบนของทุกหน้า
+    const totalPages = pdf.internal.getNumberOfPages();
+    for(let p = 1; p <= totalPages; p++){
+      pdf.setPage(p);
+      pdf.setFontSize(10);
+      pdf.setTextColor(80,80,80);
+      pdf.text(`${p}/${totalPages}`, pageWidth - 10, 8, { align: 'right' });
+    }
+
     dataUri = pdf.output('datauristring');
   } finally {
     document.body.removeChild(container);
