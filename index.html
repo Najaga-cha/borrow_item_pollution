@@ -1691,7 +1691,10 @@ function printSlip(id){
   // ใส่เลขหน้ามุมขวาบน (เฉพาะตอนพิมพ์ใบยืม) ด้วย CSS @page margin box ล้วนๆ ไม่กระทบวิธีพิมพ์เดิม
   const pageNumStyle = document.createElement('style');
   pageNumStyle.id = 'slip-page-number-style';
-  pageNumStyle.textContent = `@media print{ @page{ @top-right{ content: counter(page) "/" counter(pages); font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:2mm; } } }`;
+  pageNumStyle.textContent = `@media print{
+    @page{ margin-top:18mm; @top-right{ content: counter(page) "/" counter(pages); font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:0; } }
+    body.printing-slip .slip-page{ padding-top:6mm; }
+  }`;
   document.head.appendChild(pageNumStyle);
 
   window.print();
