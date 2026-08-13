@@ -1682,13 +1682,41 @@ function buildSlipHTML(b){
     </tbody></table>
   </div>`;
 }
-function printSlip(id){
-  const b = state.borrows.find(x=>x.id===id);
-  if(!b) return;
+function printSlipFallbackRaw(b){
+  // fallback แบบเดิม: พิมพ์ HTML ตรงๆ (ไม่มีเลขหน้า) กรณีสร้าง PDF ไม่สำเร็จ
   document.getElementById('print-area').innerHTML = buildSlipHTML(b);
   document.body.classList.add('printing-slip');
   window.print();
   setTimeout(()=>document.body.classList.remove('printing-slip'), 500);
+}
+function printSlip(id){
+  const b = state.borrows.find(x=>x.id===id);
+  if(!b) return;
+  // สร้างเป็น PDF ก่อนแล้วค่อยสั่งพิมพ์ PDF นั้น เพื่อให้ได้เลขหน้าที่มุมขวาบนเหมือนกับตอนดาวน์โหลด PDF
+  buildSlipPDFDataUri(b).then(dataUri=>{
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = dataUri;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      try{
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }catch(e){
+        // บาง browser บล็อกการพิมพ์ PDF ใน iframe โดยตรง -> เปิดแท็บใหม่ให้พิมพ์เองแทน
+        window.open(dataUri, '_blank');
+      }
+      setTimeout(()=>{ if(iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 60000);
+    };
+  }).catch(err=>{
+    console.error(err);
+    printSlipFallbackRaw(b);
+  });
 }
 
 const SLIP_STANDALONE_CSS = `
