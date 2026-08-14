@@ -260,6 +260,8 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 
 .icon-btn{ background:none; border:none; cursor:pointer; font-size:15px; padding:4px 6px; border-radius:6px; }
 .icon-btn[data-act="close-modal"]{ font-size:22px; line-height:1; font-weight:600; color:var(--text); }
+.chart-dl-btn{ background:none; border:1px solid var(--border); cursor:pointer; font-size:12px; padding:4px 8px; border-radius:6px; color:var(--subtle); }
+.chart-dl-btn:hover{ background:var(--chip-bg); color:var(--text); }
 .icon-btn:hover{ background: var(--chip-bg); }
 .icon-btn:disabled{ opacity:.3; cursor:not-allowed; }
 .icon-btn:disabled:hover{ background:none; }
@@ -2563,6 +2565,15 @@ function getReportRange(){
   if(r.mode==='fy') return fiscalRange(r.fy);
   return monthRange(new Date().getMonth(), new Date().getFullYear());
 }
+// ช่วงเวลาก่อนหน้า (ความยาวเท่ากับช่วงปัจจุบัน) ใช้สำหรับเปรียบเทียบ % เปลี่ยนแปลง
+function getPreviousRange(range){
+  const s = new Date(range.start+'T00:00:00');
+  const e = new Date(range.end+'T00:00:00');
+  const lengthDays = Math.round((e-s)/86400000);
+  const prevEnd = new Date(s); prevEnd.setDate(prevEnd.getDate()-1);
+  const prevStart = new Date(prevEnd); prevStart.setDate(prevStart.getDate()-lengthDays);
+  return { start: toLocalISODate(prevStart), end: toLocalISODate(prevEnd) };
+}
 function filterBorrowsByRange(range){
   return state.borrows.filter(b=> b.borrowDate>=range.start && b.borrowDate<=range.end);
 }
@@ -2658,9 +2669,10 @@ function renderReportsTab(){
   const range = getReportRange();
   const list = applyReportFilters(filterBorrowsByRange(range));
   const byEquip = {}, byDept = {}, byCat = {}, equipCat = {}, byProvince = {}, byProvinceBorrows = {};
-  let totalQty = 0, returnedCount = 0;
+  let totalQty = 0, returnedCount = 0, lateReturnedCount = 0;
   list.forEach(b=>{
     if(b.status==='returned' || b.status==='late-returned' || b.status==='early-returned') returnedCount++;
+    if(b.status==='late-returned') lateReturnedCount++;
     const prov = b.province || 'ไม่ระบุ';
     byProvinceBorrows[prov] = (byProvinceBorrows[prov]||0) + 1;
     b.items.forEach(it=>{
@@ -2680,6 +2692,76 @@ function renderReportsTab(){
   const maxEquip = Math.max(1, ...equipEntries.map(e=>e[1]));
   const maxDept = Math.max(1, ...deptEntries.map(e=>e[1]));
   const activeCount = list.length - returnedCount;
+  const onTimeCount = returnedCount - lateReturnedCount;
+  const onTimeRate = returnedCount>0 ? (onTimeCount/returnedCount*100) : null;
+
+  // เปรียบเทียบกับช่วงเวลาก่อนหน้า (ความยาวเท่ากัน)
+  const prevRange = getPreviousRange(range);
+  const prevList = applyReportFilters(filterBorrowsByRange(prevRange));
+  let prevTotalQty = 0, prevReturnedCount = 0, prevLateReturnedCount = 0;
+  prevList.forEach(b=>{
+    if(b.status==='returned' || b.status==='late-returned' || b.status==='early-returned') prevReturnedCount++;
+    if(b.status==='late-returned') prevLateReturnedCount++;
+    b.items.forEach(it=>{
+      if(!reportItemMatchesCatFilter(it.category)) return;
+      prevTotalQty += it.qty;
+    });
+  });
+  const prevActiveCount = prevList.length - prevReturnedCount;
+  const prevOnTimeCount = prevReturnedCount - prevLateReturnedCount;
+  const prevOnTimeRate = prevReturnedCount>0 ? (prevOnTimeCount/prevReturnedCount*100) : null;
+  function pctDelta(cur, prev){
+    if(prev===0 && cur===0) return null;
+    if(prev===0) return null; // หลีกเลี่ยงหารด้วยศูนย์ / ค่าที่ไม่สื่อความหมาย
+    return ((cur-prev)/prev*100);
+  }
+  const deltaBorrows = pctDelta(list.length, prevList.length);
+  const deltaQty = pctDelta(totalQty, prevTotalQty);
+  const deltaActive = pctDelta(activeCount, prevActiveCount);
+  const deltaReturned = pctDelta(returnedCount, prevReturnedCount);
+  const deltaOnTime = (onTimeRate!==null && prevOnTimeRate!==null) ? (onTimeRate-prevOnTimeRate) : null;
+  function deltaBadge(delta, invert){
+    if(delta===null || !isFinite(delta)) return '';
+    const good = invert ? delta<0 : delta>0;
+    const bad = invert ? delta>0 : delta<0;
+    const color = good? '#15803d' : (bad? '#dc2626':'#6b7280');
+    const arrow = delta>0?'▲':(delta<0?'▼':'—');
+    return `<span style="color:${color};font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap">${arrow} ${Math.abs(delta).toFixed(0)}%</span>`;
+  }
+  function deltaPointBadge(delta){
+    if(delta===null || !isFinite(delta)) return '';
+    const color = delta>0? '#15803d' : (delta<0? '#dc2626':'#6b7280');
+    const arrow = delta>0?'▲':(delta<0?'▼':'—');
+    return `<span style="color:${color};font-size:11px;font-weight:700;margin-left:6px;white-space:nowrap">${arrow} ${Math.abs(delta).toFixed(1)} จุด</span>`;
+  }
+
+  // เครื่องมือที่ไม่ถูกยืมเลยในช่วงเวลาที่เลือก (เทียบกับคลังทั้งหมด ตามตัวกรองประเภท/หน่วยงานถ้ามี)
+  const catFilterSet = state.reports.filterCategories||[];
+  const allToolNames = {};
+  state.equipment.forEach(e=>{
+    if(catFilterSet.length && !catFilterSet.includes(e.category)) return;
+    const key = e.category+'|||'+e.name;
+    if(!allToolNames[key]) allToolNames[key] = { category:e.category, name:e.name, total:0 };
+    allToolNames[key].total++;
+  });
+  const underusedTools = Object.values(allToolNames)
+    .filter(t=> !(byEquip[t.name] > 0))
+    .sort((a,b)=>b.total-a.total)
+    .slice(0,20);
+
+  // ผู้ยืมที่คืนสายซ้ำ (นับจากใบยืมทั้งหมดในระบบ ไม่จำกัดเฉพาะช่วงเวลาที่เลือก เพื่อเห็นภาพพฤติกรรมสะสม)
+  const lateByBorrower = {};
+  applyReportFilters(state.borrows).forEach(b=>{
+    const key = b.dept+'|||'+b.name;
+    if(!lateByBorrower[key]) lateByBorrower[key] = { dept:b.dept, name:b.name, lateCount:0, totalCount:0 };
+    lateByBorrower[key].totalCount++;
+    if(b.status==='late-returned') lateByBorrower[key].lateCount++;
+  });
+  const repeatLateReturners = Object.values(lateByBorrower)
+    .filter(x=>x.lateCount>=2)
+    .sort((a,b)=>b.lateCount-a.lateCount)
+    .slice(0,15);
+
 
   const deptDetail = {};
   list.forEach(b=>{
@@ -2766,7 +2848,7 @@ function renderReportsTab(){
           <button class="btn-ghost" style="color:#dc2626;border-color:#fca5a5" data-act="clear-dashboard-data">🗑️ ล้างข้อมูล Dashboard</button>
         </div>
       </div>
-      <div class="text-sm subtle mt-3">ช่วงข้อมูล: ${fmtDateBE(range.start)} — ${fmtDateBE(range.end)} • พบใบยืม ${list.length} รายการ</div>
+      <div class="text-sm subtle mt-3">ช่วงข้อมูล: ${fmtDateBE(range.start)} — ${fmtDateBE(range.end)} • พบใบยืม ${list.length} รายการ • เทียบกับช่วงก่อนหน้า ${fmtDateBE(prevRange.start)} — ${fmtDateBE(prevRange.end)}</div>
     </div>
 
     <div class="card p-5 no-print">
@@ -2782,20 +2864,27 @@ function renderReportsTab(){
       </div>
     </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#0f766e">${list.length}</div><div class="text-xs subtle mt-1">ใบยืมทั้งหมด</div></div>
-      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#0891b2">${totalQty}</div><div class="text-xs subtle mt-1">จำนวนเครื่องมือที่ยืม (ชิ้น)</div></div>
-      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#b45309">${activeCount}</div><div class="text-xs subtle mt-1">กำลังยืมอยู่</div></div>
-      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#15803d">${returnedCount}</div><div class="text-xs subtle mt-1">คืนแล้ว</div></div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#0f766e">${list.length}</div><div class="text-xs subtle mt-1">ใบยืมทั้งหมด</div>${deltaBadge(deltaBorrows)}</div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#0891b2">${totalQty}</div><div class="text-xs subtle mt-1">จำนวนเครื่องมือที่ยืม (ชิ้น)</div>${deltaBadge(deltaQty)}</div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#b45309">${activeCount}</div><div class="text-xs subtle mt-1">กำลังยืมอยู่</div>${deltaBadge(deltaActive, true)}</div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#15803d">${returnedCount}</div><div class="text-xs subtle mt-1">คืนแล้ว</div>${deltaBadge(deltaReturned)}</div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:${onTimeRate===null?'#6b7280':(onTimeRate>=90?'#15803d':onTimeRate>=75?'#b45309':'#dc2626')}">${onTimeRate===null?'—':onTimeRate.toFixed(0)+'%'}</div><div class="text-xs subtle mt-1">คืนตรงเวลา (จากที่คืนแล้ว)</div>${deltaPointBadge(deltaOnTime)}</div>
     </div>
 
     <div class="grid md:grid-cols-3 gap-5">
       <div class="card p-5">
-        <h3 class="font-bold mb-3 text-sm">สัดส่วนตามด้าน (จำนวนที่ยืม)</h3>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-sm">สัดส่วนตามด้าน (จำนวนที่ยืม)</h3>
+          ${catEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="cat" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+        </div>
         ${catEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:220px"><canvas id="chart-cat"></canvas></div>`}
       </div>
       <div class="card p-5">
-        <h3 class="font-bold mb-3 text-sm">เครื่องมือยอดนิยม (Top 8)</h3>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-sm">เครื่องมือยอดนิยม (Top 8)</h3>
+          ${equipEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="equip" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+        </div>
         ${equipEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `
         <div class="flex flex-wrap gap-x-3 gap-y-1 mb-2" style="font-size:11px;">
           ${[...new Set(equipEntries.map(e=>equipCat[e[0]]).filter(Boolean))].map(c=>`
@@ -2805,24 +2894,76 @@ function renderReportsTab(){
         <div class="report-chart-box" style="height:200px"><canvas id="chart-equip"></canvas></div>`}
       </div>
       <div class="card p-5">
-        <h3 class="font-bold mb-3 text-sm">สถานะใบยืม</h3>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold text-sm">สถานะใบยืม</h3>
+          ${(list.length>0)? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="status" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+        </div>
         ${list.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:220px"><canvas id="chart-status"></canvas></div>`}
       </div>
     </div>
 
     <div class="card p-5">
-      <h3 class="font-bold mb-3 text-sm">แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-sm">แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน</h3>
+        <button class="chart-dl-btn no-print" data-act="download-chart" data-chart="trend" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>
+      </div>
       <div class="report-chart-box" style="height:220px"><canvas id="chart-trend"></canvas></div>
     </div>
 
     <div class="card p-5">
-      <h3 class="font-bold mb-3 text-sm">หน่วยงานที่ยืม เทียบกับสถานะการยืม-คืน</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-sm">หน่วยงานที่ยืม เทียบกับสถานะการยืม-คืน</h3>
+        ${deptDetailEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="deptStatus" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+      </div>
       ${deptDetailEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, deptDetailEntries.length*36)}px"><canvas id="chart-dept-status"></canvas></div>`}
     </div>
 
     <div class="card p-5">
-      <h3 class="font-bold mb-3 text-sm">การยืมแยกตามจังหวัด (พื้นที่ปฏิบัติงาน)</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-sm">การยืมแยกตามจังหวัด (พื้นที่ปฏิบัติงาน)</h3>
+        ${provinceEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="province" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+      </div>
       ${provinceEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, provinceEntries.length*30)}px"><canvas id="chart-province"></canvas></div>`}
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-5">
+      <div class="card p-5">
+        <h3 class="font-bold mb-3">เครื่องมือที่ไม่ถูกยืมเลยในช่วงเวลาที่เลือก</h3>
+        <div class="text-xs subtle mb-3">เทียบจากคลังเครื่องมือทั้งหมด ${catFilterSet.length? '(กรองตามประเภทที่เลือก) ':''}เรียงตามจำนวนเครื่องทั้งหมดที่มี — เครื่องยิ่งเยอะยิ่งน่าสังเกตว่าไม่ถูกใช้</div>
+        ${underusedTools.length===0? `<div class="empty-hint">ไม่มีเครื่องมือที่ว่างเปล่า — ทุกรายการถูกยืมอย่างน้อย 1 ครั้งในช่วงนี้</div>` : `
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>ด้าน</th><th>เครื่องมือ</th><th class="c" style="width:20%">จำนวนที่มี</th></tr></thead>
+            <tbody>
+              ${underusedTools.map(t=>`
+              <tr>
+                <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[t.category]?.bg||'#888'}">${esc(t.category)}</span></td>
+                <td>${esc(t.name)}</td>
+                <td class="c font-bold">${t.total}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`}
+      </div>
+      <div class="card p-5">
+        <h3 class="font-bold mb-3">ผู้ยืมที่คืนสายซ้ำ (Repeat late returners)</h3>
+        <div class="text-xs subtle mb-3">นับจากใบยืมทั้งหมดในระบบตามตัวกรองปัจจุบัน (ไม่จำกัดเฉพาะช่วงเวลาที่เลือก) — แสดงเฉพาะผู้ที่คืนสายตั้งแต่ 2 ครั้งขึ้นไป</div>
+        ${repeatLateReturners.length===0? `<div class="empty-hint">ไม่พบผู้ยืมที่คืนสายซ้ำ</div>` : `
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>หน่วยงาน</th><th>ผู้ยืม</th><th class="c" style="width:16%">คืนสาย</th><th class="c" style="width:16%">ใบยืมทั้งหมด</th></tr></thead>
+            <tbody>
+              ${repeatLateReturners.map(r=>`
+              <tr>
+                <td>${esc(r.dept)}</td>
+                <td class="font-bold">${esc(r.name)}</td>
+                <td class="c"><span class="pill pill-danger">${r.lateCount}</span></td>
+                <td class="c">${r.totalCount}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`}
+      </div>
     </div>
 
     <div class="card p-5">
@@ -2920,6 +3061,19 @@ function renderReportsTab(){
 const _reportChartInstances = {};
 function _destroyChart(key){
   if(_reportChartInstances[key]){ try{ _reportChartInstances[key].destroy(); }catch(e){} delete _reportChartInstances[key]; }
+}
+function downloadReportChart(key){
+  const inst = _reportChartInstances[key];
+  if(!inst) return;
+  try{
+    const url = inst.toBase64Image('image/png', 1);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `รายงาน-กราฟ-${key}-${todayISO()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }catch(e){ console.error(e); }
 }
 function drawReportCharts(){
   if(!window.Chart) return;
@@ -3276,6 +3430,7 @@ function onClick(e){
   if(act==='print-report'){ printReport(); return; }
   if(act==='clear-report-filters'){ clearReportFilters(); return; }
   if(act==='clear-dashboard-data'){ clearDashboardData(); return; }
+  if(act==='download-chart'){ downloadReportChart(el.dataset.chart); return; }
   if(act==='toggle-filter-dropdown'){ const t=el.dataset.ftype; const wasOpen = state.reports.openFilterDropdown===t; state.reports.openFilterDropdown = wasOpen ? null : t; if(!wasOpen) state.reports.filterSearch[t] = ''; render(); return; }
   if(act==='toggle-report-filter'){ toggleReportFilter(el.dataset.ftype, el.dataset.fval); return; }
   if(act==='toggle-form-dropdown'){ const t=el.dataset.ftype; const wasOpen = state.form.openDropdown===t; state.form.openDropdown = wasOpen ? null : t; if(!wasOpen) state.form.dropdownSearch[t] = ''; render(); return; }
