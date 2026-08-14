@@ -258,6 +258,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .calib-plan-table thead th{ border-bottom:2px solid var(--border); }
 
 .icon-btn{ background:none; border:none; cursor:pointer; font-size:15px; padding:4px 6px; border-radius:6px; }
+.icon-btn[data-act="close-modal"]{ font-size:22px; line-height:1; font-weight:600; color:var(--text); }
 .icon-btn:hover{ background: var(--chip-bg); }
 .icon-btn:disabled{ opacity:.3; cursor:not-allowed; }
 .icon-btn:disabled:hover{ background:none; }
@@ -1318,7 +1319,7 @@ function renderBorrowDetailModal(){
     <div class="modal-card">
       <div class="flex items-start justify-between gap-3 mb-1">
         <h3 class="text-lg font-bold">รายละเอียดใบยืม ${esc(b.code||'')}</h3>
-        <button class="icon-btn" data-act="close-modal" title="ปิด">✖️</button>
+        <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
       </div>
       <div class="mb-4">${borrowStatusBadge(b)}</div>
 
@@ -1387,7 +1388,7 @@ function renderPartialReturnModal(){
     <div class="modal-card">
       <div class="flex items-start justify-between gap-3 mb-1">
         <h3 class="text-lg font-bold">📦 คืนเครื่องมือแบบรายชิ้น — ${esc(b.code||'')}</h3>
-        <button class="icon-btn" data-act="close-modal" title="ปิด">✖️</button>
+        <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
       </div>
       <p class="text-sm subtle mb-4">เลือกเฉพาะรายการ/ชิ้นที่นำมาคืนจริงในครั้งนี้ — รายการที่ยังไม่ถูกเลือกจะยังคงสถานะ "ยืมอยู่" ต่อไป และสามารถกลับมาคืนเพิ่มเติมภายหลังได้ ระบบจะปิดใบยืมให้อัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
 
@@ -2495,7 +2496,7 @@ function renderAvailabilityCalendarModal(){
     <div class="modal-card">
       <div class="flex items-start justify-between gap-3 mb-1">
         <h3 class="text-lg font-bold">📅 คิวการจอง/ยืม — ${esc(c.name)}</h3>
-        <button class="icon-btn" data-act="close-modal" title="ปิด">✖️</button>
+        <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
       </div>
       <div class="text-sm subtle mb-4">มีทั้งหมด ${total} เครื่อง — เลือกวันในปฏิทินเพื่อดูจำนวนว่างของวันนั้น</div>
       <div class="flex items-center justify-between mb-3">
