@@ -1834,11 +1834,28 @@ function printSlip(id){
   }`;
   document.head.appendChild(pageNumStyle);
 
-  window.print();
-  setTimeout(()=>{
-    document.body.classList.remove('printing-slip');
-    pageNumStyle.remove();
-  }, 500);
+  const doPrint = ()=>{
+    // สองรอบ requestAnimationFrame เพื่อรอให้เบราว์เซอร์จัดเลย์เอาต์/ความกว้างคอลัมน์ของตาราง
+    // ให้เสร็จก่อนสั่งพิมพ์ ไม่งั้นรอบแรกที่กดจะพิมพ์ด้วยเลย์เอาต์เก่าที่ยังไม่ถูกจัดใหม่
+    // (คอลัมน์ตารางบีบจนข้อความตกบรรทัดเยอะ กลายเป็น 2 หน้า)
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        window.print();
+        setTimeout(()=>{
+          document.body.classList.remove('printing-slip');
+          pageNumStyle.remove();
+        }, 500);
+      });
+    });
+  };
+
+  // รอให้ฟอนต์ที่ใช้ในใบยืมโหลดเสร็จก่อน (ถ้าเบราว์เซอร์รองรับ) เพื่อกันปัญหาความกว้างตัวอักษร
+  // เปลี่ยนหลังพิมพ์ไปแล้วในบางเครื่อง
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(doPrint).catch(doPrint);
+  } else {
+    doPrint();
+  }
 }
 
 const SLIP_STANDALONE_CSS = `
