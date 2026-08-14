@@ -2656,22 +2656,26 @@ function renderFilterDropdown(ftype, label, options, selected, iconFn){
 function renderReportsTab(){
   const range = getReportRange();
   const list = applyReportFilters(filterBorrowsByRange(range));
-  const byEquip = {}, byDept = {}, byCat = {}, equipCat = {};
+  const byEquip = {}, byDept = {}, byCat = {}, equipCat = {}, byProvince = {}, byProvinceBorrows = {};
   let totalQty = 0, returnedCount = 0;
   list.forEach(b=>{
     if(b.status==='returned' || b.status==='late-returned' || b.status==='early-returned') returnedCount++;
+    const prov = b.province || 'ไม่ระบุ';
+    byProvinceBorrows[prov] = (byProvinceBorrows[prov]||0) + 1;
     b.items.forEach(it=>{
       if(!reportItemMatchesCatFilter(it.category)) return;
       byDept[b.dept] = (byDept[b.dept]||0) + it.qty;
       byEquip[it.name] = (byEquip[it.name]||0) + it.qty;
       byCat[it.category] = (byCat[it.category]||0) + it.qty;
       equipCat[it.name] = it.category;
+      byProvince[prov] = (byProvince[prov]||0) + it.qty;
       totalQty += it.qty;
     });
   });
   const equipEntries = Object.entries(byEquip).sort((a,b)=>b[1]-a[1]);
   const deptEntries = Object.entries(byDept).sort((a,b)=>b[1]-a[1]);
   const catEntries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const provinceEntries = Object.entries(byProvinceBorrows).sort((a,b)=>b[1]-a[1]).map(([prov,borrowCount])=>[prov, borrowCount, byProvince[prov]||0]);
   const maxEquip = Math.max(1, ...equipEntries.map(e=>e[1]));
   const maxDept = Math.max(1, ...deptEntries.map(e=>e[1]));
   const activeCount = list.length - returnedCount;
@@ -2715,6 +2719,9 @@ function renderReportsTab(){
     deptStatusActive: deptDetailEntries.map(e=>e[1].active),
     deptStatusReturned: deptDetailEntries.map(e=>e[1].returned),
     deptStatusLateReturned: deptDetailEntries.map(e=>e[1].lateReturned),
+    provinceLabels: provinceEntries.map(e=>e[0]),
+    provinceBorrowCounts: provinceEntries.map(e=>e[1]),
+    provinceQtyCounts: provinceEntries.map(e=>e[2]),
   };
 
   return `
@@ -2810,6 +2817,11 @@ function renderReportsTab(){
     <div class="card p-5">
       <h3 class="font-bold mb-3 text-sm">หน่วยงานที่ยืม เทียบกับสถานะการยืม-คืน</h3>
       ${deptDetailEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, deptDetailEntries.length*36)}px"><canvas id="chart-dept-status"></canvas></div>`}
+    </div>
+
+    <div class="card p-5">
+      <h3 class="font-bold mb-3 text-sm">การยืมแยกตามจังหวัด (พื้นที่ปฏิบัติงาน)</h3>
+      ${provinceEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, provinceEntries.length*30)}px"><canvas id="chart-province"></canvas></div>`}
     </div>
 
     <div class="card p-5">
@@ -2972,6 +2984,22 @@ function drawReportCharts(){
         ]
       },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ position:'bottom' } }, scales:{ x:{ stacked:true, ticks:{precision:0} }, y:{ stacked:true } } }
+    });
+  }
+
+  const provinceEl = document.getElementById('chart-province');
+  _destroyChart('province');
+  if(provinceEl && data.provinceLabels && data.provinceLabels.length){
+    _reportChartInstances.province = new Chart(provinceEl, {
+      type:'bar',
+      data:{
+        labels: data.provinceLabels.map(l=>l.length>18?l.slice(0,18)+'…':l),
+        datasets:[
+          { label:'จำนวนใบยืม', data:data.provinceBorrowCounts, backgroundColor:'#0f766e' },
+          { label:'จำนวนเครื่องมือ (ชิ้น)', data:data.provinceQtyCounts, backgroundColor:'#7c3aed' },
+        ]
+      },
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ position:'bottom' } }, scales:{ x:{ ticks:{precision:0} } } }
     });
   }
 }
