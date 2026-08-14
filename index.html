@@ -278,6 +278,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 
 .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
 .modal-card{ background:var(--card); border-radius:18px; padding:24px; max-width:640px; width:100%; max-height:88vh; overflow-y:auto; box-shadow: var(--shadow); }
+.modal-card.chart-expand-card{ max-width:920px; }
 .calib-confirm-card{ max-width:420px; }
 .calib-confirm-icon{ width:52px; height:52px; margin:0 auto 14px; border-radius:999px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center; }
 .calib-confirm-icon svg{ width:26px; height:26px; }
@@ -556,6 +557,7 @@ const state = {
   viewingBorrowId: null,
   partialReturnId: null,      // id ของใบยืมที่กำลังเปิดหน้าต่าง "คืนเครื่องมือแบบรายชิ้น"
   partialReturnSelected: new Set(), // ชุด equipmentId (unit) ที่ถูกเลือกไว้ให้คืนในหน้าต่างนั้น
+  expandedChart: null,        // { key, title } ของกราฟที่กำลังเปิดดูแบบขยาย
 };
 
 /* ===================== ระบบแจ้งเตือน (กระดิ่ง) — เฉพาะ admin ที่ login แล้ว =====================
@@ -1069,6 +1071,7 @@ function render(){
     ${state.partialReturnId ? renderPartialReturnModal() : ''}
     ${state.availCal ? renderAvailabilityCalendarModal() : ''}
     ${state.calibConfirmIds ? renderCalibConfirmModal() : ''}
+    ${state.expandedChart ? renderChartExpandModal() : ''}
   `;
   attachHandlers();
   if(typeof updateLiveClock==='function') updateLiveClock();
@@ -1672,6 +1675,24 @@ function renderConfirmBorrowModal(){
         <button class="btn-ghost" data-act="cancel-confirm-borrow">ยกเลิก</button>
         <button class="btn-primary" data-act="confirm-submit-borrow">✅ ตกลง ยืนยันคำขอ</button>
       </div>
+    </div>
+  </div>`;
+}
+
+function renderChartExpandModal(){
+  const c = state.expandedChart;
+  if(!c) return '';
+  return `
+  <div class="modal-backdrop" data-act="close-modal">
+    <div class="modal-card chart-expand-card">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">${esc(c.title||'')}</h3>
+        <div class="flex items-center gap-2">
+          <button class="chart-dl-btn no-print" data-act="download-chart" data-chart="${esc(c.key)}" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>
+          <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
+        </div>
+      </div>
+      <div class="report-chart-box" style="height:60vh"><canvas id="chart-expand-canvas"></canvas></div>
     </div>
   </div>`;
 }
@@ -2876,14 +2897,14 @@ function renderReportsTab(){
       <div class="card p-5">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold text-sm">สัดส่วนตามด้าน (จำนวนที่ยืม)</h3>
-          ${catEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="cat" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+          ${catEntries.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="cat" data-title="สัดส่วนตามด้าน (จำนวนที่ยืม)" title="ขยายดูกราฟ">⤢</button>`:''}
         </div>
         ${catEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:220px"><canvas id="chart-cat"></canvas></div>`}
       </div>
       <div class="card p-5">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold text-sm">เครื่องมือยอดนิยม (Top 8)</h3>
-          ${equipEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="equip" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+          ${equipEntries.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="equip" data-title="เครื่องมือยอดนิยม (Top 8)" title="ขยายดูกราฟ">⤢</button>`:''}
         </div>
         ${equipEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `
         <div class="flex flex-wrap gap-x-3 gap-y-1 mb-2" style="font-size:11px;">
@@ -2896,7 +2917,7 @@ function renderReportsTab(){
       <div class="card p-5">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold text-sm">สถานะใบยืม</h3>
-          ${(list.length>0)? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="status" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+          ${(list.length>0)? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="status" data-title="สถานะใบยืม" title="ขยายดูกราฟ">⤢</button>`:''}
         </div>
         ${list.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:220px"><canvas id="chart-status"></canvas></div>`}
       </div>
@@ -2905,7 +2926,7 @@ function renderReportsTab(){
     <div class="card p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="font-bold text-sm">แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน</h3>
-        <button class="chart-dl-btn no-print" data-act="download-chart" data-chart="trend" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>
+        <button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="trend" data-title="แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน" title="ขยายดูกราฟ">⤢</button>
       </div>
       <div class="report-chart-box" style="height:220px"><canvas id="chart-trend"></canvas></div>
     </div>
@@ -2913,7 +2934,7 @@ function renderReportsTab(){
     <div class="card p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="font-bold text-sm">หน่วยงานที่ยืม เทียบกับสถานะการยืม-คืน</h3>
-        ${deptDetailEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="deptStatus" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+        ${deptDetailEntries.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="deptStatus" data-title="หน่วยงานที่ยืม เทียบกับสถานะการยืม-คืน" title="ขยายดูกราฟ">⤢</button>`:''}
       </div>
       ${deptDetailEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, deptDetailEntries.length*36)}px"><canvas id="chart-dept-status"></canvas></div>`}
     </div>
@@ -2921,7 +2942,7 @@ function renderReportsTab(){
     <div class="card p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="font-bold text-sm">การยืมแยกตามจังหวัด (พื้นที่ปฏิบัติงาน)</h3>
-        ${provinceEntries.length? `<button class="chart-dl-btn no-print" data-act="download-chart" data-chart="province" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>`:''}
+        ${provinceEntries.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="province" data-title="การยืมแยกตามจังหวัด (พื้นที่ปฏิบัติงาน)" title="ขยายดูกราฟ">⤢</button>`:''}
       </div>
       ${provinceEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, provinceEntries.length*30)}px"><canvas id="chart-province"></canvas></div>`}
     </div>
@@ -3177,6 +3198,78 @@ function drawReportCharts(){
       }, scales:{ x:{ ticks:{precision:0} } } }
     });
   }
+
+  drawExpandedChart(data, palette, fontColor);
+}
+
+function drawExpandedChart(data, palette, fontColor){
+  _destroyChart('expand');
+  if(!state.expandedChart) return;
+  const canvas = document.getElementById('chart-expand-canvas');
+  if(!canvas) return;
+  const key = state.expandedChart.key;
+  let config = null;
+
+  if(key==='cat' && data.catEntries.length){
+    config = { type:'doughnut',
+      data:{ labels:data.catEntries.map(e=>e[0]), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:data.catEntries.map(e=>(CATEGORY_COLOR[e[0]]&&CATEGORY_COLOR[e[0]].bg)||'#64748b') }] },
+      options:{ maintainAspectRatio:false, plugins:{
+        legend:{ position:'bottom', labels:{boxWidth:12,font:{size:13}} },
+        datalabels:{ display:true, color:'#fff', font:{weight:'700',size:14}, formatter:(v,ctx)=>{ const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); const pct=total? (v/total*100):0; return pct<6? '' : v+'\n('+pct.toFixed(0)+'%)'; }, textAlign:'center' }
+      } } };
+  } else if(key==='equip' && data.equipEntries.length){
+    config = { type:'bar',
+      data:{ labels:data.equipEntries.map(e=>e[0]), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}) }] },
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{display:false},
+        datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:13}, formatter:v=>v }
+      }, scales:{ x:{ ticks:{precision:0} } } } };
+  } else if(key==='status' && (data.statusCounts[0]+data.statusCounts[1])>0){
+    config = { type:'doughnut',
+      data:{ labels:['กำลังยืมอยู่','คืนแล้ว'], datasets:[{ data:data.statusCounts, backgroundColor:['#b45309','#15803d'] }] },
+      options:{ maintainAspectRatio:false, plugins:{
+        legend:{ position:'bottom', labels:{font:{size:13}} },
+        datalabels:{ display:true, color:'#fff', font:{weight:'700',size:15}, formatter:(v,ctx)=>{ const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); const pct=total? (v/total*100):0; return v===0? '' : v+' ('+pct.toFixed(0)+'%)'; } }
+      } } };
+  } else if(key==='trend'){
+    config = { type:'line',
+      data:{ labels:data.trendLabels, datasets:[{ label:'จำนวนใบยืม', data:data.trendCounts, borderColor:'#0f766e', backgroundColor:'rgba(15,118,110,.15)', tension:.3, fill:true }] },
+      options:{ maintainAspectRatio:false, plugins:{
+        legend:{display:false},
+        datalabels:{ display:true, align:'top', anchor:'end', color:'#0f766e', font:{weight:'700',size:13}, formatter:v=>v===0?'':v }
+      }, scales:{ y:{ beginAtZero:true, ticks:{precision:0}, grace:'10%' } } } };
+  } else if(key==='deptStatus' && data.deptStatusLabels && data.deptStatusLabels.length){
+    config = { type:'bar',
+      data:{
+        labels: data.deptStatusLabels,
+        datasets:[
+          { label:'กำลังยืมอยู่', data:data.deptStatusActive, backgroundColor:'#b45309' },
+          { label:'คืนแล้ว (ก่อน/ตรงเวลา)', data:data.deptStatusReturned, backgroundColor:'#15803d' },
+          { label:'คืนสาย (เลยกำหนด)', data:data.deptStatusLateReturned, backgroundColor:'#dc2626' },
+        ]
+      },
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{ position:'bottom', labels:{font:{size:13}} },
+        datalabels:{ display:(ctx)=>ctx.dataset.data[ctx.dataIndex]>0, color:'#fff', font:{weight:'700',size:11} }
+      }, scales:{ x:{ stacked:true, ticks:{precision:0} }, y:{ stacked:true } } } };
+  } else if(key==='province' && data.provinceLabels && data.provinceLabels.length){
+    config = { type:'bar',
+      data:{
+        labels: data.provinceLabels,
+        datasets:[
+          { label:'จำนวนใบยืม', data:data.provinceBorrowCounts, backgroundColor:'#0f766e' },
+          { label:'จำนวนเครื่องมือ (ชิ้น)', data:data.provinceQtyCounts, backgroundColor:'#7c3aed' },
+        ]
+      },
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{ position:'bottom', labels:{font:{size:13}} },
+        datalabels:{ display:(ctx)=>ctx.dataset.data[ctx.dataIndex]>0, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:11} }
+      }, scales:{ x:{ ticks:{precision:0} } } } };
+  }
+
+  if(config){
+    _reportChartInstances.expand = new Chart(canvas, config);
+  }
 }
 
 
@@ -3384,7 +3477,7 @@ function onClick(e){
   if(act==='add-equip'){ state.manage.editing='new'; render(); return; }
   if(act==='edit-equip'){ state.manage.editing=el.dataset.id; render(); return; }
   if(act==='view-borrow'){ state.viewingBorrowId=el.dataset.id; render(); return; }
-  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; state.availCal=null; state.partialReturnId=null; state.partialReturnSelected=new Set(); render(); return; }
+  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; state.availCal=null; state.partialReturnId=null; state.partialReturnSelected=new Set(); state.expandedChart=null; render(); return; }
   if(act==='open-avail-cal'){ openAvailabilityCalendar(el.dataset.cat, el.dataset.name); return; }
   if(act==='avail-cal-prev'){ availCalShift(-1); return; }
   if(act==='avail-cal-next'){ availCalShift(1); return; }
@@ -3431,6 +3524,7 @@ function onClick(e){
   if(act==='clear-report-filters'){ clearReportFilters(); return; }
   if(act==='clear-dashboard-data'){ clearDashboardData(); return; }
   if(act==='download-chart'){ downloadReportChart(el.dataset.chart); return; }
+  if(act==='expand-chart'){ state.expandedChart = { key: el.dataset.chart, title: el.dataset.title||'' }; render(); return; }
   if(act==='toggle-filter-dropdown'){ const t=el.dataset.ftype; const wasOpen = state.reports.openFilterDropdown===t; state.reports.openFilterDropdown = wasOpen ? null : t; if(!wasOpen) state.reports.filterSearch[t] = ''; render(); return; }
   if(act==='toggle-report-filter'){ toggleReportFilter(el.dataset.ftype, el.dataset.fval); return; }
   if(act==='toggle-form-dropdown'){ const t=el.dataset.ftype; const wasOpen = state.form.openDropdown===t; state.form.openDropdown = wasOpen ? null : t; if(!wasOpen) state.form.dropdownSearch[t] = ''; render(); return; }
