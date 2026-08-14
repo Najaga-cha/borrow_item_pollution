@@ -7,6 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -2924,11 +2925,13 @@ function drawReportCharts(){
   if(!window.Chart) return;
   const data = state._reportChartData;
   if(!data) return;
+  if(window.ChartDataLabels) Chart.register(ChartDataLabels);
   const palette = ['#0891b2','#0ea5e9','#dc2626','#a16207','#7c3aed','#15803d','#db2777','#ea580c'];
   const isDark = document.documentElement.getAttribute('data-theme')==='dark';
   const fontColor = isDark ? '#eaf3f1' : '#16302b';
   Chart.defaults.font.family = "'Sarabun','Kanit',sans-serif";
   Chart.defaults.color = fontColor;
+  Chart.defaults.set('plugins.datalabels', { display:false }); // ปิดไว้ก่อน แล้วเปิดเฉพาะกราฟที่ต้องการทีละอัน
 
   const catEl = document.getElementById('chart-cat');
   _destroyChart('cat');
@@ -2936,7 +2939,10 @@ function drawReportCharts(){
     _reportChartInstances.cat = new Chart(catEl, {
       type:'doughnut',
       data:{ labels:data.catEntries.map(e=>e[0]), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:data.catEntries.map(e=>(CATEGORY_COLOR[e[0]]&&CATEGORY_COLOR[e[0]].bg)||'#64748b') }] },
-      options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{boxWidth:10,font:{size:10}} } } }
+      options:{ maintainAspectRatio:false, plugins:{
+        legend:{ position:'bottom', labels:{boxWidth:10,font:{size:10}} },
+        datalabels:{ display:true, color:'#fff', font:{weight:'700',size:11}, formatter:(v,ctx)=>{ const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); const pct=total? (v/total*100):0; return pct<6? '' : v+'\n('+pct.toFixed(0)+'%)'; }, textAlign:'center' }
+      } }
     });
   }
 
@@ -2946,7 +2952,10 @@ function drawReportCharts(){
     _reportChartInstances.equip = new Chart(equipEl, {
       type:'bar',
       data:{ labels:data.equipEntries.map(e=>e[0].length>14?e[0].slice(0,14)+'…':e[0]), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}) }] },
-      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ ticks:{precision:0} } } }
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{display:false},
+        datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:11}, formatter:v=>v }
+      }, scales:{ x:{ ticks:{precision:0} } } }
     });
   }
 
@@ -2956,7 +2965,10 @@ function drawReportCharts(){
     _reportChartInstances.status = new Chart(statusEl, {
       type:'doughnut',
       data:{ labels:['กำลังยืมอยู่','คืนแล้ว'], datasets:[{ data:data.statusCounts, backgroundColor:['#b45309','#15803d'] }] },
-      options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
+      options:{ maintainAspectRatio:false, plugins:{
+        legend:{ position:'bottom' },
+        datalabels:{ display:true, color:'#fff', font:{weight:'700',size:12}, formatter:(v,ctx)=>{ const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); const pct=total? (v/total*100):0; return v===0? '' : v+' ('+pct.toFixed(0)+'%)'; } }
+      } }
     });
   }
 
@@ -2966,7 +2978,10 @@ function drawReportCharts(){
     _reportChartInstances.trend = new Chart(trendEl, {
       type:'line',
       data:{ labels:data.trendLabels, datasets:[{ label:'จำนวนใบยืม', data:data.trendCounts, borderColor:'#0f766e', backgroundColor:'rgba(15,118,110,.15)', tension:.3, fill:true }] },
-      options:{ maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, ticks:{precision:0} } } }
+      options:{ maintainAspectRatio:false, plugins:{
+        legend:{display:false},
+        datalabels:{ display:true, align:'top', anchor:'end', color:'#0f766e', font:{weight:'700',size:11}, formatter:v=>v===0?'':v }
+      }, scales:{ y:{ beginAtZero:true, ticks:{precision:0}, grace:'10%' } } }
     });
   }
 
@@ -2983,7 +2998,10 @@ function drawReportCharts(){
           { label:'คืนสาย (เลยกำหนด)', data:data.deptStatusLateReturned, backgroundColor:'#dc2626' },
         ]
       },
-      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ position:'bottom' } }, scales:{ x:{ stacked:true, ticks:{precision:0} }, y:{ stacked:true } } }
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{ position:'bottom' },
+        datalabels:{ display:(ctx)=>ctx.dataset.data[ctx.dataIndex]>0, color:'#fff', font:{weight:'700',size:10} }
+      }, scales:{ x:{ stacked:true, ticks:{precision:0} }, y:{ stacked:true } } }
     });
   }
 
@@ -2999,7 +3017,10 @@ function drawReportCharts(){
           { label:'จำนวนเครื่องมือ (ชิ้น)', data:data.provinceQtyCounts, backgroundColor:'#7c3aed' },
         ]
       },
-      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ position:'bottom' } }, scales:{ x:{ ticks:{precision:0} } } }
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{ position:'bottom' },
+        datalabels:{ display:(ctx)=>ctx.dataset.data[ctx.dataIndex]>0, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:10} }
+      }, scales:{ x:{ ticks:{precision:0} } } }
     });
   }
 }
