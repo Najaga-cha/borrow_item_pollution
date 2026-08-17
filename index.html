@@ -2809,11 +2809,12 @@ function renderReportsTab(){
       unitRows.push({ name, unitLabel: unitsByName[name].length>1 ? `เครื่องที่ ${i+1}` : 'เครื่องเดียว', assetCode: e.assetCode||'-', category: e.category, count: byUnitCount[e.id]||0 });
     });
   });
+  unitRows.sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name,'th'));
+  const unitTopForChart = unitRows.filter(r=>r.count>0).slice(0,15);
   const unitSearchVal = (state.reports.unitSearch||'').trim().toLowerCase();
   if(unitSearchVal){
     unitRows = unitRows.filter(r=> (r.name+' '+r.assetCode).toLowerCase().includes(unitSearchVal));
   }
-  unitRows.sort((a,b)=> a.name===b.name ? b.count-a.count : a.name.localeCompare(b.name,'th'));
 
   // ผู้ยืมที่คืนสายซ้ำ (นับจากใบยืมทั้งหมดในระบบ ไม่จำกัดเฉพาะช่วงเวลาที่เลือก เพื่อเห็นภาพพฤติกรรมสะสม)
   const lateByBorrower = {};
@@ -2871,6 +2872,9 @@ function renderReportsTab(){
     provinceLabels: provinceEntries.map(e=>e[0]),
     provinceBorrowCounts: provinceEntries.map(e=>e[1]),
     provinceQtyCounts: provinceEntries.map(e=>e[2]),
+    unitTopLabels: unitTopForChart.map(r=> r.unitLabel==='เครื่องเดียว' ? r.name : `${r.name} (${r.unitLabel})`),
+    unitTopCounts: unitTopForChart.map(r=>r.count),
+    unitTopColors: unitTopForChart.map(r=>(CATEGORY_COLOR[r.category]&&CATEGORY_COLOR[r.category].bg)||'#0891b2'),
   };
 
   return `
@@ -2974,6 +2978,14 @@ function renderReportsTab(){
         <button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="trend" data-title="แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน" title="ขยายดูกราฟ">⤢</button>
       </div>
       <div class="report-chart-box" style="height:220px"><canvas id="chart-trend"></canvas></div>
+    </div>
+
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-sm">จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง (Top 15)</h3>
+        ${unitTopForChart.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="unitTop" data-title="จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง (Top 15)" title="ขยายดูกราฟ">⤢</button>`:''}
+      </div>
+      ${unitTopForChart.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, unitTopForChart.length*32)}px"><canvas id="chart-unit-top"></canvas></div>`}
     </div>
 
     <div class="card p-5">
@@ -3229,6 +3241,19 @@ function drawReportCharts(){
     });
   }
 
+  const unitTopEl = document.getElementById('chart-unit-top');
+  _destroyChart('unitTop');
+  if(unitTopEl && data.unitTopLabels && data.unitTopLabels.length){
+    _reportChartInstances.unitTop = new Chart(unitTopEl, {
+      type:'bar',
+      data:{ labels:data.unitTopLabels.map(l=>l.length>26?l.slice(0,26)+'…':l), datasets:[{ label:'ยืมไปแล้ว (ครั้ง)', data:data.unitTopCounts, backgroundColor:data.unitTopColors }] },
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{display:false},
+        datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:11}, formatter:v=>v }
+      }, scales:{ x:{ ticks:{precision:0} } } }
+    });
+  }
+
   const deptStatusEl = document.getElementById('chart-dept-status');
   _destroyChart('deptStatus');
   if(deptStatusEl && data.deptStatusLabels && data.deptStatusLabels.length){
@@ -3307,6 +3332,13 @@ function drawExpandedChart(data, palette, fontColor){
         legend:{display:false},
         datalabels:{ display:true, align:'top', anchor:'end', color:'#0f766e', font:{weight:'700',size:13}, formatter:v=>v===0?'':v }
       }, scales:{ y:{ beginAtZero:true, ticks:{precision:0}, grace:'10%' } } } };
+  } else if(key==='unitTop' && data.unitTopLabels && data.unitTopLabels.length){
+    config = { type:'bar',
+      data:{ labels:data.unitTopLabels, datasets:[{ label:'ยืมไปแล้ว (ครั้ง)', data:data.unitTopCounts, backgroundColor:data.unitTopColors }] },
+      options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
+        legend:{display:false},
+        datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:13}, formatter:v=>v }
+      }, scales:{ x:{ ticks:{precision:0} } } } };
   } else if(key==='deptStatus' && data.deptStatusLabels && data.deptStatusLabels.length){
     config = { type:'bar',
       data:{
