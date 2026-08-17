@@ -430,7 +430,8 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
      Using a dedicated class (instead of matching the dynamic inline style) so this reliably
      applies to every chart box, including the department chart whose height varies with row count. */
   body.printing-report .card canvas{ max-height:170px !important; }
-  body.printing-report .report-chart-box{ height:170px !important; max-height:170px !important; overflow:hidden; }
+  .report-chart-box{ position:relative; width:100%; overflow:hidden; }
+body.printing-report .report-chart-box{ height:170px !important; max-height:170px !important; overflow:hidden; }
 
   /* Keep chart cards and the sections around them from splitting badly across a page edge */
   body.printing-report [class*="grid"][class*="md:grid-cols-3"],
@@ -2983,7 +2984,7 @@ function renderReportsTab(){
           <span class="flex items-center gap-1"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${(CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2'}"></span>${esc(c)}</span>
           `).join('')}
         </div>
-        <div class="report-chart-box" style="height:${Math.max(220, equipEntries.length*52)}px"><canvas id="chart-equip"></canvas></div>`}
+        <div class="report-chart-box" style="height:${Math.max(220, equipEntries.length*42)}px"><canvas id="chart-equip"></canvas></div>`}
       </div>
       <div class="card p-5">
         <div class="flex items-center justify-between mb-3">
@@ -3260,7 +3261,7 @@ function drawReportCharts(){
   if(equipEl && data.equipEntries.length){
     _reportChartInstances.equip = new Chart(equipEl, {
       type:'bar',
-      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],22,3)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), barPercentage:0.72, categoryPercentage:0.82 }] },
+      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],20,2)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), maxBarThickness:22, barPercentage:0.7, categoryPercentage:0.8 }] },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
         tooltip:{ callbacks:{ title:(items)=>{ const i=items[0].dataIndex; return data.equipEntries[i][0]; } } },
@@ -3367,7 +3368,7 @@ function drawExpandedChart(data, palette, fontColor){
       } } };
   } else if(key==='equip' && data.equipEntries.length){
     config = { type:'bar',
-      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],30,4)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), barPercentage:0.72, categoryPercentage:0.82 }] },
+      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],26,3)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), maxBarThickness:36, barPercentage:0.7, categoryPercentage:0.8 }] },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
         tooltip:{ callbacks:{ title:(items)=>{ const i=items[0].dataIndex; return data.equipEntries[i][0]; } } },
