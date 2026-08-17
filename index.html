@@ -1922,6 +1922,19 @@ function buildSlipStandaloneHTML(b){
   <style>${SLIP_STANDALONE_CSS}</style></head>
   <body>${buildSlipHTML(b)}</body></html>`;
 }
+// โหลดฟอนต์ TH Sarabun PSK ไว้ล่วงหน้าตั้งแต่เปิดหน้าเว็บ (ไม่ต้องรอจนกว่าจะกดสร้าง/ดูใบยืม)
+// เพื่อแก้ปัญหากดสร้าง PDF ครั้งแรกแล้วเลย์เอาต์เพี้ยน (คอลัมน์ตารางแคบผิดปกติ) เพราะฟอนต์ยังโหลดไม่เสร็จ
+// แล้วพอกดครั้งที่สองฟอนต์ถูกแคชไว้แล้วเลยกลับมาปกติ — การ preload ตั้งแต่ต้นทำให้ครั้งแรกก็ถูกต้องเลย
+let _slipFontsPreloaded = false;
+function preloadSlipFonts(){
+  if(_slipFontsPreloaded) return;
+  _slipFontsPreloaded = true;
+  if(!document.fonts) return;
+  try{
+    document.fonts.load("400 16pt 'TH Sarabun PSK'").catch(()=>{});
+    document.fonts.load("700 16pt 'TH Sarabun PSK'").catch(()=>{});
+  }catch(e){ /* เบราว์เซอร์บางตัวอาจไม่รองรับ - ปล่อยผ่าน จะไปกันเผื่อซ้ำอีกทีตอนสร้าง PDF จริง */ }
+}
 function utf8ToBase64(str){
   return btoa(unescape(encodeURIComponent(str)));
 }
@@ -1945,6 +1958,8 @@ async function buildPDFDataUriFromHTML(html, css){
   document.body.appendChild(container);
 
   // รอให้ฟอนต์ TH Sarabun PSK โหลดเสร็จ + เลย์เอาต์เสถียรก่อนจับภาพ
+  // (ปกติฟอนต์ควรถูก preload ไว้แล้วตั้งแต่เปิดหน้าเว็บผ่าน preloadSlipFonts() แต่ยังคงกันเผื่อไว้ที่นี่ด้วย
+  // สำหรับกรณีที่ผู้ใช้กดสร้าง PDF เร็วมากก่อนฟอนต์โหลดเสร็จ)
   try{
     await Promise.all([
       document.fonts.load("400 16pt 'TH Sarabun PSK'"),
@@ -1952,7 +1967,14 @@ async function buildPDFDataUriFromHTML(html, css){
     ]);
     await document.fonts.ready;
   }catch(e){ /* ถ้าโหลดฟอนต์ไม่สำเร็จ จะ fallback ไปฟอนต์อื่นแทน */ }
-  await new Promise(r=>setTimeout(r, 60));
+
+  // บังคับให้เบราว์เซอร์รีโฟลว์/รีเพนต์ด้วยฟอนต์ที่โหลดเสร็จแล้วจริงๆ ก่อนวัดขนาด/จับภาพ
+  // (แค่รอ document.fonts.ready อย่างเดียว บางเบราว์เซอร์ยังไม่ทันสลับฟอนต์ในเฟรมถัดไปทันที
+  // ทำให้ตอนกดครั้งแรกในเซสชัน คอลัมน์ตารางยังคำนวณจากฟอนต์สำรอง กลายเป็นคอลัมน์แคบผิดปกติ)
+  void container.offsetHeight; // force reflow ครั้งแรก
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  void container.offsetHeight; // force reflow อีกครั้งหลัง 2 เฟรม
+  await new Promise(r=>setTimeout(r, 120));
 
   const PDF_PAGE_WIDTH_MM = 210, PDF_PAGE_HEIGHT_MM = 297, PDF_EXTRA_GAP_MM = 10; // ขนาด A4 + ระยะห่างพิเศษจากหัวกระดาษเมื่อถูกดันไปหน้าใหม่
 
@@ -4278,6 +4300,7 @@ function startLiveClock(){
 
 /* ===================== Boot ===================== */
 (async function boot(){
+  preloadSlipFonts(); // เริ่มโหลดฟอนต์ใบยืม (TH Sarabun PSK) ไว้ล่วงหน้าตั้งแต่เปิดหน้าเว็บ
   await authReady; // รอให้ล็อกอินแบบไม่ระบุตัวตนเสร็จก่อน ป้องกัน error permission-denied
   await initData();
   render();
