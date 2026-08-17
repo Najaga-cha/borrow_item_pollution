@@ -430,8 +430,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
      Using a dedicated class (instead of matching the dynamic inline style) so this reliably
      applies to every chart box, including the department chart whose height varies with row count. */
   body.printing-report .card canvas{ max-height:170px !important; }
-  .report-chart-box{ position:relative; width:100%; overflow:hidden; }
-body.printing-report .report-chart-box{ height:170px !important; max-height:170px !important; overflow:hidden; }
+  body.printing-report .report-chart-box{ height:170px !important; max-height:170px !important; overflow:hidden; }
 
   /* Keep chart cards and the sections around them from splitting badly across a page edge */
   body.printing-report [class*="grid"][class*="md:grid-cols-3"],
@@ -2984,7 +2983,7 @@ function renderReportsTab(){
           <span class="flex items-center gap-1"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${(CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2'}"></span>${esc(c)}</span>
           `).join('')}
         </div>
-        <div class="report-chart-box" style="height:${Math.max(220, equipEntries.length*42)}px"><canvas id="chart-equip"></canvas></div>`}
+        <div class="report-chart-box" style="height:200px"><canvas id="chart-equip"></canvas></div>`}
       </div>
       <div class="card p-5">
         <div class="flex items-center justify-between mb-3">
@@ -3187,37 +3186,6 @@ const _reportChartInstances = {};
 function _destroyChart(key){
   if(_reportChartInstances[key]){ try{ _reportChartInstances[key].destroy(); }catch(e){} delete _reportChartInstances[key]; }
 }
-function _wrapChartLabel(str, maxLen, maxLines){
-  maxLen = maxLen || 16;
-  maxLines = maxLines || 2;
-  if(!str || str.length<=maxLen) return str;
-  const words = String(str).split(' ');
-  const lines = [];
-  let line = '';
-  words.forEach(word=>{
-    while(word.length>maxLen){
-      if(line){ lines.push(line); line=''; }
-      lines.push(word.slice(0,maxLen));
-      word = word.slice(maxLen);
-    }
-    const candidate = line ? line+' '+word : word;
-    if(candidate.length>maxLen){
-      if(line) lines.push(line);
-      line = word;
-    } else {
-      line = candidate;
-    }
-  });
-  if(line) lines.push(line);
-  if(lines.length>maxLines){
-    const kept = lines.slice(0,maxLines);
-    let last = kept[maxLines-1];
-    if(last.length>maxLen-1) last = last.slice(0,maxLen-1);
-    kept[maxLines-1] = last.replace(/\s+$/,'')+'…';
-    return kept;
-  }
-  return lines;
-}
 function downloadReportChart(key){
   const inst = _reportChartInstances[key];
   if(!inst) return;
@@ -3261,12 +3229,11 @@ function drawReportCharts(){
   if(equipEl && data.equipEntries.length){
     _reportChartInstances.equip = new Chart(equipEl, {
       type:'bar',
-      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],20,2)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), maxBarThickness:22, barPercentage:0.7, categoryPercentage:0.8 }] },
+      data:{ labels:data.equipEntries.map(e=>e[0].length>14?e[0].slice(0,14)+'…':e[0]), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}) }] },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
-        tooltip:{ callbacks:{ title:(items)=>{ const i=items[0].dataIndex; return data.equipEntries[i][0]; } } },
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:11}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} }, y:{ ticks:{autoSkip:false, font:{size:10}} } } }
+      }, scales:{ x:{ ticks:{precision:0} } } }
     });
   }
 
@@ -3368,12 +3335,11 @@ function drawExpandedChart(data, palette, fontColor){
       } } };
   } else if(key==='equip' && data.equipEntries.length){
     config = { type:'bar',
-      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],26,3)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), maxBarThickness:36, barPercentage:0.7, categoryPercentage:0.8 }] },
+      data:{ labels:data.equipEntries.map(e=>e[0]), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}) }] },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
-        tooltip:{ callbacks:{ title:(items)=>{ const i=items[0].dataIndex; return data.equipEntries[i][0]; } } },
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:13}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} }, y:{ ticks:{autoSkip:false} } } } };
+      }, scales:{ x:{ ticks:{precision:0} } } } };
   } else if(key==='status' && (data.statusCounts[0]+data.statusCounts[1])>0){
     config = { type:'doughnut',
       data:{ labels:['กำลังยืมอยู่','คืนแล้ว'], datasets:[{ data:data.statusCounts, backgroundColor:['#b45309','#15803d'] }] },
