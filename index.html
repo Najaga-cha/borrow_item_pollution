@@ -2983,7 +2983,7 @@ function renderReportsTab(){
           <span class="flex items-center gap-1"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${(CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2'}"></span>${esc(c)}</span>
           `).join('')}
         </div>
-        <div class="report-chart-box" style="height:${Math.max(220, equipEntries.length*40)}px"><canvas id="chart-equip"></canvas></div>`}
+        <div class="report-chart-box" style="height:${Math.max(220, equipEntries.length*52)}px"><canvas id="chart-equip"></canvas></div>`}
       </div>
       <div class="card p-5">
         <div class="flex items-center justify-between mb-3">
@@ -3186,8 +3186,9 @@ const _reportChartInstances = {};
 function _destroyChart(key){
   if(_reportChartInstances[key]){ try{ _reportChartInstances[key].destroy(); }catch(e){} delete _reportChartInstances[key]; }
 }
-function _wrapChartLabel(str, maxLen){
+function _wrapChartLabel(str, maxLen, maxLines){
   maxLen = maxLen || 16;
+  maxLines = maxLines || 2;
   if(!str || str.length<=maxLen) return str;
   const words = String(str).split(' ');
   const lines = [];
@@ -3207,6 +3208,13 @@ function _wrapChartLabel(str, maxLen){
     }
   });
   if(line) lines.push(line);
+  if(lines.length>maxLines){
+    const kept = lines.slice(0,maxLines);
+    let last = kept[maxLines-1];
+    if(last.length>maxLen-1) last = last.slice(0,maxLen-1);
+    kept[maxLines-1] = last.replace(/\s+$/,'')+'…';
+    return kept;
+  }
   return lines;
 }
 function downloadReportChart(key){
@@ -3252,12 +3260,12 @@ function drawReportCharts(){
   if(equipEl && data.equipEntries.length){
     _reportChartInstances.equip = new Chart(equipEl, {
       type:'bar',
-      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],14)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}) }] },
+      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],22,3)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), barPercentage:0.72, categoryPercentage:0.82 }] },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
         tooltip:{ callbacks:{ title:(items)=>{ const i=items[0].dataIndex; return data.equipEntries[i][0]; } } },
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:11}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} }, y:{ ticks:{autoSkip:false} } } }
+      }, scales:{ x:{ ticks:{precision:0} }, y:{ ticks:{autoSkip:false, font:{size:10}} } } }
     });
   }
 
@@ -3359,11 +3367,12 @@ function drawExpandedChart(data, palette, fontColor){
       } } };
   } else if(key==='equip' && data.equipEntries.length){
     config = { type:'bar',
-      data:{ labels:data.equipEntries.map(e=>e[0]), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}) }] },
+      data:{ labels:data.equipEntries.map(e=>_wrapChartLabel(e[0],30,4)), datasets:[{ label:'จำนวน', data:data.equipEntries.map(e=>e[1]), backgroundColor:data.equipEntries.map(e=>{const c=data.equipCat&&data.equipCat[e[0]];return (c&&CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2';}), barPercentage:0.72, categoryPercentage:0.82 }] },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
+        tooltip:{ callbacks:{ title:(items)=>{ const i=items[0].dataIndex; return data.equipEntries[i][0]; } } },
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:13}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} } } } };
+      }, scales:{ x:{ ticks:{precision:0} }, y:{ ticks:{autoSkip:false} } } } };
   } else if(key==='status' && (data.statusCounts[0]+data.statusCounts[1])>0){
     config = { type:'doughnut',
       data:{ labels:['กำลังยืมอยู่','คืนแล้ว'], datasets:[{ data:data.statusCounts, backgroundColor:['#b45309','#15803d'] }] },
