@@ -544,7 +544,7 @@ const state = {
   manage: { catFilter:'', statusFilter:'', search:'', editing:null },
   calendar: { year: new Date().getFullYear(), month: new Date().getMonth(), selectedDay:null },
   availCal: null, // { cat, name, year, month, selectedDay } — ปฏิทินสถานะการจองต่อรายการเครื่องมือ (เปิดดูได้โดยไม่ต้องล็อกอิน)
-  reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''}, unitSearch:'' },
+  reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''}, unitSearch:'', topEquipCount:8, topUnitCount:15 },
   lastCreatedBorrowId: null,
   pendingBorrow: null,
   calibConfirmIds: null,
@@ -2832,7 +2832,8 @@ function renderReportsTab(){
     });
   });
   unitRows.sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name,'th'));
-  const unitTopForChart = unitRows.filter(r=>r.count>0).slice(0,15);
+  const unitTopN = state.reports.topUnitCount || 15;
+  const unitTopForChart = unitRows.filter(r=>r.count>0).slice(0, unitTopN);
   const unitSearchVal = (state.reports.unitSearch||'').trim().toLowerCase();
   if(unitSearchVal){
     unitRows = unitRows.filter(r=> (r.name+' '+r.assetCode).toLowerCase().includes(unitSearchVal));
@@ -2883,8 +2884,9 @@ function renderReportsTab(){
   });
 
 
+  const equipTopN = state.reports.topEquipCount || 8;
   state._reportChartData = {
-    catEntries, equipEntries: equipEntries.slice(0,8), equipCat,
+    catEntries, equipEntries: equipEntries.slice(0, equipTopN), equipCat,
     statusCounts: [activeCount, returnedCount],
     trendLabels: trendMonths.map(t=>t.label), trendCounts,
     deptStatusLabels: deptDetailEntries.map(e=>e[0]),
@@ -2973,9 +2975,15 @@ function renderReportsTab(){
         ${catEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:220px"><canvas id="chart-cat"></canvas></div>`}
       </div>
       <div class="card p-5">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold text-sm">เครื่องมือยอดนิยม (Top 8)</h3>
-          ${equipEntries.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="equip" data-title="เครื่องมือยอดนิยม (Top 8)" title="ขยายดูกราฟ">⤢</button>`:''}
+        <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <h3 class="font-bold text-sm">เครื่องมือยอดนิยม (Top ${equipTopN===Infinity?'ทั้งหมด':equipTopN})</h3>
+          <div class="flex items-center gap-2">
+            <select id="r-top-equip" class="inp-sm no-print" style="width:auto;">
+              ${[5,8,10,15,20].map(n=>`<option value="${n}" ${state.reports.topEquipCount===n?'selected':''}>Top ${n}</option>`).join('')}
+              <option value="all" ${state.reports.topEquipCount===Infinity?'selected':''}>ทั้งหมด</option>
+            </select>
+            ${equipEntries.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="equip" data-title="เครื่องมือยอดนิยม (Top ${equipTopN===Infinity?'ทั้งหมด':equipTopN})" title="ขยายดูกราฟ">⤢</button>`:''}
+          </div>
         </div>
         ${equipEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `
         <div class="flex flex-wrap gap-x-3 gap-y-1 mb-2" style="font-size:11px;">
@@ -2983,7 +2991,7 @@ function renderReportsTab(){
           <span class="flex items-center gap-1"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${(CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2'}"></span>${esc(c)}</span>
           `).join('')}
         </div>
-        <div class="report-chart-box" style="height:200px"><canvas id="chart-equip"></canvas></div>`}
+        <div class="report-chart-box" style="height:${Math.max(200, Math.min(equipEntries.length,equipTopN)*26)}px"><canvas id="chart-equip"></canvas></div>`}
       </div>
       <div class="card p-5">
         <div class="flex items-center justify-between mb-3">
@@ -2995,9 +3003,15 @@ function renderReportsTab(){
     </div>
 
     <div class="card p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="font-bold text-sm">จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง (Top 15)</h3>
-        ${unitTopForChart.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="unitTop" data-title="จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง (Top 15)" title="ขยายดูกราฟ">⤢</button>`:''}
+      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <h3 class="font-bold text-sm">จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง (Top ${unitTopN===Infinity?'ทั้งหมด':unitTopN})</h3>
+        <div class="flex items-center gap-2">
+          <select id="r-top-unit" class="inp-sm no-print" style="width:auto;">
+            ${[5,10,15,20,30].map(n=>`<option value="${n}" ${state.reports.topUnitCount===n?'selected':''}>Top ${n}</option>`).join('')}
+            <option value="all" ${state.reports.topUnitCount===Infinity?'selected':''}>ทั้งหมด</option>
+          </select>
+          ${unitTopForChart.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="unitTop" data-title="จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง (Top ${unitTopN===Infinity?'ทั้งหมด':unitTopN})" title="ขยายดูกราฟ">⤢</button>`:''}
+        </div>
       </div>
       ${unitTopForChart.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, unitTopForChart.length*32)}px"><canvas id="chart-unit-top"></canvas></div>`}
     </div>
@@ -3704,6 +3718,8 @@ function onChange(e){
   if(el.id==='r-half'){ state.reports.half = el.value; render(); return; }
   if(el.id==='r-fy'){ state.reports.fy = parseInt(el.value); render(); return; }
   if(el.id==='r-fy2'){ state.reports.fy = parseInt(el.value); render(); return; }
+  if(el.id==='r-top-equip'){ state.reports.topEquipCount = el.value==='all' ? Infinity : parseInt(el.value); render(); return; }
+  if(el.id==='r-top-unit'){ state.reports.topUnitCount = el.value==='all' ? Infinity : parseInt(el.value); render(); return; }
 
 }
 function onInput(e){
