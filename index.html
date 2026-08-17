@@ -544,7 +544,7 @@ const state = {
   manage: { catFilter:'', statusFilter:'', search:'', editing:null },
   calendar: { year: new Date().getFullYear(), month: new Date().getMonth(), selectedDay:null },
   availCal: null, // { cat, name, year, month, selectedDay } — ปฏิทินสถานะการจองต่อรายการเครื่องมือ (เปิดดูได้โดยไม่ต้องล็อกอิน)
-  reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''} },
+  reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''}, unitSearch:'' },
   lastCreatedBorrowId: null,
   pendingBorrow: null,
   calibConfirmIds: null,
@@ -2787,6 +2787,34 @@ function renderReportsTab(){
     .sort((a,b)=>b.total-a.total)
     .slice(0,20);
 
+  // จำนวนครั้งที่ยืม แยกเป็นรายเครื่อง (ตามหมายเลขครุภัณฑ์/ลำดับเครื่อง) — นับทั้งหมดตามตัวกรอง หน่วยงาน/จังหวัด/ประเภท ปัจจุบัน (ไม่จำกัดตามช่วงเวลาที่เลือก เพื่อให้เห็นภาพรวมสะสม)
+  const unitBorrowList = applyReportFilters(state.borrows);
+  const byUnitCount = {};
+  unitBorrowList.forEach(b=>{
+    (b.items||[]).forEach(it=>{
+      if(!reportItemMatchesCatFilter(it.category)) return;
+      const ids = (it.equipmentIds && it.equipmentIds.length) ? it.equipmentIds : (it.equipmentId? [it.equipmentId] : []);
+      ids.forEach(id=>{ byUnitCount[id] = (byUnitCount[id]||0) + 1; });
+    });
+  });
+  const unitsByName = {};
+  state.equipment.forEach(e=>{
+    if(catFilterSet.length && !catFilterSet.includes(e.category)) return;
+    if(!unitsByName[e.name]) unitsByName[e.name] = [];
+    unitsByName[e.name].push(e);
+  });
+  let unitRows = [];
+  Object.keys(unitsByName).forEach(name=>{
+    unitsByName[name].forEach((e,i)=>{
+      unitRows.push({ name, unitLabel: unitsByName[name].length>1 ? `เครื่องที่ ${i+1}` : 'เครื่องเดียว', assetCode: e.assetCode||'-', category: e.category, count: byUnitCount[e.id]||0 });
+    });
+  });
+  const unitSearchVal = (state.reports.unitSearch||'').trim().toLowerCase();
+  if(unitSearchVal){
+    unitRows = unitRows.filter(r=> (r.name+' '+r.assetCode).toLowerCase().includes(unitSearchVal));
+  }
+  unitRows.sort((a,b)=> a.name===b.name ? b.count-a.count : a.name.localeCompare(b.name,'th'));
+
   // ผู้ยืมที่คืนสายซ้ำ (นับจากใบยืมทั้งหมดในระบบ ไม่จำกัดเฉพาะช่วงเวลาที่เลือก เพื่อเห็นภาพพฤติกรรมสะสม)
   const lateByBorrower = {};
   applyReportFilters(state.borrows).forEach(b=>{
@@ -3072,6 +3100,30 @@ function renderReportsTab(){
     </div>
 
     <div class="card p-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 class="font-bold text-sm">จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง</h3>
+        <input id="r-unit-search" class="inp" style="max-width:280px" placeholder="ค้นหาชื่อเครื่องมือ หรือรหัสครุภัณฑ์..." value="${esc(state.reports.unitSearch||'')}"/>
+      </div>
+      <div class="text-xs subtle mb-3">นับสะสมทุกใบยืมตามตัวกรองหน่วยงาน/จังหวัด/ประเภทด้านบน (ไม่จำกัดตามช่วงเวลาที่เลือกไว้ด้านบนสุด) — ใช้ดูว่าเครื่องแต่ละตัว (เช่น "เครื่องที่ 1", "เครื่องที่ 2") ถูกยืมไปกี่ครั้งแล้ว</div>
+      ${unitRows.length===0? `<div class="empty-hint">ไม่พบเครื่องมือที่ตรงกับคำค้นหา</div>` : `
+      <div class="table-wrap" style="max-height:420px;overflow-y:auto">
+        <table class="data-table">
+          <thead><tr><th>ด้าน</th><th>เครื่องมือ</th><th>ลำดับเครื่อง</th><th>รหัสครุภัณฑ์</th><th class="c" style="width:14%">ยืมไปแล้ว (ครั้ง)</th></tr></thead>
+          <tbody>
+            ${unitRows.map(r=>`
+            <tr>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[r.category]?.bg||'#888'}">${esc(r.category)}</span></td>
+              <td>${esc(r.name)}</td>
+              <td class="text-xs">${esc(r.unitLabel)}</td>
+              <td class="font-mono text-xs">${esc(r.assetCode)}</td>
+              <td class="c font-bold">${r.count}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+
+    <div class="card p-5">
       <h3 class="font-bold mb-3">รายละเอียดใบยืมในช่วงเวลาที่เลือก</h3>
       <div class="table-wrap">
         <table class="data-table">
@@ -3318,6 +3370,7 @@ function attachHandlers(){
   bindTextInput('r-search-dept', v=>{state.reports.filterSearch.dept=v; renderSoft();});
   bindTextInput('r-search-province', v=>{state.reports.filterSearch.province=v; renderSoft();});
   bindTextInput('r-search-category', v=>{state.reports.filterSearch.category=v; renderSoft();});
+  bindTextInput('r-unit-search', v=>{state.reports.unitSearch=v; renderSoft();});
   bindEnterKey('login-user', doLogin);
   bindEnterKey('login-pass', doLogin);
   bindPhoneInput('f-phone');
