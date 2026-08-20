@@ -873,14 +873,35 @@ function dateRangesOverlap(startA, endA, startB, endB){
   if(!startA || !endA || !startB || !endB) return true; // ถ้าไม่มีข้อมูลวันที่ครบ ให้ถือว่าอาจทับซ้อน (ปลอดภัยไว้ก่อน)
   return startA <= endB && startB <= endA;
 }
+// ตรวจว่ารหัสครุภัณฑ์นี้ "ใช้อ้างอิงตัวเครื่องได้จริง" หรือไม่ (ไม่ใช่ค่าว่าง/ค่า placeholder
+// เช่น "ไม่มีเลขครุภัณฑ์", "-" ที่เครื่องมือหลายชิ้นอาจใช้ค่าเดียวกันซ้ำกันได้)
+function isUsableAssetCode(code){
+  if(!code) return false;
+  const c = String(code).trim();
+  if(!c || c === '-') return false;
+  if(c.replace(/\s/g,'').includes('ไม่มี')) return false;
+  return true;
+}
 // เครื่องมือชิ้นนี้ถูกจอง/ถืออยู่ "ในช่วงวันที่ที่ต้องการยืม" หรือไม่
 // (แทนที่ตรรกะเดิมที่เช็คแค่ "มีใบยืม active อยู่หรือเปล่า" โดยไม่สนวันที่เลย
 //  ซึ่งทำให้ใบยืมที่จองวันในอนาคตไปแล้ว บล็อกใบยืมอื่นที่วันที่ไม่ได้ทับซ้อนกันจริง)
-function unitIsHeldForRange(equipmentId, borrowDate, returnDate){
+// รับพารามิเตอร์เป็น "ตัวเครื่องมือ" ทั้งชิ้น (ไม่ใช่แค่ id) เพื่อให้เทียบได้ทั้งจาก id และจากรหัสครุภัณฑ์
+// เหตุผล: ถ้าแอดมิน "ล้างฐานข้อมูลทั้งหมด" แล้วนำเข้าเครื่องมือใหม่ ระบบจะสร้าง id ใหม่ให้ทุกครั้ง
+// ทำให้ใบยืมเก่าที่ยังไม่คืน (อ้างอิง id เดิม) หลุดการเชื่อมโยงกับเครื่องมือชิ้นเดิมที่นำเข้าใหม่
+// การเทียบรหัสครุภัณฑ์เพิ่มเป็นชั้นสำรอง ช่วยให้ระบบยังจำได้ว่าเครื่องมือชิ้นนี้ถูกยืมค้างอยู่จริง
+function unitIsHeldForRange(equipment, borrowDate, returnDate){
+  const equipmentId = (typeof equipment === 'object' && equipment) ? equipment.id : equipment;
+  const equipmentAssetCode = (typeof equipment === 'object' && equipment) ? equipment.assetCode : null;
+  const assetCodeUsable = isUsableAssetCode(equipmentAssetCode);
   for(const b of state.borrows){
     if(b.status !== 'active') continue;
     const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : b.items;
-    const usesUnit = list.some(it=> it.equipmentId === equipmentId && !it.returned);
+    const usesUnit = list.some(it=>{
+      if(it.returned) return false;
+      if(it.equipmentId === equipmentId) return true;
+      if(assetCodeUsable && isUsableAssetCode(it.assetCode) && String(it.assetCode).trim() === String(equipmentAssetCode).trim()) return true;
+      return false;
+    });
     if(!usesUnit) continue;
     if(dateRangesOverlap(b.borrowDate, b.returnDate, borrowDate, returnDate)) return true;
   }
@@ -888,10 +909,10 @@ function unitIsHeldForRange(equipmentId, borrowDate, returnDate){
 }
 // เผื่อเรียกโดยไม่ระบุช่วงวันที่ (เช่น หน้าจัดการเครื่องมือทั่วไป) — ใช้ "วันนี้" เป็นค่าเริ่มต้น
 // เพื่อบอกว่าตอนนี้ ณ ขณะนี้ เครื่องมือถูกถืออยู่จริงหรือไม่
-function unitIsHeld(equipmentId, borrowDate, returnDate){
+function unitIsHeld(equipment, borrowDate, returnDate){
   const bd = borrowDate || todayISO();
   const rd = returnDate || todayISO();
-  return unitIsHeldForRange(equipmentId, bd, rd);
+  return unitIsHeldForRange(equipment, bd, rd);
 }
 
 /* ===================== Per-item return tracking ===================== */
@@ -957,10 +978,10 @@ function autoUpdateCalibStatus(list){
   return changed;
 }
 function isReadyBorrowable(item, borrowDate, returnDate){
-  return item.useStatus === 'ใช้งานได้' && !isCalibExpired(item) && !unitIsHeld(item.id, borrowDate, returnDate);
+  return item.useStatus === 'ใช้งานได้' && !isCalibExpired(item) && !unitIsHeld(item, borrowDate, returnDate);
 }
 function isPendingCalibBorrowable(item, borrowDate, returnDate){
-  if(unitIsHeld(item.id, borrowDate, returnDate)) return false;
+  if(unitIsHeld(item, borrowDate, returnDate)) return false;
   return item.useStatus === 'รอสอบเทียบ' || (item.useStatus === 'ใช้งานได้' && isCalibExpired(item));
 }
 function isBorrowable(item, borrowDate, returnDate){
@@ -2331,7 +2352,7 @@ function renderEquipTable(list){
         </tr></thead>
         <tbody>
           ${list.map(e=>{
-            const held = unitIsHeld(e.id, todayISO(), todayISO());
+            const held = unitIsHeld(e, todayISO(), todayISO());
             const expired = isCalibExpired(e);
             return `
             <tr>
@@ -2526,7 +2547,7 @@ function renderAvailabilityCalendarModal(){
   const daysInMonth = new Date(c.year, c.month+1, 0).getDate();
 
   function dayStats(dayISO){
-    const bookedIds = units.filter(u=>unitIsHeldForRange(u.id, dayISO, dayISO)).map(u=>u.id);
+    const bookedIds = units.filter(u=>unitIsHeldForRange(u, dayISO, dayISO)).map(u=>u.id);
     return { total, booked: bookedIds.length, free: total - bookedIds.length };
   }
   let cells = '';
@@ -3959,7 +3980,25 @@ async function delEquip(id){
   render();
 }
 async function clearEquip(){
-  if(!confirm('ยืนยันล้างฐานข้อมูลเครื่องมือทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้')) return;
+  // ตรวจสอบก่อนว่ามีใบยืมที่ยังไม่คืน (active) อ้างอิงเครื่องมืออยู่หรือไม่ เพื่อเตือนแอดมิน
+  // เพราะระบบจะจำเครื่องมือที่ถูกยืมค้างไว้ได้จากรหัสครุภัณฑ์ (ไม่ใช่แค่ id) — ถ้านำเข้าเครื่องมือใหม่
+  // โดยใส่ "รหัสครุภัณฑ์" เดิมให้ตรงกับของเก่า ระบบจะเชื่อมโยงสถานะ "ถูกยืมอยู่" กลับมาให้อัตโนมัติ
+  // แต่ถ้าเครื่องมือชิ้นนั้นไม่มีรหัสครุภัณฑ์ (หรือใส่ "ไม่มีเลขครุภัณฑ์") ระบบจะเชื่อมโยงคืนให้ไม่ได้
+  const heldItemIds = new Set();
+  state.borrows.forEach(b=>{
+    if(b.status !== 'active') return;
+    const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : b.items;
+    (list||[]).forEach(it=>{ if(!it.returned && it.equipmentId) heldItemIds.add(it.equipmentId); });
+  });
+  let warn = 'ยืนยันล้างฐานข้อมูลเครื่องมือทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้';
+  if(heldItemIds.size > 0){
+    warn += `\n\n⚠️ ขณะนี้มีเครื่องมือ ${heldItemIds.size} รายการที่ถูกยืมอยู่ (ยังไม่คืน)\n`
+      + 'เมื่อล้างฐานข้อมูลแล้วนำเข้าเครื่องมือชุดใหม่ ระบบจะเชื่อมโยง "สถานะถูกยืมอยู่" กลับให้อัตโนมัติ '
+      + 'ก็ต่อเมื่อเครื่องมือชิ้นนั้นมี "รหัสครุภัณฑ์" ตรงกับของเดิมเป๊ะ ๆ เท่านั้น\n'
+      + 'เครื่องมือที่ไม่มีรหัสครุภัณฑ์ (หรือใส่ "ไม่มีเลขครุภัณฑ์") จะเชื่อมโยงคืนให้ไม่ได้ และจะกลับมากดยืมซ้ำได้ทันที '
+      + 'แนะนำให้รอจนใบยืมค้างเหล่านี้ถูกกดคืนก่อน หรือกรอกรหัสครุภัณฑ์ให้ตรงกับของเดิมตอนนำเข้าใหม่';
+  }
+  if(!confirm(warn)) return;
   state.equipment = [];
   await saveEquipment();
   render();
