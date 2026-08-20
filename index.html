@@ -818,6 +818,30 @@ async function migrateLegacyAutoReturned(){
   if(migrated) await saveBorrows();
 }
 
+/* ===================== Migration: เติม "ลายนิ้วมือ" เครื่องมือให้ itemsExpanded รุ่นเก่า =====================
+   ใบยืมที่สร้างไว้ก่อนอัปเดตนี้ จะมีแค่ equipmentId ใน itemsExpanded โดยไม่มีชื่อ/รหัสครุภัณฑ์/หมวดหมู่/ลำดับ
+   ติดไปด้วย ทำให้ถ้าเครื่องมือนั้นไม่มีรหัสครุภัณฑ์ จะเชื่อมโยงสถานะ "ถูกยืมอยู่" กลับมาไม่ได้เลยหลัง
+   ล้างฐานข้อมูล+นำเข้าใหม่ (เพราะไม่มีอะไรให้เทียบนอกจาก id ที่หายไปแล้ว) — โค้ดนี้จะดึงข้อมูลจาก
+   state.equipment ปัจจุบัน (ที่ id ยังตรงกับตอนสร้างใบยืมอยู่) มาเติมให้ครบ เพื่อให้พร้อมสำหรับการล้าง/
+   นำเข้าใหม่ในอนาคต ควรรันทุกครั้งที่เปิดระบบ ก่อนที่แอดมินจะกดล้างฐานข้อมูล
+====================================================================================== */
+async function migrateItemsExpandedFingerprint(){
+  let migrated = false;
+  state.borrows.forEach(b=>{
+    if(b.status !== 'active') return;
+    (b.itemsExpanded||[]).forEach(rec=>{
+      if(rec.returned) return;
+      if(rec.name && rec.category && typeof rec.order==='number') return; // เติมครบแล้ว ข้ามได้
+      const eq = state.equipment.find(x=>x.id===rec.equipmentId);
+      if(!eq) return; // เครื่องมือนี้ไม่มีในฐานข้อมูลปัจจุบันแล้ว (อาจถูกลบ/เพิ่งล้างไปแล้ว) — เติมให้ไม่ได้
+      rec.name = eq.name; rec.assetCode = eq.assetCode||''; rec.category = eq.category;
+      rec.order = (typeof eq.order==='number') ? eq.order : null;
+      migrated = true;
+    });
+  });
+  if(migrated) await saveBorrows();
+}
+
 async function initData(){
   let eq = await stGet('equipment:list', true);
   if(!eq || !Array.isArray(eq) || eq.length===0){
@@ -836,6 +860,7 @@ async function initData(){
   state.borrows = br;
 
   await migrateLegacyAutoReturned();
+  await migrateItemsExpandedFingerprint();
 
   let rt = await stGet('returns:list', true);
   if(!rt || !Array.isArray(rt)) rt = [];
@@ -892,6 +917,9 @@ function isUsableAssetCode(code){
 function unitIsHeldForRange(equipment, borrowDate, returnDate){
   const equipmentId = (typeof equipment === 'object' && equipment) ? equipment.id : equipment;
   const equipmentAssetCode = (typeof equipment === 'object' && equipment) ? equipment.assetCode : null;
+  const equipmentCategory = (typeof equipment === 'object' && equipment) ? equipment.category : null;
+  const equipmentName = (typeof equipment === 'object' && equipment) ? equipment.name : null;
+  const equipmentOrder = (typeof equipment === 'object' && equipment) ? equipment.order : null;
   const assetCodeUsable = isUsableAssetCode(equipmentAssetCode);
   const today = todayISO();
   for(const b of state.borrows){
@@ -901,6 +929,16 @@ function unitIsHeldForRange(equipment, borrowDate, returnDate){
       if(it.returned) return false;
       if(it.equipmentId === equipmentId) return true;
       if(assetCodeUsable && isUsableAssetCode(it.assetCode) && String(it.assetCode).trim() === String(equipmentAssetCode).trim()) return true;
+      // ชั้นสำรองที่ 2 — สำหรับเครื่องมือที่ "ไม่มีรหัสครุภัณฑ์" ทั้งสองฝั่ง (ของเดิมในใบยืม และของใหม่ที่นำเข้า)
+      // ให้เทียบจาก "หมวดหมู่ + ชื่อ + ลำดับเครื่องในหมวดหมู่" แทน เพราะตอนนำเข้าไฟล์ Excel ใหม่
+      // ระบบจะกำหนดลำดับ (order) ให้ตามลำดับแถวในไฟล์เหมือนเดิม ถ้าแอดมินเรียงไฟล์ในลำดับเดิมตอนนำเข้าใหม่
+      // ก็จะช่วยเชื่อมโยงเครื่องมือที่ไม่มีรหัสครุภัณฑ์กลับมาได้เช่นกัน (ความแม่นยำต่ำกว่าการเทียบรหัสครุภัณฑ์
+      // เพราะขึ้นกับลำดับแถวในไฟล์ จึงใช้เป็นทางเลือกสำรองเมื่อไม่มีรหัสครุภัณฑ์ให้เทียบเท่านั้น)
+      if(!assetCodeUsable && !isUsableAssetCode(it.assetCode)
+         && equipmentCategory && it.category === equipmentCategory
+         && equipmentName && it.name === equipmentName
+         && typeof equipmentOrder === 'number' && typeof it.order === 'number'
+         && equipmentOrder === it.order) return true;
       return false;
     });
     if(!usesUnit) continue;
@@ -3874,8 +3912,21 @@ function buildBorrowDraft(){
     status: 'active',
   };
 
+  // เก็บ "ลายนิ้วมือ" ของเครื่องมือ (ชื่อ/รหัสครุภัณฑ์/หมวดหมู่/ลำดับ) ไว้ในแต่ละ itemsExpanded ด้วย
+  // ไม่ใช่แค่ equipmentId เฉย ๆ เพราะถ้าแอดมิน "ล้างฐานข้อมูล" แล้วนำเข้าใหม่ ระบบจะสร้าง id ใหม่ทุกครั้ง
+  // การมีข้อมูลเหล่านี้ติดไปกับใบยืม ทำให้ unitIsHeldForRange() เอาไปเทียบเพื่อเชื่อมโยงสถานะ "ถูกยืมอยู่"
+  // กลับมาให้เครื่องมือชิ้นเดิมได้ ไม่ว่าจะมีรหัสครุภัณฑ์หรือไม่ก็ตาม
   borrow.itemsExpanded = [];
-  finalItems.forEach(it=> it.equipmentIds.forEach(id=> borrow.itemsExpanded.push({equipmentId:id})));
+  finalItems.forEach(it=> it.equipmentIds.forEach(id=>{
+    const eq = state.equipment.find(x=>x.id===id);
+    borrow.itemsExpanded.push({
+      equipmentId: id,
+      name: eq ? eq.name : it.name,
+      assetCode: eq ? eq.assetCode : (it.assetCode||''),
+      category: eq ? eq.category : it.category,
+      order: (eq && typeof eq.order==='number') ? eq.order : null,
+    });
+  }));
 
   return { errs: [], borrow };
 }
@@ -3999,10 +4050,11 @@ async function clearEquip(){
   let warn = 'ยืนยันล้างฐานข้อมูลเครื่องมือทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้';
   if(heldItemIds.size > 0){
     warn += `\n\n⚠️ ขณะนี้มีเครื่องมือ ${heldItemIds.size} รายการที่ถูกยืมอยู่ (ยังไม่คืน)\n`
-      + 'เมื่อล้างฐานข้อมูลแล้วนำเข้าเครื่องมือชุดใหม่ ระบบจะเชื่อมโยง "สถานะถูกยืมอยู่" กลับให้อัตโนมัติ '
-      + 'ก็ต่อเมื่อเครื่องมือชิ้นนั้นมี "รหัสครุภัณฑ์" ตรงกับของเดิมเป๊ะ ๆ เท่านั้น\n'
-      + 'เครื่องมือที่ไม่มีรหัสครุภัณฑ์ (หรือใส่ "ไม่มีเลขครุภัณฑ์") จะเชื่อมโยงคืนให้ไม่ได้ และจะกลับมากดยืมซ้ำได้ทันที '
-      + 'แนะนำให้รอจนใบยืมค้างเหล่านี้ถูกกดคืนก่อน หรือกรอกรหัสครุภัณฑ์ให้ตรงกับของเดิมตอนนำเข้าใหม่';
+      + 'เมื่อล้างฐานข้อมูลแล้วนำเข้าเครื่องมือชุดใหม่ ระบบจะเชื่อมโยง "สถานะถูกยืมอยู่" กลับให้อัตโนมัติ โดย:\n'
+      + '• เครื่องมือที่มี "รหัสครุภัณฑ์" — ต้องกรอกรหัสให้ตรงกับของเดิมเป๊ะ ๆ\n'
+      + '• เครื่องมือที่ "ไม่มีรหัสครุภัณฑ์" — ระบบจะลองเทียบจาก หมวดหมู่ + ชื่อ + ลำดับเครื่องในหมวดหมู่แทน '
+      + '(ต้องนำเข้าไฟล์ที่เรียงลำดับแถวในแต่ละหมวดหมู่เหมือนเดิม ไม่งั้นจะจับคู่ผิดตัวได้)\n'
+      + 'หากไม่มั่นใจว่าลำดับจะตรงกัน แนะนำให้รอจนใบยืมค้างเหล่านี้ถูกกดคืนก่อน หรือกรอกรหัสครุภัณฑ์ให้ตรงกับของเดิมตอนนำเข้าใหม่จะแม่นยำกว่า';
   }
   if(!confirm(warn)) return;
   state.equipment = [];
