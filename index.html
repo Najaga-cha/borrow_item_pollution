@@ -893,6 +893,7 @@ function unitIsHeldForRange(equipment, borrowDate, returnDate){
   const equipmentId = (typeof equipment === 'object' && equipment) ? equipment.id : equipment;
   const equipmentAssetCode = (typeof equipment === 'object' && equipment) ? equipment.assetCode : null;
   const assetCodeUsable = isUsableAssetCode(equipmentAssetCode);
+  const today = todayISO();
   for(const b of state.borrows){
     if(b.status !== 'active') continue;
     const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : b.items;
@@ -903,7 +904,12 @@ function unitIsHeldForRange(equipment, borrowDate, returnDate){
       return false;
     });
     if(!usesUnit) continue;
-    if(dateRangesOverlap(b.borrowDate, b.returnDate, borrowDate, returnDate)) return true;
+    // ใบยืมนี้ยัง "active" และเครื่องมือชิ้นนี้ "ยังไม่คืน" — ถ้าเลยกำหนดวันคืน (returnDate) มาแล้ว
+    // แปลว่าเครื่องมือชิ้นนี้ยังถูกถืออยู่จริงเกินกว่าช่วงวันที่แจ้งไว้ตอนแรก (ยืมสาย/ค้างคืน)
+    // จึงต้องถือว่า "ถูกถืออยู่" ต่อเนื่องไปเรื่อย ๆ จนกว่าจะมีคนกดคืนจริง ไม่ใช่จำกัดแค่ช่วง borrowDate–returnDate เดิม
+    // มิฉะนั้นเมื่อวันนี้ผ่านพ้นกำหนดคืนไปแล้ว ระบบจะเข้าใจผิดว่าเครื่องมือ "ว่าง" ทั้งที่ยังไม่ได้คืนจริง
+    const effectiveEnd = (b.returnDate && b.returnDate < today) ? '9999-12-31' : b.returnDate;
+    if(dateRangesOverlap(b.borrowDate, effectiveEnd, borrowDate, returnDate)) return true;
   }
   return false;
 }
