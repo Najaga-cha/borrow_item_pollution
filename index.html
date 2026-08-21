@@ -2876,14 +2876,38 @@ function renderReportsTab(){
 
   // จำนวนครั้งที่ยืม แยกเป็นรายเครื่อง (ตามหมายเลขครุภัณฑ์/ลำดับเครื่อง) — นับทั้งหมดตามตัวกรอง หน่วยงาน/จังหวัด/ประเภท ปัจจุบัน (ไม่จำกัดตามช่วงเวลาที่เลือก เพื่อให้เห็นภาพรวมสะสม)
   const unitBorrowList = applyReportFilters(state.borrows);
-  const byUnitCount = {};
+  // เก็บรายการ "เครื่องมือที่ถูกยืม" ทั้งหมดจากใบยืม (พร้อมลายนิ้วมือ id/รหัสครุภัณฑ์/หมวดหมู่-ชื่อ-ลำดับ)
+  // แทนที่จะนับใส่ Map ด้วย id ตรง ๆ อย่างเดียว เพราะถ้าแอดมินเคย "ล้างฐานข้อมูล" แล้วนำเข้าไฟล์เครื่องมือใหม่
+  // ระบบจะสร้าง id ใหม่ทุกครั้ง ทำให้ id เก่าที่บันทึกไว้ในใบยืมไม่ตรงกับ id ปัจจุบันของเครื่องมือชิ้นนั้นอีกต่อไป
+  // (ยอดยืมจะกลายเป็น 0 หมดทั้งที่จริงมีประวัติการยืมอยู่) จึงต้องไล่จับคู่ด้วยกฎเดียวกับ unitIsHeldForRange()
+  // คือ 1) เทียบ id ก่อน 2) ถ้าไม่ตรงให้เทียบรหัสครุภัณฑ์ 3) ถ้าไม่มีรหัสครุภัณฑ์ทั้งสองฝั่ง ให้เทียบ
+  // หมวดหมู่+ชื่อ+ลำดับเครื่องแทน เพื่อให้ยอดยืมสะสมยังคงเชื่อมโยงกลับมาได้ถูกต้อง
+  const unitBorrowFingerprints = [];
   unitBorrowList.forEach(b=>{
-    (b.items||[]).forEach(it=>{
+    const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : (b.items||[]);
+    list.forEach(it=>{
       if(!reportItemMatchesCatFilter(it.category)) return;
-      const ids = (it.equipmentIds && it.equipmentIds.length) ? it.equipmentIds : (it.equipmentId? [it.equipmentId] : []);
-      ids.forEach(id=>{ byUnitCount[id] = (byUnitCount[id]||0) + 1; });
+      if(it.equipmentIds && it.equipmentIds.length){
+        it.equipmentIds.forEach(id=> unitBorrowFingerprints.push({ equipmentId:id, assetCode:it.assetCode||'', category:it.category, name:it.name, order: typeof it.order==='number'?it.order:null }));
+      } else {
+        unitBorrowFingerprints.push({ equipmentId: it.equipmentId||null, assetCode:it.assetCode||'', category:it.category, name:it.name, order: typeof it.order==='number'?it.order:null });
+      }
     });
   });
+  function countBorrowsForEquipment(e){
+    const assetCodeUsable = isUsableAssetCode(e.assetCode);
+    let n = 0;
+    unitBorrowFingerprints.forEach(fp=>{
+      if(fp.equipmentId === e.id){ n++; return; }
+      if(assetCodeUsable && isUsableAssetCode(fp.assetCode) && String(fp.assetCode).trim()===String(e.assetCode).trim()){ n++; return; }
+      if(!assetCodeUsable && !isUsableAssetCode(fp.assetCode)
+         && e.category && fp.category===e.category
+         && e.name && fp.name===e.name
+         && typeof e.order==='number' && typeof fp.order==='number'
+         && e.order===fp.order){ n++; return; }
+    });
+    return n;
+  }
   const unitsByName = {};
   state.equipment.forEach(e=>{
     if(catFilterSet.length && !catFilterSet.includes(e.category)) return;
@@ -2893,7 +2917,7 @@ function renderReportsTab(){
   let unitRows = [];
   Object.keys(unitsByName).forEach(name=>{
     unitsByName[name].forEach((e,i)=>{
-      unitRows.push({ name, unitLabel: unitsByName[name].length>1 ? `เครื่องที่ ${i+1}` : 'เครื่องเดียว', assetCode: e.assetCode||'-', category: e.category, count: byUnitCount[e.id]||0 });
+      unitRows.push({ name, unitLabel: unitsByName[name].length>1 ? `เครื่องที่ ${i+1}` : 'เครื่องเดียว', assetCode: e.assetCode||'-', category: e.category, count: countBorrowsForEquipment(e) });
     });
   });
   unitRows.sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name,'th'));
