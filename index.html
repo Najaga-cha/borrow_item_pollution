@@ -3112,6 +3112,30 @@ function renderReportsTab(){
     </div>
 
     <div class="card p-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 class="font-bold text-sm">จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง</h3>
+        <input id="r-unit-search" class="inp" style="max-width:280px" placeholder="ค้นหาชื่อเครื่องมือ หรือรหัสครุภัณฑ์..." value="${esc(state.reports.unitSearch||'')}"/>
+      </div>
+      <div class="text-xs subtle mb-3">นับสะสมทุกใบยืมตามตัวกรองหน่วยงาน/จังหวัด/ประเภทด้านบน (ไม่จำกัดตามช่วงเวลาที่เลือกไว้ด้านบนสุด) — แสดงเฉพาะเครื่องที่เคยถูกยืมอย่างน้อย 1 ครั้ง ใช้ดูว่าเครื่องแต่ละตัว (เช่น "เครื่องที่ 1", "เครื่องที่ 2") ถูกยืมไปกี่ครั้งแล้ว</div>
+      ${unitRows.length===0? `<div class="empty-hint">${unitSearchVal? 'ไม่พบเครื่องมือที่ตรงกับคำค้นหา':'ยังไม่มีเครื่องมือที่ถูกยืมตามตัวกรองที่เลือก'}</div>` : `
+      <div class="table-wrap" style="max-height:420px;overflow-y:auto">
+        <table class="data-table">
+          <thead><tr><th>ด้าน</th><th>เครื่องมือ</th><th>ลำดับเครื่อง</th><th>รหัสครุภัณฑ์</th><th class="c" style="width:14%">ยืมไปแล้ว (ครั้ง)</th></tr></thead>
+          <tbody>
+            ${unitRows.map(r=>`
+            <tr>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[r.category]?.bg||'#888'}">${esc(r.category)}</span></td>
+              <td>${esc(r.name)}</td>
+              <td class="text-xs">${esc(r.unitLabel)}</td>
+              <td class="font-mono text-xs">${esc(r.assetCode)}</td>
+              <td class="c font-bold">${r.count}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+
+    <div class="card p-5">
       <div class="flex items-center justify-between mb-3">
         <h3 class="font-bold text-sm">แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน</h3>
         <button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="trend" data-title="แนวโน้มจำนวนใบยืม ย้อนหลัง 6 เดือน" title="ขยายดูกราฟ">⤢</button>
@@ -3173,30 +3197,6 @@ function renderReportsTab(){
           </table>
         </div>`}
       </div>
-    </div>
-
-    <div class="card p-5">
-      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h3 class="font-bold text-sm">จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง</h3>
-        <input id="r-unit-search" class="inp" style="max-width:280px" placeholder="ค้นหาชื่อเครื่องมือ หรือรหัสครุภัณฑ์..." value="${esc(state.reports.unitSearch||'')}"/>
-      </div>
-      <div class="text-xs subtle mb-3">นับสะสมทุกใบยืมตามตัวกรองหน่วยงาน/จังหวัด/ประเภทด้านบน (ไม่จำกัดตามช่วงเวลาที่เลือกไว้ด้านบนสุด) — แสดงเฉพาะเครื่องที่เคยถูกยืมอย่างน้อย 1 ครั้ง ใช้ดูว่าเครื่องแต่ละตัว (เช่น "เครื่องที่ 1", "เครื่องที่ 2") ถูกยืมไปกี่ครั้งแล้ว</div>
-      ${unitRows.length===0? `<div class="empty-hint">${unitSearchVal? 'ไม่พบเครื่องมือที่ตรงกับคำค้นหา':'ยังไม่มีเครื่องมือที่ถูกยืมตามตัวกรองที่เลือก'}</div>` : `
-      <div class="table-wrap" style="max-height:420px;overflow-y:auto">
-        <table class="data-table">
-          <thead><tr><th>ด้าน</th><th>เครื่องมือ</th><th>ลำดับเครื่อง</th><th>รหัสครุภัณฑ์</th><th class="c" style="width:14%">ยืมไปแล้ว (ครั้ง)</th></tr></thead>
-          <tbody>
-            ${unitRows.map(r=>`
-            <tr>
-              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[r.category]?.bg||'#888'}">${esc(r.category)}</span></td>
-              <td>${esc(r.name)}</td>
-              <td class="text-xs">${esc(r.unitLabel)}</td>
-              <td class="font-mono text-xs">${esc(r.assetCode)}</td>
-              <td class="c font-bold">${r.count}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`}
     </div>
 
     <div class="card p-5">
