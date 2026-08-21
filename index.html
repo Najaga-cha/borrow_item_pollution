@@ -987,11 +987,11 @@ function isBorrowPartiallyReturned(b){
   return c>0 && !isBorrowFullyReturned(b);
 }
 function borrowStatusBadge(b){
-  if(b.status==='early-returned') return '<span class="pill pill-ok">↩️ คืนก่อนกำหนด</span>';
-  if(b.status==='late-returned') return '<span class="pill pill-danger">⚠️ คืนสาย (เลยกำหนด)</span>';
-  if(b.status==='returned') return '<span class="pill pill-ok">✅ คืนตรงเวลา</span>';
+  if(b.status==='early-returned') return '<span class="pill pill-ok"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อนกำหนด</span>';
+  if(b.status==='late-returned') return '<span class="pill pill-danger"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> คืนสาย (เลยกำหนด)</span>';
+  if(b.status==='returned') return '<span class="pill pill-ok"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> คืนตรงเวลา</span>';
   if(isBorrowPartiallyReturned(b)) return `<span class="pill pill-warn">คืนบางส่วน (${borrowReturnedUnitCount(b)}/${borrowTotalUnitCount(b)})</span>`;
-  if(b.status==='active' && borrowTimingCategory(b)==='late') return `<span class="pill pill-danger">⏰ เลยกำหนดคืนแล้ว ${daysLate(b)} วัน (ยังไม่คืน)</span>`;
+  if(b.status==='active' && borrowTimingCategory(b)==='late') return `<span class="pill pill-danger"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> เลยกำหนดคืนแล้ว ${daysLate(b)} วัน (ยังไม่คืน)</span>`;
   return '<span class="pill pill-ok">อนุมัติ/ใช้งานอยู่</span>';
 }
 function itemsSummaryLine(b){
@@ -1186,7 +1186,7 @@ function renderNotifPanel(){
   return `
   <div class="notif-panel" data-dropdown>
     <div class="notif-panel-head">
-      <span class="notif-panel-title">🔔 การแจ้งเตือน ${total>0?`(${total})`:''}</span>
+      <span class="notif-panel-title"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> การแจ้งเตือน ${total>0?`(${total})`:''}</span>
       ${total>0 ? `<button class="notif-panel-mark" data-act="notif-mark-all">อ่านทั้งหมด</button>` : ''}
     </div>
     <div class="notif-panel-body">
@@ -1195,7 +1195,7 @@ function renderNotifPanel(){
           const b = it.b;
           return `
           <div class="notif-item unread" data-act="notif-open" data-type="new" data-id="${b.id}">
-            <div class="notif-icon new">📥</div>
+            <div class="notif-icon new"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
             <div class="notif-text">
               <div class="notif-title">มีใบยืมใหม่: ${esc(b.code||'')}</div>
               <div class="notif-sub">${esc(b.dept||'-')} • ${esc(b.name||'-')}</div>
@@ -1208,7 +1208,7 @@ function renderNotifPanel(){
           const dl = daysLate(b);
           return `
           <div class="notif-item unread" data-act="notif-open" data-type="late" data-id="${b.id}">
-            <div class="notif-icon late">⏰</div>
+            <div class="notif-icon late"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
             <div class="notif-text">
               <div class="notif-title">ส่งคืนสาย: ${esc(b.code||'')}</div>
               <div class="notif-sub">${esc(b.dept||'-')} • ${esc(b.name||'-')} • เลยกำหนด ${dl} วัน</div>
@@ -1222,7 +1222,7 @@ function renderNotifPanel(){
           const overdue = days<0;
           return `
           <div class="notif-item unread" data-act="notif-open" data-type="calib" data-id="${e.id}">
-            <div class="notif-icon ${overdue?'late':'new'}">🧪</div>
+            <div class="notif-icon ${overdue?'late':'new'}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/></svg></div>
             <div class="notif-text">
               <div class="notif-title">${overdue?'เลยกำหนดสอบเทียบ':'ใกล้ถึงกำหนดสอบเทียบ'}: ${esc(e.name||'')}</div>
               <div class="notif-sub">${esc(e.assetCode||'-')} • ${overdue?`เลยกำหนด ${Math.abs(days)} วัน`:`เหลือ ${days} วัน`}</div>
@@ -1239,10 +1239,10 @@ function renderNotifPanel(){
 function renderHeader(){
   const lateCount = state.loggedIn ? lateActiveBorrows().length : 0;
   const tabs = [
-    {id:'borrow', label:'สร้างใบยืม', icon:'📝'},
-    {id:'return', label:'คืนเครื่องมือ', icon:'📦', badge: lateCount>0 ? lateCount : null},
-    {id:'manage', label:'บริหารเครื่องมือ', icon:'🧰'},
-    {id:'reports', label:'รายงานสถิติ', icon:'📊'},
+    {id:'borrow', label:'สร้างใบยืม', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>'},
+    {id:'return', label:'คืนเครื่องมือ', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', badge: lateCount>0 ? lateCount : null},
+    {id:'manage', label:'บริหารเครื่องมือ', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>'},
+    {id:'reports', label:'รายงานสถิติ', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'},
   ];
   return `
   <div class="no-print header-band">
@@ -1259,10 +1259,10 @@ function renderHeader(){
           <span id="live-clock" class="pill pill-clock no-print"></span>
           ${state.loggedIn ? renderNotifBell() : ''}
           ${state.loggedIn ? `<span class="pill pill-ok">เข้าสู่ระบบ: ${esc(state.loggedInUser||'admin')}</span><button class="btn-ghost" data-act="logout">ออกจากระบบ</button>` : ''}
-          <button class="btn-theme" data-act="toggle-theme" title="สลับธีม">${state.theme==='light'?'🌙':'☀️'}</button>
+          <button class="btn-theme" data-act="toggle-theme" title="สลับธีม">${state.theme==='light'?'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>':'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'}</button>
         </div>
       </div>
-      ${lateCount>0 ? `<div class="mt-4" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:12px;padding:10px 14px;font-size:13.5px;font-weight:600;">⚠️ มีใบยืม ${lateCount} รายการ ที่เลยกำหนดวันคืนแล้วแต่ยังไม่ได้คืน — ดูรายละเอียดที่แท็บ "คืนเครื่องมือ"</div>` : ''}
+      ${lateCount>0 ? `<div class="mt-4" style="background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:12px;padding:10px 14px;font-size:13.5px;font-weight:600;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> มีใบยืม ${lateCount} รายการ ที่เลยกำหนดวันคืนแล้วแต่ยังไม่ได้คืน — ดูรายละเอียดที่แท็บ "คืนเครื่องมือ"</div>` : ''}
       <div class="tabbar mt-5">
         ${tabs.map(t=>`
           <button class="tab-btn ${state.tab===t.id?'tab-active':''}" data-act="tab" data-tab="${t.id}" style="position:relative">
@@ -1278,7 +1278,7 @@ function renderLogin(targetTab){
   return `
   <div class="max-w-sm mx-auto mt-16 card p-6">
     <div class="text-center mb-4">
-      <div class="text-3xl mb-2">🔐</div>
+      <div class="text-3xl mb-2"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
       <h2 class="text-lg font-bold">เข้าสู่ระบบผู้ดูแล</h2>
       <p class="text-sm subtle">จำเป็นสำหรับหน้า${targetTab==='manage'?'บริหารเครื่องมือ':(targetTab==='return'?'คืนเครื่องมือ':'รายงานสถิติ')}</p>
     </div>
@@ -1304,7 +1304,7 @@ function renderReturnSuccessBanner(){
   <div class="success-banner mt-5">
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
-        <div class="font-bold text-lg">✅ บันทึกการคืนเครื่องมือเรียบร้อยแล้ว — รหัสใบคืน: ${r.code}</div>
+        <div class="font-bold text-lg"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> บันทึกการคืนเครื่องมือเรียบร้อยแล้ว — รหัสใบคืน: ${r.code}</div>
         <div class="text-sm subtle">ระบบได้ปรับสถานะเครื่องมือของใบยืม ${esc(r.borrowCode)} ให้พร้อมยืมอีกครั้งแล้ว</div>
       </div>
       <div class="flex gap-2">
@@ -1329,16 +1329,16 @@ function renderReturnTab(){
   const cOntime = activeAll.filter(b=>borrowTimingCategory(b)==='ontime').length;
   const cLate = activeAll.filter(b=>borrowTimingCategory(b)==='late').length;
   const subTabs = [
-    {id:'all', label:'ทั้งหมด', icon:'📋', count: activeAll.length},
-    {id:'early', label:'ส่งคืนก่อนกำหนด', icon:'↩️', count: cEarly},
-    {id:'ontime', label:'ครบกำหนด', icon:'✅', count: cOntime},
-    {id:'late', label:'ส่งคืนล่าช้า', icon:'⚠️', count: cLate},
+    {id:'all', label:'ทั้งหมด', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>', count: activeAll.length},
+    {id:'early', label:'ส่งคืนก่อนกำหนด', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>', count: cEarly},
+    {id:'ontime', label:'ครบกำหนด', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', count: cOntime},
+    {id:'late', label:'ส่งคืนล่าช้า', icon:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', count: cLate},
   ];
   const successHTML = state.lastCreatedReturnId ? renderReturnSuccessBanner() : '';
   return `
   ${successHTML}
   <div class="card p-5 md:p-7 mt-5">
-    <h2 class="text-lg font-bold flex items-center gap-2 mb-2">📦 คืนเครื่องมือ (สำหรับ Admin)</h2>
+    <h2 class="text-lg font-bold flex items-center gap-2 mb-2"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> คืนเครื่องมือ (สำหรับ Admin)</h2>
     <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเปิดหน้าต่างให้เลือกได้ว่าจะคืนกี่ชิ้น (คืนครบทุกชิ้น หรือคืนแค่บางชิ้นก็ได้) แล้วเทียบวันที่คืนจริงกับวันครบกำหนดคืนเพื่อบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อนกำหนด/ตรงเวลา/สาย พร้อมปรับสถานะเครื่องมือที่เลือกคืนให้พร้อมยืมใหม่ทันที ใบยืมจะปิดโดยอัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
 
     <div class="tabbar mb-4" style="gap:6px">
@@ -1356,10 +1356,10 @@ function renderReturnTab(){
     ${list.length===0 ? `<div class="empty-hint">${q ? 'ไม่พบใบยืมที่ยังไม่คืนตรงกับคำค้นหานี้' : 'ไม่มีใบยืมในหมวดนี้'}</div>` :
       list.map(b=>{
         const timing = borrowTimingCategory(b);
-        let btnLabel = '↩️ คืนก่อนกำหนด';
+        let btnLabel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อนกำหนด';
         let btnStyle = '';
-        if(timing==='ontime') btnLabel = '✅ คืนตรงเวลา';
-        if(timing==='late'){ btnLabel = `⚠️ คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`; btnStyle='background:#fee2e2;color:#b91c1c;border-color:#fecaca'; }
+        if(timing==='ontime') btnLabel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> คืนตรงเวลา';
+        if(timing==='late'){ btnLabel = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`; btnStyle='background:#fee2e2;color:#b91c1c;border-color:#fecaca'; }
         return `
       <div class="borrow-item-card">
         <div class="flex justify-between flex-wrap gap-2">
@@ -1371,7 +1371,7 @@ function renderReturnTab(){
             <div class="text-xs mt-1">${borrowStatusBadge(b)}</div>
           </div>
           <div class="flex gap-2 items-start">
-            <button class="btn-ghost" data-act="view-borrow" data-id="${b.id}">🔍 ดูรายละเอียด</button>
+            <button class="btn-ghost" data-act="view-borrow" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ดูรายละเอียด</button>
             <button class="btn-early-return" style="${btnStyle}" data-act="return-now" data-id="${b.id}">${btnLabel}</button>
           </div>
         </div>
@@ -1435,8 +1435,8 @@ function renderBorrowDetailModal(){
       </div>
 
       <div class="flex justify-end gap-2 mt-5">
-        <button class="btn-ghost" data-act="print-slip" data-id="${b.id}">🖨️ พิมพ์ใบยืม</button>
-        ${b.status==='active' ? `<button class="btn-early-return" data-act="return-now" data-id="${b.id}">📦 คืนเครื่องมือ</button>` : ''}
+        <button class="btn-ghost" data-act="print-slip" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> พิมพ์ใบยืม</button>
+        ${b.status==='active' ? `<button class="btn-early-return" data-act="return-now" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> คืนเครื่องมือ</button>` : ''}
         <button class="btn-ghost" data-act="close-modal">ปิด</button>
       </div>
     </div>
@@ -1451,14 +1451,14 @@ function renderPartialReturnModal(){
   const allRemainingIds = groups.flatMap(g=>g.remainingUnitIds);
   const selectedCount = allRemainingIds.filter(id=>sel.has(id)).length;
   const timing = borrowTimingCategory(b);
-  let previewLabel = '↩️ คืนก่อนกำหนด';
-  if(timing==='ontime') previewLabel = '✅ คืนตรงเวลา';
-  if(timing==='late') previewLabel = `⚠️ คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`;
+  let previewLabel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อนกำหนด';
+  if(timing==='ontime') previewLabel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> คืนตรงเวลา';
+  if(timing==='late') previewLabel = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`;
   return `
   <div class="modal-backdrop" data-act="close-modal">
     <div class="modal-card">
       <div class="flex items-start justify-between gap-3 mb-1">
-        <h3 class="text-lg font-bold">📦 คืนเครื่องมือแบบรายชิ้น — ${esc(b.code||'')}</h3>
+        <h3 class="text-lg font-bold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> คืนเครื่องมือแบบรายชิ้น — ${esc(b.code||'')}</h3>
         <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
       </div>
       <p class="text-sm subtle mb-4">เลือกเฉพาะรายการ/ชิ้นที่นำมาคืนจริงในครั้งนี้ — รายการที่ยังไม่ถูกเลือกจะยังคงสถานะ "ยืมอยู่" ต่อไป และสามารถกลับมาคืนเพิ่มเติมภายหลังได้ ระบบจะปิดใบยืมให้อัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
@@ -1514,7 +1514,7 @@ function renderPartialReturnModal(){
 
       <div class="flex justify-end gap-2 mt-5">
         <button class="btn-ghost" data-act="close-modal">ยกเลิก</button>
-        <button class="btn-early-return" data-act="partial-confirm-return" data-id="${b.id}" ${selectedCount===0?'disabled':''}>✅ ยืนยันคืน (${selectedCount} ชิ้น)</button>
+        <button class="btn-early-return" data-act="partial-confirm-return" data-id="${b.id}" ${selectedCount===0?'disabled':''}><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยืนยันคืน (${selectedCount} ชิ้น)</button>
       </div>
     </div>
   </div>`;
@@ -1558,8 +1558,8 @@ function renderBorrowTab(){
   ${successBanner}
   <div class="card p-5 md:p-7 mt-5">
     <div class="flex items-center justify-between mb-5">
-      <h2 class="text-lg font-bold flex items-center gap-2">📝 แบบฟอร์มขอยืมเครื่องมือ</h2>
-      <button class="btn-ghost" data-act="reset-form">↩️ ย้อนกลับ / เริ่มใหม่</button>
+      <h2 class="text-lg font-bold flex items-center gap-2"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> แบบฟอร์มขอยืมเครื่องมือ</h2>
+      <button class="btn-ghost" data-act="reset-form"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> ย้อนกลับ / เริ่มใหม่</button>
     </div>
 
     <!-- ผู้ยืม -->
@@ -1612,11 +1612,11 @@ function renderBorrowTab(){
           const pendingCalib = catItems.filter(e=>isPendingCalibBorrowable(e,_bd,_rd)).length;
           return `
           <button type="button" class="cat-card ${active?'cat-card-active':''}" style="--c:${col.bg};--c2:${col.bg2}" data-act="toggle-cat" data-cat="${c}">
-            <span class="cat-card-check">${active? '✔️' : ''}</span>
+            <span class="cat-card-check">${active? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</span>
             <span class="cat-card-icon">${catIcon(c)}</span>
             <span class="cat-card-name">${c}</span>
             <span class="cat-card-count">${avail}/${total} พร้อมยืม</span>
-            ${pendingCalib>0 ? `<span class="cat-card-count" style="color:#b45309">⏳ รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
+            ${pendingCalib>0 ? `<span class="cat-card-count" style="color:#b45309"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
           </button>`;
         }).join('')}
       </div>
@@ -1626,13 +1626,13 @@ function renderBorrowTab(){
 
     <div class="mt-6 flex justify-end gap-2">
       <button class="btn-ghost" data-act="reset-form">ล้างฟอร์ม</button>
-      <button class="btn-primary" data-act="submit-borrow">✅ ยื่นคำขอยืม</button>
+      <button class="btn-primary" data-act="submit-borrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยื่นคำขอยืม</button>
     </div>
   </div>`;
 }
 
 function catIcon(c){
-  return {'ด้านน้ำ':'💧','ด้านอากาศ':'🌬️','ด้านฉุกเฉิน':'🚨','ด้านดิน':'🪨','คอมพิวเตอร์':'💻'}[c] || '🔧';
+  return {'ด้านน้ำ':'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>','ด้านอากาศ':'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>','ด้านฉุกเฉิน':'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>','ด้านดิน':'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>','คอมพิวเตอร์':'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'}[c] || '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
 }
 
 function renderToolPicker(){
@@ -1641,7 +1641,7 @@ function renderToolPicker(){
   <div class="mb-6">
     <label class="lbl mb-2">3) เลือกเครื่องมือและจำนวนที่ต้องการยืม</label>
     <p class="hint-be mb-3">ระบบจะจัดสรรเครื่องมือที่ "พร้อมใช้งาน" ให้ยืมก่อนโดยอัตโนมัติ หากไม่พอจึงจะจัดสรรเครื่องมือที่ "รอสอบเทียบ" ให้ยืมทีหลัง</p>
-    ${(!f.borrowDate || !f.returnDate) ? `<p class="hint-be mb-3" style="color:#b45309">⚠️ กรุณาเลือกวันที่ยืม-วันที่คืนก่อน ระบบจะได้คำนวณจำนวนที่ว่างจริงในช่วงวันดังกล่าว (ตอนนี้แสดงจำนวนว่าง ณ วันนี้ไปก่อน)</p>` : ''}
+    ${(!f.borrowDate || !f.returnDate) ? `<p class="hint-be mb-3" style="color:#b45309"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> กรุณาเลือกวันที่ยืม-วันที่คืนก่อน ระบบจะได้คำนวณจำนวนที่ว่างจริงในช่วงวันดังกล่าว (ตอนนี้แสดงจำนวนว่าง ณ วันนี้ไปก่อน)</p>` : ''}
     <div class="space-y-4">
       ${f.selectedCats.map(cat=>{
         const groups = groupEquipment(cat, f.borrowDate || todayISO(), f.returnDate || todayISO());
@@ -1662,9 +1662,9 @@ function renderToolPicker(){
                     data-act="toggle-tool" data-cat="${cat}" data-name="${escAttr(g.name)}"/>
                   <span class="truncate">${esc(g.name)}</span>
                 </label>
-                <button type="button" class="tool-avail-btn" data-act="open-avail-cal" data-cat="${cat}" data-name="${escAttr(g.name)}" title="ดูว่าเครื่องมือนี้ถูกจอง/ยืมวันไหนไปแล้วบ้าง">📅 ดูคิวการจอง</button>
+                <button type="button" class="tool-avail-btn" data-act="open-avail-cal" data-cat="${cat}" data-name="${escAttr(g.name)}" title="ดูว่าเครื่องมือนี้ถูกจอง/ยืมวันไหนไปแล้วบ้าง"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ดูคิวการจอง</button>
                 <span class="qty-badge ${remain===0?'qty-zero':''}">คงเหลือ ${remain}</span>
-                ${pendingN>0 ? `<span class="qty-badge" style="background:#fef3c7;color:#92400e" title="เครื่องมือที่รอสอบเทียบ จะถูกจัดสรรให้ยืมหลังเครื่องมือที่พร้อมใช้หมดก่อน">⏳ รอสอบเทียบ ${pendingN}</span>` : ''}
+                ${pendingN>0 ? `<span class="qty-badge" style="background:#fef3c7;color:#92400e" title="เครื่องมือที่รอสอบเทียบ จะถูกจัดสรรให้ยืมหลังเครื่องมือที่พร้อมใช้หมดก่อน"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> รอสอบเทียบ ${pendingN}</span>` : ''}
                 <input type="number" min="1" max="${remain}" value="${qty||1}" class="qty-input"
                   ${remain===0||!checked?'disabled':''}
                   data-act="qty-tool" data-cat="${cat}" data-name="${escAttr(g.name)}"/>
@@ -1682,23 +1682,23 @@ function renderSuccessBanner(){
   if(!b) return '';
   const ns = state.notifyStatus[b.id];
   let noteHTML = '';
-  if(ns==='sending') noteHTML = `<div class="text-sm mt-1" style="color:#0369a1">⏳ กำลังสร้างไฟล์ PDF อัปโหลด และส่งอีเมลแจ้งเตือนแอดมินอัตโนมัติ...</div>`;
-  else if(ns==='sent') noteHTML = `<div class="text-sm mt-1" style="color:#15803d">✅ ส่งอีเมลแจ้งเตือนแอดมินอัตโนมัติแล้ว พร้อมลิงก์ดาวน์โหลดไฟล์ PDF</div>`;
-  else if(ns==='sent_no_link') noteHTML = `<div class="text-sm mt-1" style="color:#92400e">✅ ส่งอีเมลแจ้งเตือนแอดมินแล้ว แต่ไม่มีลิงก์ไฟล์ (ยังไม่ได้ตั้งค่า Cloudinary) กรุณากด "ดาวน์โหลด PDF" แล้วส่งเอง</div>`;
-  else if(ns==='failed') noteHTML = `<div class="text-sm mt-1" style="color:#b91c1c">⚠️ ส่งอีเมลแจ้งเตือนอัตโนมัติไม่สำเร็จ กรุณากดปุ่ม "แจ้งเตือนแอดมิน" ด้านล่างเพื่อลองใหม่</div>`;
+  if(ns==='sending') noteHTML = `<div class="text-sm mt-1" style="color:#0369a1"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> กำลังสร้างไฟล์ PDF อัปโหลด และส่งอีเมลแจ้งเตือนแอดมินอัตโนมัติ...</div>`;
+  else if(ns==='sent') noteHTML = `<div class="text-sm mt-1" style="color:#15803d"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ส่งอีเมลแจ้งเตือนแอดมินอัตโนมัติแล้ว พร้อมลิงก์ดาวน์โหลดไฟล์ PDF</div>`;
+  else if(ns==='sent_no_link') noteHTML = `<div class="text-sm mt-1" style="color:#92400e"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ส่งอีเมลแจ้งเตือนแอดมินแล้ว แต่ไม่มีลิงก์ไฟล์ (ยังไม่ได้ตั้งค่า Cloudinary) กรุณากด "ดาวน์โหลด PDF" แล้วส่งเอง</div>`;
+  else if(ns==='failed') noteHTML = `<div class="text-sm mt-1" style="color:#b91c1c"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ส่งอีเมลแจ้งเตือนอัตโนมัติไม่สำเร็จ กรุณากดปุ่ม "แจ้งเตือนแอดมิน" ด้านล่างเพื่อลองใหม่</div>`;
   return `
   <div class="success-banner mt-5">
     <div class="flex items-center justify-between flex-wrap gap-3">
       <div>
-        <div class="font-bold text-lg">✅ ยื่นคำขอยืมสำเร็จ — รหัสใบยืม: ${b.code}</div>
+        <div class="font-bold text-lg"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยื่นคำขอยืมสำเร็จ — รหัสใบยืม: ${b.code}</div>
         <div class="text-sm subtle">ระบบได้บันทึกรายการเรียบร้อยแล้ว สามารถพิมพ์/ดาวน์โหลดใบยืมได้ด้านล่าง</div>
         ${noteHTML}
       </div>
       <div class="flex gap-2">
-        <button class="btn-primary" data-act="print-slip" data-id="${b.id}">🖨️ พิมพ์ใบยืม</button>
-        <button class="btn-ghost" data-act="download-slip-pdf" data-id="${b.id}">⬇️ ดาวน์โหลด PDF</button>
-        <button class="btn-ghost" data-act="download-slip" data-id="${b.id}">⬇️ ดาวน์โหลดไฟล์ใบยืม (HTML)</button>
-        <button class="btn-ghost" data-act="mailto-notify" data-id="${b.id}">${(ns==='sent'||ns==='sent_no_link')?'🔁 ส่งอีเมลซ้ำ':'✉️ แจ้งเตือนแอดมิน'}</button>
+        <button class="btn-primary" data-act="print-slip" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> พิมพ์ใบยืม</button>
+        <button class="btn-ghost" data-act="download-slip-pdf" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> ดาวน์โหลด PDF</button>
+        <button class="btn-ghost" data-act="download-slip" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> ดาวน์โหลดไฟล์ใบยืม (HTML)</button>
+        <button class="btn-ghost" data-act="mailto-notify" data-id="${b.id}">${(ns==='sent'||ns==='sent_no_link')?'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> ส่งอีเมลซ้ำ':'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg> แจ้งเตือนแอดมิน'}</button>
         <button class="btn-ghost" data-act="dismiss-banner">ปิด</button>
       </div>
     </div>
@@ -1738,7 +1738,7 @@ function renderConfirmBorrowModal(){
       </div>
       <div class="mt-6 flex justify-end gap-2">
         <button class="btn-ghost" data-act="cancel-confirm-borrow">ยกเลิก</button>
-        <button class="btn-primary" data-act="confirm-submit-borrow">✅ ตกลง ยืนยันคำขอ</button>
+        <button class="btn-primary" data-act="confirm-submit-borrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ตกลง ยืนยันคำขอ</button>
       </div>
     </div>
   </div>`;
@@ -1753,7 +1753,7 @@ function renderChartExpandModal(){
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-bold">${esc(c.title||'')}</h3>
         <div class="flex items-center gap-2">
-          <button class="chart-dl-btn no-print" data-act="download-chart" data-chart="${esc(c.key)}" title="ดาวน์โหลดกราฟเป็นรูปภาพ">⬇️</button>
+          <button class="chart-dl-btn no-print" data-act="download-chart" data-chart="${esc(c.key)}" title="ดาวน์โหลดกราฟเป็นรูปภาพ"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
           <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
         </div>
       </div>
@@ -1798,7 +1798,7 @@ function renderCalibConfirmModal(){
       ${bodyHtml}
       <div class="mt-6 flex justify-end gap-2">
         <button class="btn-ghost" data-act="cancel-calib-confirm">ยกเลิก</button>
-        <button class="btn-primary" data-act="confirm-calib-done">✅ ยืนยัน สอบเทียบแล้ว${isMulti?` (${list.length})`:''}</button>
+        <button class="btn-primary" data-act="confirm-calib-done"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยืนยัน สอบเทียบแล้ว${isMulti?` (${list.length})`:''}</button>
       </div>
     </div>
   </div>`;
@@ -2189,13 +2189,13 @@ function renderManageTab(){
   <div class="mt-5 space-y-6">
     <div class="flex flex-wrap gap-2 items-center justify-between">
       <div class="flex gap-2 flex-wrap">
-        <button class="tool-tab ${(!state.manage.view||state.manage.view==='table')?'tool-tab-active':''}" data-act="mview" data-v="table">📋 รายการเครื่องมือ</button>
-        <button class="tool-tab ${state.manage.view==='calendar'?'tool-tab-active':''}" data-act="mview" data-v="calendar">📅 ปฏิทินการยืม</button>
+        <button class="tool-tab ${(!state.manage.view||state.manage.view==='table')?'tool-tab-active':''}" data-act="mview" data-v="table"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> รายการเครื่องมือ</button>
+        <button class="tool-tab ${state.manage.view==='calendar'?'tool-tab-active':''}" data-act="mview" data-v="calendar"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ปฏิทินการยืม</button>
         <button class="tool-tab ${state.manage.view==='calib'?'tool-tab-active':''}" data-act="mview" data-v="calib" style="position:relative">
-          🧪 การสอบเทียบ
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/></svg> การสอบเทียบ
           ${calibAlertCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ต้องสอบเทียบ (เลยกำหนด/ใกล้ถึงกำหนดภายใน 30 วัน)">${calibAlertCount>99?'99+':calibAlertCount}</span>` : ''}
         </button>
-        <button class="tool-tab ${state.manage.view==='order'?'tool-tab-active':''}" data-act="mview" data-v="order">🔀 จัดลำดับเครื่องมือ</button>
+        <button class="tool-tab ${state.manage.view==='order'?'tool-tab-active':''}" data-act="mview" data-v="order"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> จัดลำดับเครื่องมือ</button>
       </div>
     </div>
     ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : (state.manage.view==='calib' ? renderCalibTab() : renderEquipTable(list)))}
@@ -2224,7 +2224,7 @@ function renderCalibTab(){
   if(cm.statusFilter==='danger') items = items.filter(e=>e.calibInfo.pill==='pill-danger');
   else if(cm.statusFilter==='warn') items = items.filter(e=>e.calibInfo.pill==='pill-warn');
   else if(cm.statusFilter==='ok') items = items.filter(e=>e.calibInfo.pill==='pill-ok');
-  // เรียงเป็น 3 กลุ่มตามสถานะ: 🟡 ใกล้ถึงกำหนด ก่อน → 🟢 ยังไม่ถึงกำหนด → 🔴 เลยกำหนดแล้ว (ในแต่ละกลุ่มเรียงจากใกล้เคียงที่สุดไปหาน้อยที่สุด)
+  // เรียงเป็น 3 กลุ่มตามสถานะ: ใกล้ถึงกำหนด ก่อน -> ยังไม่ถึงกำหนด -> เลยกำหนดแล้ว (ในแต่ละกลุ่มเรียงจากใกล้เคียงที่สุดไปหาน้อยที่สุด)
   const CALIB_GROUP_ORDER = { 'pill-warn':0, 'pill-ok':1, 'pill-danger':2 };
   items.sort((a,b)=>{
     const pa = CALIB_GROUP_ORDER[a.calibInfo.pill] ?? 3;
@@ -2237,7 +2237,7 @@ function renderCalibTab(){
   const countOk = state.equipment.filter(e=>e.nextCalib && calibStatusInfo(e.nextCalib).pill==='pill-ok').length;
   return `
   <div class="card p-5">
-    <p class="text-sm subtle mb-4">แสดงกำหนดการสอบเทียบของเครื่องมือ โดยอิงจากวันที่ในช่อง "สอบเทียบครั้งถัดไป" — 🟢 ยังไม่ถึงกำหนด (มากกว่า 90 วัน) &nbsp; 🟡 ใกล้ถึงกำหนด (ภายใน 90 วัน) &nbsp; 🔴 เลยกำหนดสอบเทียบแล้ว</p>
+    <p class="text-sm subtle mb-4">แสดงกำหนดการสอบเทียบของเครื่องมือ โดยอิงจากวันที่ในช่อง "สอบเทียบครั้งถัดไป" — <svg viewBox="0 0 24 24" width="10" height="10" fill="#16a34a" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> ยังไม่ถึงกำหนด (มากกว่า 90 วัน) &nbsp; <svg viewBox="0 0 24 24" width="10" height="10" fill="#f59e0b" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> ใกล้ถึงกำหนด (ภายใน 90 วัน) &nbsp; <svg viewBox="0 0 24 24" width="10" height="10" fill="#dc2626" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> เลยกำหนดสอบเทียบแล้ว</p>
     <div class="flex flex-wrap gap-3 items-end mb-4">
       <div>
         <label class="lbl">หมวดหมู่</label>
@@ -2250,9 +2250,9 @@ function renderCalibTab(){
         <label class="lbl">สถานะการสอบเทียบ</label>
         <select id="cb-status" class="inp">
           <option value="">ทั้งหมด</option>
-          <option value="danger" ${cm.statusFilter==='danger'?'selected':''}>🔴 เลยกำหนดแล้ว (${countDanger})</option>
-          <option value="warn" ${cm.statusFilter==='warn'?'selected':''}>🟡 ใกล้ถึงกำหนด ≤ 90 วัน (${countWarn})</option>
-          <option value="ok" ${cm.statusFilter==='ok'?'selected':''}>🟢 ยังไม่ถึงกำหนด (${countOk})</option>
+          <option value="danger" ${cm.statusFilter==='danger'?'selected':''}>เลยกำหนดแล้ว (${countDanger})</option>
+          <option value="warn" ${cm.statusFilter==='warn'?'selected':''}>ใกล้ถึงกำหนด ≤ 90 วัน (${countWarn})</option>
+          <option value="ok" ${cm.statusFilter==='ok'?'selected':''}>ยังไม่ถึงกำหนด (${countOk})</option>
         </select>
       </div>
       <div class="flex-1 min-w-[180px]">
@@ -2261,9 +2261,9 @@ function renderCalibTab(){
       </div>
     </div>
     <div class="flex flex-wrap gap-2 mb-3">
-      <span class="pill pill-danger">🔴 เลยกำหนด ${countDanger} เครื่อง</span>
-      <span class="pill pill-warn">🟡 ใกล้ถึงกำหนด ${countWarn} เครื่อง</span>
-      <span class="pill pill-ok">🟢 ยังไม่ถึงกำหนด ${countOk} เครื่อง</span>
+      <span class="pill pill-danger"><svg viewBox="0 0 24 24" width="10" height="10" fill="#dc2626" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> เลยกำหนด ${countDanger} เครื่อง</span>
+      <span class="pill pill-warn"><svg viewBox="0 0 24 24" width="10" height="10" fill="#f59e0b" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> ใกล้ถึงกำหนด ${countWarn} เครื่อง</span>
+      <span class="pill pill-ok"><svg viewBox="0 0 24 24" width="10" height="10" fill="#16a34a" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> ยังไม่ถึงกำหนด ${countOk} เครื่อง</span>
     </div>
     <div class="text-sm subtle mb-2">พบ ${items.length} รายการ (แสดงเฉพาะเครื่องมือที่มีข้อมูลสอบเทียบ)</div>
     <div class="table-wrap">
@@ -2343,8 +2343,8 @@ function renderReorderTab(){
             <span class="flex-1 min-w-0 truncate font-medium">${esc(g.name)}</span>
             <span class="qty-badge">${g.items.length} เครื่อง</span>
             <div class="flex gap-1">
-              <button class="icon-btn" data-act="reorder-up" data-cat="${cat}" data-name="${escAttr(g.name)}" ${idx===0?'disabled':''} title="เลื่อนขึ้น">⬆️</button>
-              <button class="icon-btn" data-act="reorder-down" data-cat="${cat}" data-name="${escAttr(g.name)}" ${idx===groups.length-1?'disabled':''} title="เลื่อนลง">⬇️</button>
+              <button class="icon-btn" data-act="reorder-up" data-cat="${cat}" data-name="${escAttr(g.name)}" ${idx===0?'disabled':''} title="เลื่อนขึ้น"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+              <button class="icon-btn" data-act="reorder-down" data-cat="${cat}" data-name="${escAttr(g.name)}" ${idx===groups.length-1?'disabled':''} title="เลื่อนลง"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
             </div>
           </div>`).join('')}
       </div>
@@ -2378,13 +2378,13 @@ function renderEquipTable(list){
         <input id="m-search" class="inp" placeholder="ชื่อเครื่องมือ / รหัสครุภัณฑ์ / ยี่ห้อ" value="${esc(state.manage.search)}"/>
       </div>
       <div class="flex gap-2 ml-auto">
-        <button class="btn-primary" data-act="add-equip">➕ เพิ่มเครื่องมือ</button>
+        <button class="btn-primary" data-act="add-equip"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> เพิ่มเครื่องมือ</button>
         <label class="btn-ghost cursor-pointer">
-          📥 นำเข้า Excel
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> นำเข้า Excel
           <input type="file" id="import-file" accept=".xlsx,.xls,.csv" class="hidden"/>
         </label>
-        <button class="btn-ghost" data-act="repair-calib-dates" title="ซ่อมรายการที่วันที่สอบเทียบแสดงผลผิดเพี้ยน (เช่น 20261-08-1)">🛠️ ซ่อมวันที่ผิดพลาด</button>
-        <button class="btn-danger" data-act="clear-equip">🗑️ ล้างฐานข้อมูลทั้งหมด</button>
+        <button class="btn-ghost" data-act="repair-calib-dates" title="ซ่อมรายการที่วันที่สอบเทียบแสดงผลผิดเพี้ยน (เช่น 20261-08-1)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> ซ่อมวันที่ผิดพลาด</button>
+        <button class="btn-danger" data-act="clear-equip"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างฐานข้อมูลทั้งหมด</button>
       </div>
     </div>
     <div class="text-sm subtle mb-2">พบ ${list.length} รายการ</div>
@@ -2419,8 +2419,8 @@ function renderEquipTable(list){
               <td class="text-xs ${expired?'text-red-500 font-bold':''}">${e.nextCalib? fmtDateShortCE(e.nextCalib.slice(0,10)) : '-'}</td>
               <td>${held?'<span class="pill pill-warn">ถูกยืมอยู่</span>':'<span class="pill pill-ok">ว่าง</span>'}</td>
               <td class="flex gap-1">
-                <button class="icon-btn" data-act="edit-equip" data-id="${e.id}" title="แก้ไข">✏️</button>
-                <button class="icon-btn" data-act="del-equip" data-id="${e.id}" title="ลบ">🗑️</button>
+                <button class="icon-btn" data-act="edit-equip" data-id="${e.id}" title="แก้ไข"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;display:inline-block"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+                <button class="icon-btn" data-act="del-equip" data-id="${e.id}" title="ลบ"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
               </td>
             </tr>`;
           }).join('')}
@@ -2511,9 +2511,9 @@ function renderCalendar(){
     cells += `<div class="cal-cell ${cellCls} ${isSel?'cal-sel':''}" data-act="cal-day" data-day="${d}">
       <div class="cal-daynum">${d}</div>
       ${items.length? `<div class="calday-badges">
-        ${activeN? `<span class="calday-badge calday-badge-active">🔴 ยืมอยู่ ${activeN}</span>`:''}
-        ${reservedN? `<span class="calday-badge calday-badge-reserved">🟡 จอง ${reservedN}</span>`:''}
-        ${returnedN? `<span class="calday-badge calday-badge-returned">⚪ คืนแล้ว ${returnedN}</span>`:''}
+        ${activeN? `<span class="calday-badge calday-badge-active"><svg viewBox="0 0 24 24" width="10" height="10" fill="#dc2626" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> ยืมอยู่ ${activeN}</span>`:''}
+        ${reservedN? `<span class="calday-badge calday-badge-reserved"><svg viewBox="0 0 24 24" width="10" height="10" fill="#f59e0b" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> จอง ${reservedN}</span>`:''}
+        ${returnedN? `<span class="calday-badge calday-badge-returned"><svg viewBox="0 0 24 24" width="10" height="10" fill="#9ca3af" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> คืนแล้ว ${returnedN}</span>`:''}
       </div>`:''}
     </div>`;
   }
@@ -2527,9 +2527,9 @@ function renderCalendar(){
     </div>
     <p class="text-sm subtle mb-2">นับตลอดช่วงวันที่ยืม-คืนของทุกใบยืม ไม่ใช่แค่วันที่สร้างใบยืม — คลิกวันที่เพื่อดูรายละเอียด</p>
     <div class="avail-legend mb-3">
-      <span><span class="avail-legend-dot" style="background:#f87171"></span>🔴 ยืมอยู่ (ถือเครื่องมืออยู่จริง)</span>
-      <span><span class="avail-legend-dot" style="background:#fbbf24"></span>🟡 จอง (จองล่วงหน้า ยังไม่มารับ)</span>
-      <span><span class="avail-legend-dot" style="background:#cbd5d1"></span>⚪ คืนแล้ว</span>
+      <span><span class="avail-legend-dot" style="background:#f87171"></span><svg viewBox="0 0 24 24" width="10" height="10" fill="#dc2626" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> ยืมอยู่ (ถือเครื่องมืออยู่จริง)</span>
+      <span><span class="avail-legend-dot" style="background:#fbbf24"></span><svg viewBox="0 0 24 24" width="10" height="10" fill="#f59e0b" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> จอง (จองล่วงหน้า ยังไม่มารับ)</span>
+      <span><span class="avail-legend-dot" style="background:#cbd5d1"></span><svg viewBox="0 0 24 24" width="10" height="10" fill="#9ca3af" style="vertical-align:-1px;margin-right:5px;display:inline-block"><circle cx="12" cy="12" r="9"/></svg> คืนแล้ว</span>
     </div>
     <div class="cal-grid cal-grid-head">
       ${['อา','จ','อ','พ','พฤ','ศ','ส'].map(d=>`<div class="cal-headcell">${d}</div>`).join('')}
@@ -2549,8 +2549,8 @@ function renderCalendar(){
             <div class="text-xs mt-1">${borrowStatusBadge(b)}</div>
           </div>
           <div class="flex gap-2 items-start">
-            <button class="btn-ghost" data-act="print-slip" data-id="${b.id}">🖨️ พิมพ์</button>
-            ${b.status==='active' ? `<button class="btn-early-return" data-act="return-now" data-id="${b.id}">📦 คืนเครื่องมือ</button>` : ''}
+            <button class="btn-ghost" data-act="print-slip" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> พิมพ์</button>
+            ${b.status==='active' ? `<button class="btn-early-return" data-act="return-now" data-id="${b.id}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> คืนเครื่องมือ</button>` : ''}
           </div>
         </div>
       </div>`;}).join('')}
@@ -2623,7 +2623,7 @@ function renderAvailabilityCalendarModal(){
   <div class="modal-backdrop" data-act="close-modal">
     <div class="modal-card">
       <div class="flex items-start justify-between gap-3 mb-1">
-        <h3 class="text-lg font-bold">📅 คิวการจอง/ยืม — ${esc(c.name)}</h3>
+        <h3 class="text-lg font-bold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> คิวการจอง/ยืม — ${esc(c.name)}</h3>
         <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
       </div>
       <div class="text-sm subtle mb-4">มีทั้งหมด ${total} เครื่อง — เลือกวันในปฏิทินเพื่อดูจำนวนว่างของวันนั้น</div>
@@ -2755,7 +2755,7 @@ function renderFormSearchSelect(ftype, label, options, value, placeholder){
     </button>
     ${isOpen ? `
     <div class="ms-dropdown-panel">
-      <input type="text" id="form-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="🔍 พิมพ์เพื่อค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
+      <input type="text" id="form-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> พิมพ์เพื่อค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
       <div class="ms-dropdown-list">
         ${filteredOptions.length===0 ? `<div class="ms-dropdown-empty">ไม่พบรายการที่ค้นหา</div>` : filteredOptions.map(o=>`
         <div class="ms-dropdown-item" data-act="select-form-dropdown-item" data-ftype="${ftype}" data-fval="${escAttr(o)}">
@@ -2779,7 +2779,7 @@ function renderFilterDropdown(ftype, label, options, selected, iconFn){
     </button>
     ${isOpen ? `
     <div class="ms-dropdown-panel">
-      <input type="text" id="r-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="🔍 ค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
+      <input type="text" id="r-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
       <div class="ms-dropdown-list">
         ${filteredOptions.length===0 ? `<div class="ms-dropdown-empty">ไม่พบรายการที่ค้นหา</div>` : filteredOptions.map(o=>`
         <label class="ms-dropdown-item">
@@ -3002,9 +3002,9 @@ function renderReportsTab(){
           <div><label class="lbl">ปีงบประมาณ พ.ศ.</label><input type="number" id="r-fy2" class="inp" value="${state.reports.fy}"/></div>
         `:''}
         <div class="flex gap-2 ml-auto">
-          <button class="btn-ghost" data-act="export-excel">📤 ส่งออก Excel</button>
-          <button class="btn-primary" data-act="print-report">🖨️ พิมพ์รายงาน</button>
-          <button class="btn-ghost" style="color:#dc2626;border-color:#fca5a5" data-act="clear-dashboard-data">🗑️ ล้างข้อมูล Dashboard</button>
+          <button class="btn-ghost" data-act="export-excel"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> ส่งออก Excel</button>
+          <button class="btn-primary" data-act="print-report"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> พิมพ์รายงาน</button>
+          <button class="btn-ghost" style="color:#dc2626;border-color:#fca5a5" data-act="clear-dashboard-data"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างข้อมูล Dashboard</button>
         </div>
       </div>
       <div class="text-sm subtle mt-3">ช่วงข้อมูล: ${fmtDateBE(range.start)} — ${fmtDateBE(range.end)} • พบใบยืม ${list.length} รายการ • เทียบกับช่วงก่อนหน้า ${fmtDateBE(prevRange.start)} — ${fmtDateBE(prevRange.end)}</div>
@@ -4049,7 +4049,7 @@ async function clearEquip(){
   });
   let warn = 'ยืนยันล้างฐานข้อมูลเครื่องมือทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้';
   if(heldItemIds.size > 0){
-    warn += `\n\n⚠️ ขณะนี้มีเครื่องมือ ${heldItemIds.size} รายการที่ถูกยืมอยู่ (ยังไม่คืน)\n`
+    warn += `\n\n<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ขณะนี้มีเครื่องมือ ${heldItemIds.size} รายการที่ถูกยืมอยู่ (ยังไม่คืน)\n`
       + 'เมื่อล้างฐานข้อมูลแล้วนำเข้าเครื่องมือชุดใหม่ ระบบจะเชื่อมโยง "สถานะถูกยืมอยู่" กลับให้อัตโนมัติ โดย:\n'
       + '• เครื่องมือที่มี "รหัสครุภัณฑ์" — ต้องกรอกรหัสให้ตรงกับของเดิมเป๊ะ ๆ\n'
       + '• เครื่องมือที่ "ไม่มีรหัสครุภัณฑ์" — ระบบจะลองเทียบจาก หมวดหมู่ + ชื่อ + ลำดับเครื่องในหมวดหมู่แทน '
@@ -4115,9 +4115,9 @@ async function markCalibratedBulk(ids){
   await persistNotifReadState();
   await saveEquipment();
   if(list.length===1){
-    showNotifToast('บันทึกผลการสอบเทียบแล้ว', `${list[0].name} — กำหนดครั้งถัดไป ${fmtDateBEShort2(list[0].nextCalib)}`, '✅', 'new');
+    showNotifToast('บันทึกผลการสอบเทียบแล้ว', `${list[0].name} — กำหนดครั้งถัดไป ${fmtDateBEShort2(list[0].nextCalib)}`, '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'new');
   } else {
-    showNotifToast('บันทึกผลการสอบเทียบแล้ว', `บันทึกผลสำเร็จ ${list.length} รายการ`, '✅', 'new');
+    showNotifToast('บันทึกผลการสอบเทียบแล้ว', `บันทึกผลสำเร็จ ${list.length} รายการ`, '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'new');
   }
   render();
 }
@@ -4306,7 +4306,7 @@ function showNotifToast(title, sub, icon, type){
   const el = document.createElement('div');
   el.className = 'notif-toast';
   el.innerHTML = `
-    <div class="notif-toast-icon ${type==='late'?'late':''}">${icon||'🔔'}</div>
+    <div class="notif-toast-icon ${type==='late'?'late':''}">${icon||'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'}</div>
     <div class="notif-toast-text">
       <div class="notif-toast-title">${esc(title)}</div>
       ${sub ? `<div class="notif-toast-sub">${esc(sub)}</div>` : ''}
@@ -4347,10 +4347,10 @@ function applyBorrowsListUpdate(br){
   if(state.loggedIn && freshNew.length){
     const shown = freshNew.slice(0, 3);
     shown.forEach(b=>{
-      showNotifToast(`📥 มีใบยืมใหม่: ${b.code||''}`, `${b.dept||'-'} • ${b.name||'-'}`, '📥', 'new');
+      showNotifToast(`<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> มีใบยืมใหม่: ${b.code||''}`, `${b.dept||'-'} • ${b.name||'-'}`, '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>', 'new');
     });
     if(freshNew.length > shown.length){
-      showNotifToast(`และอีก ${freshNew.length - shown.length} รายการ`, '', '🔔', 'new');
+      showNotifToast(`และอีก ${freshNew.length - shown.length} รายการ`, '', '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2.5px;margin-right:5px;display:inline-block"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>', 'new');
     }
   }
 }
@@ -4404,7 +4404,7 @@ function updateLiveClock(){
   const d = new Date();
   const dateStr = `${THAI_DAYS[d.getDay()]}ที่ ${d.getDate()} ${THAI_MONTHS[d.getMonth()]} พ.ศ. ${beYear(d.getFullYear())}`;
   const timeStr = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')} น.`;
-  el.textContent = `🕐 ${dateStr} — ${timeStr}`;
+  el.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>${dateStr} — ${timeStr}`;
 }
 function startLiveClock(){
   updateLiveClock();
