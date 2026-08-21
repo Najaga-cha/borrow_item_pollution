@@ -3337,7 +3337,7 @@ function drawReportCharts(){
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:11}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} } } }
+      }, scales:{ x:{ ticks:{precision:0}, grace:'12%' } } }
     });
   }
 
@@ -3376,7 +3376,7 @@ function drawReportCharts(){
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:11}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} } } }
+      }, scales:{ x:{ ticks:{precision:0}, grace:'12%' } } }
     });
   }
 
@@ -3443,7 +3443,7 @@ function drawExpandedChart(data, palette, fontColor){
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:13}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} } } } };
+      }, scales:{ x:{ ticks:{precision:0}, grace:'12%' } } } };
   } else if(key==='status' && (data.statusCounts[0]+data.statusCounts[1])>0){
     config = { type:'doughnut',
       data:{ labels:['กำลังยืมอยู่','คืนแล้ว'], datasets:[{ data:data.statusCounts, backgroundColor:['#b45309','#15803d'] }] },
@@ -3464,7 +3464,7 @@ function drawExpandedChart(data, palette, fontColor){
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
         legend:{display:false},
         datalabels:{ display:true, anchor:'end', align:'end', color:fontColor, font:{weight:'600',size:13}, formatter:v=>v }
-      }, scales:{ x:{ ticks:{precision:0} } } } };
+      }, scales:{ x:{ ticks:{precision:0}, grace:'12%' } } } };
   } else if(key==='deptStatus' && data.deptStatusLabels && data.deptStatusLabels.length){
     config = { type:'bar',
       data:{
