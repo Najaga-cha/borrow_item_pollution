@@ -2920,6 +2920,7 @@ function renderReportsTab(){
       unitRows.push({ name, unitLabel: unitsByName[name].length>1 ? `เครื่องที่ ${i+1}` : 'เครื่องเดียว', assetCode: e.assetCode||'-', category: e.category, count: countBorrowsForEquipment(e) });
     });
   });
+  unitRows = unitRows.filter(r=> r.count>0);
   unitRows.sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name,'th'));
   const unitTopN = state.reports.topUnitCount || 15;
   const unitTopForChart = unitRows.slice(0, unitTopN);
@@ -3174,8 +3175,8 @@ function renderReportsTab(){
         <h3 class="font-bold text-sm">จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง</h3>
         <input id="r-unit-search" class="inp" style="max-width:280px" placeholder="ค้นหาชื่อเครื่องมือ หรือรหัสครุภัณฑ์..." value="${esc(state.reports.unitSearch||'')}"/>
       </div>
-      <div class="text-xs subtle mb-3">นับสะสมทุกใบยืมตามตัวกรองหน่วยงาน/จังหวัด/ประเภทด้านบน (ไม่จำกัดตามช่วงเวลาที่เลือกไว้ด้านบนสุด) — ใช้ดูว่าเครื่องแต่ละตัว (เช่น "เครื่องที่ 1", "เครื่องที่ 2") ถูกยืมไปกี่ครั้งแล้ว</div>
-      ${unitRows.length===0? `<div class="empty-hint">ไม่พบเครื่องมือที่ตรงกับคำค้นหา</div>` : `
+      <div class="text-xs subtle mb-3">นับสะสมทุกใบยืมตามตัวกรองหน่วยงาน/จังหวัด/ประเภทด้านบน (ไม่จำกัดตามช่วงเวลาที่เลือกไว้ด้านบนสุด) — แสดงเฉพาะเครื่องที่เคยถูกยืมอย่างน้อย 1 ครั้ง ใช้ดูว่าเครื่องแต่ละตัว (เช่น "เครื่องที่ 1", "เครื่องที่ 2") ถูกยืมไปกี่ครั้งแล้ว</div>
+      ${unitRows.length===0? `<div class="empty-hint">${unitSearchVal? 'ไม่พบเครื่องมือที่ตรงกับคำค้นหา':'ยังไม่มีเครื่องมือที่ถูกยืมตามตัวกรองที่เลือก'}</div>` : `
       <div class="table-wrap" style="max-height:420px;overflow-y:auto">
         <table class="data-table">
           <thead><tr><th>ด้าน</th><th>เครื่องมือ</th><th>ลำดับเครื่อง</th><th>รหัสครุภัณฑ์</th><th class="c" style="width:14%">ยืมไปแล้ว (ครั้ง)</th></tr></thead>
