@@ -3108,7 +3108,13 @@ function renderReportsTab(){
           ${unitTopForChart.length? `<button class="chart-dl-btn no-print" data-act="expand-chart" data-chart="unitTop" data-title="จำนวนครั้งที่ถูกยืม แยกเป็นรายเครื่อง (Top ${unitTopN===Infinity?'ทั้งหมด':unitTopN})" title="ขยายดูกราฟ">⤢</button>`:''}
         </div>
       </div>
-      ${unitTopForChart.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `<div class="report-chart-box" style="height:${Math.max(220, unitTopForChart.length*32)}px"><canvas id="chart-unit-top"></canvas></div>`}
+      ${unitTopForChart.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `
+      <div class="flex flex-wrap gap-x-3 gap-y-1 mb-2" style="font-size:11px;">
+        ${[...new Set(unitTopForChart.map(r=>r.category).filter(Boolean))].map(c=>`
+        <span class="flex items-center gap-1"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${(CATEGORY_COLOR[c]&&CATEGORY_COLOR[c].bg)||'#0891b2'}"></span>${esc(c)}</span>
+        `).join('')}
+      </div>
+      <div class="report-chart-box" style="height:${Math.max(220, unitTopForChart.length*32)}px"><canvas id="chart-unit-top"></canvas></div>`}
     </div>
 
     <div class="card p-5">
