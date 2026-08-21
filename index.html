@@ -1330,9 +1330,9 @@ function renderReturnTab(){
   const cLate = activeAll.filter(b=>borrowTimingCategory(b)==='late').length;
   const subTabs = [
     {id:'all', label:'ทั้งหมด', icon:'📋', count: activeAll.length},
-    {id:'early', label:'คืนก่อนกำหนด', icon:'↩️', count: cEarly},
-    {id:'ontime', label:'คืนตรงเวลา', icon:'✅', count: cOntime},
-    {id:'late', label:'คืนสาย', icon:'⚠️', count: cLate},
+    {id:'early', label:'ส่งคืนก่อนกำหนด', icon:'↩️', count: cEarly},
+    {id:'ontime', label:'ครบกำหนด', icon:'✅', count: cOntime},
+    {id:'late', label:'ส่งคืนล่าช้า', icon:'⚠️', count: cLate},
   ];
   const successHTML = state.lastCreatedReturnId ? renderReturnSuccessBanner() : '';
   return `
