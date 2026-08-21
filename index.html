@@ -203,16 +203,21 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .ms-dropdown-item:hover{ background: var(--chip-bg); }
 .ms-dropdown-item input{ width:16px; height:16px; accent-color: var(--primary); flex-shrink:0; }
 
-.cat-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
-.cat-card{ position:relative; display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; padding:16px 10px 12px; border-radius:14px; border:2px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; transition:.15s; }
-.cat-card:hover{ border-color:var(--c); background:var(--c2); }
-:root[data-theme="dark"] .cat-card:hover{ background:rgba(255,255,255,.04); }
-.cat-card-active{ border-color:var(--c); background:var(--c2); box-shadow:0 0 0 2px var(--c) inset; }
-:root[data-theme="dark"] .cat-card-active{ background:rgba(255,255,255,.05); }
-.cat-card-check{ position:absolute; top:8px; right:10px; font-size:13px; line-height:1; }
-.cat-card-icon{ font-size:26px; line-height:1; }
-.cat-card-name{ font-weight:700; font-size:13.5px; }
-.cat-card-count{ font-size:11px; color:var(--subtle); }
+.cat-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:12px; }
+.cat-card{ position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; padding:22px 14px 16px; border-radius:16px; border:1.5px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; transition:.18s ease; overflow:hidden; }
+.cat-card::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--c); opacity:0; transition:.18s ease; }
+.cat-card:hover{ border-color:var(--c); transform:translateY(-2px); box-shadow:0 10px 22px -10px color-mix(in srgb, var(--c) 55%, transparent); }
+.cat-card:hover::before{ opacity:1; }
+.cat-card-active{ border-color:var(--c); background:var(--c2); box-shadow:0 0 0 1.5px var(--c) inset, 0 10px 22px -10px color-mix(in srgb, var(--c) 55%, transparent); }
+.cat-card-active::before{ opacity:1; }
+:root[data-theme="dark"] .cat-card-active{ background:color-mix(in srgb, var(--c) 14%, transparent); }
+.cat-card-check{ position:absolute; top:10px; right:10px; width:19px; height:19px; border-radius:999px; background:var(--c); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; line-height:1; box-shadow:0 2px 6px color-mix(in srgb, var(--c) 55%, transparent); }
+.cat-card-icon-wrap{ width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:color-mix(in srgb, var(--c) 15%, transparent); color:var(--c); font-size:24px; transition:.18s ease; }
+.cat-card:hover .cat-card-icon-wrap, .cat-card-active .cat-card-icon-wrap{ background:var(--c); color:#fff; }
+.cat-card-name{ font-weight:700; font-size:14px; margin-top:3px; }
+.cat-card-count{ font-size:11.5px; color:var(--subtle); font-weight:600; }
+.cat-card-pending{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; color:#b45309; background:rgba(180,83,9,.1); border:1px solid rgba(180,83,9,.25); padding:3px 9px; border-radius:999px; margin-top:3px; white-space:nowrap; }
+:root[data-theme="dark"] .cat-card-pending{ background:rgba(251,191,36,.12); border-color:rgba(251,191,36,.3); color:#fcd34d; }
 
 .tool-panel{ border:1.5px solid var(--border); border-left:6px solid var(--c); border-radius:14px; overflow:hidden; }
 .tool-panel-head{ padding:10px 14px; font-weight:700; background: var(--c2); color:var(--text); }
@@ -1612,11 +1617,11 @@ function renderBorrowTab(){
           const pendingCalib = catItems.filter(e=>isPendingCalibBorrowable(e,_bd,_rd)).length;
           return `
           <button type="button" class="cat-card ${active?'cat-card-active':''}" style="--c:${col.bg};--c2:${col.bg2}" data-act="toggle-cat" data-cat="${c}">
-            <span class="cat-card-check">${active? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</span>
-            <span class="cat-card-icon">${catIcon(c)}</span>
+            ${active? `<span class="cat-card-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;display:block"><polyline points="20 6 9 17 4 12"/></svg></span>` : ''}
+            <span class="cat-card-icon-wrap">${catIcon(c)}</span>
             <span class="cat-card-name">${c}</span>
             <span class="cat-card-count">${avail}/${total} พร้อมยืม</span>
-            ${pendingCalib>0 ? `<span class="cat-card-count" style="color:#b45309"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
+            ${pendingCalib>0 ? `<span class="cat-card-pending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;display:block;flex:none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
           </button>`;
         }).join('')}
       </div>
@@ -1632,7 +1637,7 @@ function renderBorrowTab(){
 }
 
 function catIcon(c){
-  return {'ด้านน้ำ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>','ด้านอากาศ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>','ด้านฉุกเฉิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>','ด้านดิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><circle cx="12" cy="12" r="9"/></svg>','คอมพิวเตอร์':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'}[c] || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+  return {'ด้านน้ำ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>','ด้านอากาศ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>','ด้านฉุกเฉิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>','ด้านดิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>','คอมพิวเตอร์':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'}[c] || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
 }
 
 function renderToolPicker(){
