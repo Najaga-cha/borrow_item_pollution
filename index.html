@@ -2898,7 +2898,7 @@ function renderReportsTab(){
   });
   unitRows.sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name,'th'));
   const unitTopN = state.reports.topUnitCount || 15;
-  const unitTopForChart = unitRows.filter(r=>r.count>0).slice(0, unitTopN);
+  const unitTopForChart = unitRows.slice(0, unitTopN);
   const unitSearchVal = (state.reports.unitSearch||'').trim().toLowerCase();
   if(unitSearchVal){
     unitRows = unitRows.filter(r=> (r.name+' '+r.assetCode).toLowerCase().includes(unitSearchVal));
