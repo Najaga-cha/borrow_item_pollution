@@ -2521,7 +2521,10 @@ function renderHistoryTab(){
   const countRepair = records.filter(r=>r.type==='repair').length;
   return `
   <div class="card p-5">
-    <p class="text-sm subtle mb-4">ประวัติการดำเนินงานทั้งหมดที่มาจากการกดยืนยันในแท็บ "การสอบเทียบ" และ "เครื่องมือที่ชำรุด" เรียงจากรายการล่าสุดไปเก่าสุด</p>
+    <div class="flex flex-wrap gap-3 items-start justify-between mb-1">
+      <p class="text-sm subtle mb-4 flex-1 min-w-[240px]">ประวัติการดำเนินงานทั้งหมดที่มาจากการกดยืนยันในแท็บ "การสอบเทียบ" และ "เครื่องมือที่ชำรุด" เรียงจากรายการล่าสุดไปเก่าสุด</p>
+      <button class="btn-danger" data-act="clear-manage-history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างประวัติ</button>
+    </div>
     <div class="flex flex-wrap gap-3 items-end mb-4">
       <div>
         <label class="lbl">หมวดหมู่</label>
@@ -3981,6 +3984,7 @@ function onClick(e){
   if(act==='save-equip'){ saveEquipModal(el.dataset.id); return; }
   if(act==='del-equip'){ delEquip(el.dataset.id); return; }
   if(act==='clear-equip'){ clearEquip(); return; }
+  if(act==='clear-manage-history'){ clearManageHistory(); return; }
   if(act==='repair-calib-dates'){ repairCalibDates(); return; }
   if(act==='calib-clear-selection'){ state.calibSelected.clear(); render(); return; }
   if(act==='calib-confirm-selected'){
@@ -4543,6 +4547,17 @@ async function markRepairedBulk(ids, details){
   } else {
     showNotifToast('บันทึกผลการซ่อมแล้ว', `บันทึกผลสำเร็จ ${list.length} รายการ`, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'new');
   }
+  render();
+}
+
+async function clearManageHistory(){
+  const totalRecords = state.equipment.reduce((sum,e)=> sum + (Array.isArray(e.calibHistory)?e.calibHistory.length:0) + (Array.isArray(e.repairHistory)?e.repairHistory.length:0), 0);
+  if(totalRecords===0){ return; }
+  const warn = `ยืนยันล้างประวัติการจัดการเครื่องมือทั้งหมด (${totalRecords} รายการ)?\n\nการดำเนินการนี้จะลบประวัติการสอบเทียบและประวัติการซ่อมเครื่องมือทั้งหมดออกจากระบบถาวรและไม่สามารถย้อนกลับได้\n(ข้อมูลปัจจุบันของเครื่องมือ เช่น สถานะการใช้งาน วันที่สอบเทียบล่าสุด/ครั้งถัดไป จะไม่ถูกลบ)`;
+  if(!confirm(warn)) return;
+  state.equipment.forEach(e=>{ e.calibHistory = []; e.repairHistory = []; });
+  await saveEquipment();
+  showNotifToast('ล้างประวัติแล้ว', 'ลบประวัติการจัดการเครื่องมือทั้งหมดเรียบร้อย', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>', 'new');
   render();
 }
 
