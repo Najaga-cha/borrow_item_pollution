@@ -2300,8 +2300,9 @@ function renderEquipManagementTab(){
       <button class="tool-tab ${sub==='broken'?'tool-tab-active':''}" data-act="calib-subtab" data-v="broken" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> เครื่องมือที่ชำรุด
         ${brokenCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ชำรุดและต้องนำไปส่งซ่อม">${brokenCount>99?'99+':brokenCount}</span>` : ''}
       </button>
+      <button class="tool-tab ${sub==='history'?'tool-tab-active':''}" data-act="calib-subtab" data-v="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ประวัติการจัดการเครื่องมือ</button>
     </div>
-    ${sub==='broken' ? renderBrokenTab() : renderCalibTab()}
+    ${sub==='broken' ? renderBrokenTab() : (sub==='history' ? renderHistoryTab() : renderCalibTab())}
   </div>`;
 }
 
@@ -2502,6 +2503,81 @@ function renderBrokenSelectionBar(){
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       ยืนยันซ่อมเสร็จแล้ว
     </button>
+  </div>`;
+}
+
+function renderHistoryTab(){
+  const hm = state.manage.history || (state.manage.history = {catFilter:'', typeFilter:'', search:''});
+  let records = [];
+  state.equipment.forEach(e=>{
+    (Array.isArray(e.calibHistory)?e.calibHistory:[]).forEach(h=>records.push({...h, type:'calib', equip:e}));
+    (Array.isArray(e.repairHistory)?e.repairHistory:[]).forEach(h=>records.push({...h, type:'repair', equip:e}));
+  });
+  if(hm.catFilter) records = records.filter(r=>r.equip.category===hm.catFilter);
+  if(hm.typeFilter) records = records.filter(r=>r.type===hm.typeFilter);
+  if(hm.search) records = records.filter(r=>(r.equip.name+r.equip.assetCode+r.equip.brand+r.equip.model).toLowerCase().includes(hm.search.toLowerCase()));
+  records.sort((a,b)=> (b.recordedAt||b.date||'').localeCompare(a.recordedAt||a.date||''));
+  const countCalib = records.filter(r=>r.type==='calib').length;
+  const countRepair = records.filter(r=>r.type==='repair').length;
+  return `
+  <div class="card p-5">
+    <p class="text-sm subtle mb-4">ประวัติการดำเนินงานทั้งหมดที่มาจากการกดยืนยันในแท็บ "การสอบเทียบ" และ "เครื่องมือที่ชำรุด" เรียงจากรายการล่าสุดไปเก่าสุด</p>
+    <div class="flex flex-wrap gap-3 items-end mb-4">
+      <div>
+        <label class="lbl">หมวดหมู่</label>
+        <select id="hs-cat" class="inp">
+          <option value="">ทั้งหมด</option>
+          ${CATEGORIES.map(c=>`<option value="${c}" ${hm.catFilter===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="lbl">ประเภทงาน</label>
+        <select id="hs-type" class="inp">
+          <option value="">ทั้งหมด</option>
+          <option value="calib" ${hm.typeFilter==='calib'?'selected':''}>สอบเทียบ</option>
+          <option value="repair" ${hm.typeFilter==='repair'?'selected':''}>ซ่อมเครื่องมือ</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-[180px]">
+        <label class="lbl">ค้นหา</label>
+        <input id="hs-search" class="inp" placeholder="ชื่อเครื่องมือ / รหัสครุภัณฑ์ / ยี่ห้อ" value="${esc(hm.search)}"/>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <span class="pill pill-ok"><svg viewBox="0 0 24 24" fill="#16a34a" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> สอบเทียบแล้ว ${countCalib} รายการ</span>
+      <span class="pill pill-warn"><svg viewBox="0 0 24 24" fill="#f59e0b" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> ซ่อมเสร็จแล้ว ${countRepair} รายการ</span>
+    </div>
+    <div class="text-sm subtle mb-2">พบ ${records.length} รายการ</div>
+    <div class="table-wrap">
+      <table class="data-table calib-plan-table">
+        <thead><tr>
+          <th style="width:110px">วันที่ดำเนินการ</th>
+          <th>ประเภทงาน</th>
+          <th>ประเภท</th>
+          <th>รหัสพัสดุ</th>
+          <th>รายละเอียดพัสดุ</th>
+          <th>หน่วยงาน/ผู้ดำเนินการ</th>
+          <th class="text-right">ค่าใช้จ่าย</th>
+          <th>รายละเอียดการดำเนินงาน</th>
+        </tr></thead>
+        <tbody>
+          ${records.length===0 ? `<tr><td colspan="8" class="text-center subtle py-6">ยังไม่มีประวัติการดำเนินงาน</td></tr>` : records.map(r=>`
+            <tr>
+              <td class="text-xs font-semibold calib-asset-code">${fmtDateBEShort2((r.date||'').slice(0,10))}</td>
+              <td class="text-xs"><span class="pill ${r.type==='calib'?'pill-ok':'pill-warn'}" style="white-space:nowrap;">${r.type==='calib'?'สอบเทียบ':'ซ่อมเครื่องมือ'}</span></td>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[r.equip.category]?.bg||'#888'}">${r.equip.category}</span></td>
+              <td class="font-mono text-xs calib-asset-code">${esc(r.equip.assetCode||'-')}</td>
+              <td class="text-xs">
+                <div class="font-medium">${esc(r.equip.name)}</div>
+                ${equipDetailLine(r.equip) ? `<div class="subtle">${esc(equipDetailLine(r.equip))}</div>` : ''}
+              </td>
+              <td class="text-xs">${r.agency ? esc(r.agency) : '<span class="subtle">-</span>'}</td>
+              <td class="text-xs text-right">${(typeof r.cost==='number'&&!isNaN(r.cost)) ? r.cost.toLocaleString('th-TH') : '<span class="subtle">-</span>'}</td>
+              <td class="text-xs">${r.fixItems ? esc(r.fixItems) : '<span class="subtle">-</span>'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
   </div>`;
 }
 
@@ -3714,6 +3790,7 @@ function attachHandlers(){
   bindTextInput('m-search', v=>{state.manage.search=v; renderSoft();});
   bindTextInput('cb-search', v=>{state.manage.calib.search=v; renderSoft();});
   bindTextInput('rb-search', v=>{state.manage.broken.search=v; renderSoft();});
+  bindTextInput('hs-search', v=>{state.manage.history.search=v; renderSoft();});
   bindTextInput('ret-search', v=>{state.returnSearch=v; renderSoft();});
   bindTextInput('r-search-dept', v=>{state.reports.filterSearch.dept=v; renderSoft();});
   bindTextInput('r-search-province', v=>{state.reports.filterSearch.province=v; renderSoft();});
@@ -4029,6 +4106,8 @@ function onChange(e){
   if(el.id==='cb-cat'){ state.manage.calib.catFilter = el.value; render(); return; }
   if(el.id==='cb-status'){ state.manage.calib.statusFilter = el.value; render(); return; }
   if(el.id==='rb-cat'){ state.manage.broken.catFilter = el.value; render(); return; }
+  if(el.id==='hs-cat'){ state.manage.history.catFilter = el.value; render(); return; }
+  if(el.id==='hs-type'){ state.manage.history.typeFilter = el.value; render(); return; }
   if(el.id==='repair-confirm-date'){
     state.repairConfirmForm = state.repairConfirmForm || {};
     state.repairConfirmForm.date = el.value;
