@@ -2292,11 +2292,14 @@ function renderManageTab(){
 
 function renderEquipManagementTab(){
   const sub = state.manage.calibSubView || 'calib';
+  const calibCount = calibAlertItems().length;
   const brokenCount = state.equipment.filter(e=>e.useStatus==='ชำรุด').length;
   return `
   <div class="space-y-4">
     <div class="flex flex-wrap gap-2">
-      <button class="tool-tab ${sub==='calib'?'tool-tab-active':''}" data-act="calib-subtab" data-v="calib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/></svg> การสอบเทียบ</button>
+      <button class="tool-tab ${sub==='calib'?'tool-tab-active':''}" data-act="calib-subtab" data-v="calib" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/></svg> การสอบเทียบ
+        ${calibCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ต้องสอบเทียบหรือใกล้ถึงกำหนด">${calibCount>99?'99+':calibCount}</span>` : ''}
+      </button>
       <button class="tool-tab ${sub==='broken'?'tool-tab-active':''}" data-act="calib-subtab" data-v="broken" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> เครื่องมือที่ชำรุด
         ${brokenCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ชำรุดและต้องนำไปส่งซ่อม">${brokenCount>99?'99+':brokenCount}</span>` : ''}
       </button>
