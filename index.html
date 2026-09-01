@@ -284,7 +284,10 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
 .modal-card{ background:var(--card); border-radius:18px; padding:24px; max-width:640px; width:100%; max-height:88vh; overflow-y:auto; box-shadow: var(--shadow); }
 .modal-card.chart-expand-card{ max-width:920px; }
-.calib-confirm-card{ max-width:420px; }
+.calib-confirm-card{ max-width:420px; max-height:88vh; overflow-y:auto; }
+.calib-confirm-form{ display:flex; flex-direction:column; gap:10px; }
+.calib-confirm-form textarea.inp{ resize:vertical; font-family:inherit; }
+.calib-confirm-form-error{ font-size:12.5px; font-weight:600; color:#dc2626; background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25); border-radius:10px; padding:8px 10px; }
 .calib-confirm-icon{ width:52px; height:52px; margin:0 auto 14px; border-radius:999px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center; }
 .calib-confirm-icon svg{ width:26px; height:26px; }
 :root[data-theme="dark"] .calib-confirm-icon{ background:rgba(16,185,129,.15); color:#6ee7b7; }
@@ -553,6 +556,8 @@ const state = {
   lastCreatedBorrowId: null,
   pendingBorrow: null,
   calibConfirmIds: null,
+  calibConfirmForm: null,
+  calibConfirmError: null,
   calibSelected: new Set(),
   notifyStatus: {},
   returnSearch: '',
@@ -1771,9 +1776,10 @@ function renderCalibConfirmModal(){
   const ids = state.calibConfirmIds || [];
   const list = ids.map(id=>state.equipment.find(x=>x.id===id)).filter(Boolean);
   if(list.length===0){ state.calibConfirmIds=null; return ''; }
-  const nextDateFor = (e)=>{
+  const baseDateISO = (state.calibConfirmForm && state.calibConfirmForm.date) || todayISO();
+  const nextDateFor = (e, baseISO)=>{
     const cycle = parseInt(e.calibCycle,10) || 1;
-    const d = new Date(todayISO()+'T00:00:00');
+    const d = new Date((baseISO||todayISO())+'T00:00:00');
     d.setFullYear(d.getFullYear()+cycle);
     return toLocalISODate(d);
   };
@@ -1783,15 +1789,31 @@ function renderCalibConfirmModal(){
         ${list.map(e=>`
           <div class="calib-confirm-list-item">
             <div class="calib-confirm-list-name">${esc(e.name)}</div>
-            <div class="calib-confirm-list-sub">${esc(e.assetCode||'-')} &nbsp;•&nbsp; กำหนดใหม่ ${fmtDateBEShort2(nextDateFor(e))}</div>
+            <div class="calib-confirm-list-sub">${esc(e.assetCode||'-')} &nbsp;•&nbsp; กำหนดใหม่ <span class="calib-confirm-nextdate-preview" data-cycle="${parseInt(e.calibCycle,10)||1}">${fmtDateBEShort2(nextDateFor(e, baseDateISO))}</span></div>
           </div>`).join('')}
       </div>`
     : `<div class="calib-confirm-detail">
         <div class="calib-confirm-row"><span class="subtle">รายการ</span><b>${esc(list[0].name)}</b></div>
         <div class="calib-confirm-row"><span class="subtle">รหัสพัสดุ</span><span>${esc(list[0].assetCode||'-')}</span></div>
-        <div class="calib-confirm-row"><span class="subtle">วันที่สอบเทียบ (วันนี้)</span><span>${fmtDateBEShort2(todayISO())}</span></div>
-        <div class="calib-confirm-row"><span class="subtle">กำหนดสอบเทียบครั้งถัดไป</span><span>${fmtDateBEShort2(nextDateFor(list[0]))}</span></div>
+        <div class="calib-confirm-row"><span class="subtle">กำหนดสอบเทียบครั้งถัดไป</span><span class="calib-confirm-nextdate-preview" data-cycle="${parseInt(list[0].calibCycle,10)||1}">${fmtDateBEShort2(nextDateFor(list[0], baseDateISO))}</span></div>
       </div>`;
+  const form = state.calibConfirmForm || {};
+  const formHtml = `
+    <div class="calib-confirm-form mt-4">
+      <div><label class="lbl">วันที่สอบเทียบ *</label>
+        <input type="date" id="calib-confirm-date" class="inp" value="${esc(baseDateISO)}" max="${todayISO()}"/>
+      </div>
+      <div><label class="lbl">หน่วยงานที่ทำ *</label>
+        <input type="text" id="calib-confirm-agency" class="inp" placeholder="เช่น บริษัท/หน่วยงานผู้สอบเทียบ" value="${esc(form.agency||'')}"/>
+      </div>
+      <div><label class="lbl">ค่าใช้จ่าย (บาท) *</label>
+        <input type="number" id="calib-confirm-cost" class="inp" min="0" step="0.01" placeholder="0.00" value="${esc(form.cost||'')}"/>
+      </div>
+      <div><label class="lbl">รายการแก้ไข *</label>
+        <textarea id="calib-confirm-fixitems" class="inp" rows="3" placeholder="ระบุรายการที่ได้ทำการแก้ไข/ปรับปรุง">${esc(form.fixItems||'')}</textarea>
+      </div>
+      ${state.calibConfirmError ? `<div class="calib-confirm-form-error">${esc(state.calibConfirmError)}</div>` : ''}
+    </div>`;
   return `
   <div class="modal-backdrop" data-act="cancel-calib-confirm">
     <div class="modal-card calib-confirm-card">
@@ -1801,6 +1823,7 @@ function renderCalibConfirmModal(){
       <h3 class="text-lg font-bold mb-1 text-center">ยืนยันผลการสอบเทียบ</h3>
       <p class="text-sm subtle mb-4 text-center">${isMulti ? `ยืนยันว่าเครื่องมือทั้ง ${list.length} รายการนี้ได้ทำการสอบเทียบเสร็จเรียบร้อยแล้วใช่หรือไม่?` : 'ยืนยันว่าเครื่องมือนี้ได้ทำการสอบเทียบเสร็จเรียบร้อยแล้วใช่หรือไม่?'}</p>
       ${bodyHtml}
+      ${formHtml}
       <div class="mt-6 flex justify-end gap-2">
         <button class="btn-ghost" data-act="cancel-calib-confirm">ยกเลิก</button>
         <button class="btn-primary" data-act="confirm-calib-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยืนยัน สอบเทียบแล้ว${isMulti?` (${list.length})`:''}</button>
@@ -3726,13 +3749,34 @@ function onClick(e){
   if(act==='clear-equip'){ clearEquip(); return; }
   if(act==='repair-calib-dates'){ repairCalibDates(); return; }
   if(act==='calib-clear-selection'){ state.calibSelected.clear(); render(); return; }
-  if(act==='calib-confirm-selected'){ state.calibConfirmIds = Array.from(state.calibSelected); render(); return; }
-  if(act==='cancel-calib-confirm'){ state.calibConfirmIds = null; render(); return; }
+  if(act==='calib-confirm-selected'){
+    state.calibConfirmIds = Array.from(state.calibSelected);
+    state.calibConfirmForm = { date: todayISO(), agency:'', cost:'', fixItems:'' };
+    state.calibConfirmError = null;
+    render(); return;
+  }
+  if(act==='cancel-calib-confirm'){ state.calibConfirmIds = null; state.calibConfirmForm = null; state.calibConfirmError = null; render(); return; }
   if(act==='confirm-calib-done'){
     const ids = state.calibConfirmIds || [];
-    markCalibratedBulk(ids);
+    const dateVal = (document.getElementById('calib-confirm-date')||{}).value || '';
+    const agencyVal = ((document.getElementById('calib-confirm-agency')||{}).value || '').trim();
+    const costVal = ((document.getElementById('calib-confirm-cost')||{}).value || '').trim();
+    const fixItemsVal = ((document.getElementById('calib-confirm-fixitems')||{}).value || '').trim();
+    if(!dateVal || !agencyVal || costVal==='' || !fixItemsVal){
+      state.calibConfirmError = 'กรุณากรอกข้อมูลให้ครบทุกช่องก่อนยืนยัน';
+      state.calibConfirmForm = { date: dateVal || todayISO(), agency: agencyVal, cost: costVal, fixItems: fixItemsVal };
+      render(); return;
+    }
+    if(isNaN(parseFloat(costVal)) || parseFloat(costVal) < 0){
+      state.calibConfirmError = 'กรุณากรอกค่าใช้จ่ายเป็นตัวเลขที่ถูกต้อง';
+      state.calibConfirmForm = { date: dateVal, agency: agencyVal, cost: costVal, fixItems: fixItemsVal };
+      render(); return;
+    }
+    markCalibratedBulk(ids, { date: dateVal, agency: agencyVal, cost: parseFloat(costVal), fixItems: fixItemsVal });
     ids.forEach(id=>state.calibSelected.delete(id));
     state.calibConfirmIds = null;
+    state.calibConfirmForm = null;
+    state.calibConfirmError = null;
     return;
   }
   if(act==='cal-prev'){ calShift(-1); return; }
@@ -3781,6 +3825,17 @@ function onChange(e){
   if(act==='edit-status'){ updateEquipField(el.dataset.id,'useStatus',el.value); return; }
   if(act==='edit-calib'){ updateCalibDate(el.dataset.id, el.value); return; }
 
+  if(el.id==='calib-confirm-date'){
+    state.calibConfirmForm = state.calibConfirmForm || {};
+    state.calibConfirmForm.date = el.value;
+    document.querySelectorAll('.calib-confirm-nextdate-preview').forEach(span=>{
+      const cycle = parseInt(span.dataset.cycle,10) || 1;
+      const base = el.value || todayISO();
+      const d = new Date(base+'T00:00:00');
+      if(!isNaN(d)){ d.setFullYear(d.getFullYear()+cycle); span.textContent = fmtDateBEShort2(toLocalISODate(d)); }
+    });
+    return;
+  }
   if(el.id==='m-cat'){ state.manage.catFilter = el.value; render(); return; }
   if(el.id==='m-status'){ state.manage.statusFilter = el.value; render(); return; }
   if(el.id==='cb-cat'){ state.manage.calib.catFilter = el.value; render(); return; }
@@ -4133,18 +4188,33 @@ async function markCalibrated(id){
   return markCalibratedBulk([id]);
 }
 
-async function markCalibratedBulk(ids){
+async function markCalibratedBulk(ids, details){
   const list = ids.map(id=>state.equipment.find(x=>x.id===id)).filter(Boolean);
   if(list.length===0) return;
   const todayStr = todayISO();
+  const calibDate = (details && details.date) ? details.date : todayStr;
   list.forEach(e=>{
     const cycle = parseInt(e.calibCycle,10) || 1;
-    const d = new Date(todayStr+'T00:00:00');
+    const d = new Date(calibDate+'T00:00:00');
     d.setFullYear(d.getFullYear()+cycle);
-    e.lastCalib = todayStr;
+    e.lastCalib = calibDate;
     e.nextCalib = toLocalISODate(d);
     e.calibStatus = ' สอบเทียบแล้ว';
     e.useStatus = 'ใช้งานได้';
+    if(details){
+      // เก็บข้อมูลรายละเอียดการสอบเทียบครั้งนี้ไว้ที่ตัวเครื่องมือ (ล่าสุด) และในประวัติ
+      e.lastCalibAgency = details.agency || '';
+      e.lastCalibCost = (typeof details.cost === 'number') ? details.cost : (parseFloat(details.cost)||0);
+      e.lastCalibFixItems = details.fixItems || '';
+      e.calibHistory = Array.isArray(e.calibHistory) ? e.calibHistory : [];
+      e.calibHistory.push({
+        date: calibDate,
+        agency: details.agency || '',
+        cost: (typeof details.cost === 'number') ? details.cost : (parseFloat(details.cost)||0),
+        fixItems: details.fixItems || '',
+        recordedAt: new Date().toISOString()
+      });
+    }
     // เครื่องมือนี้เพิ่งสอบเทียบเสร็จแล้ว ถือว่า "เคยเห็นแล้ว" ไม่ต้องขึ้นแจ้งเตือนซ้ำที่กระดิ่งอีก
     notifReadCalib.add(e.id);
   });
