@@ -1801,7 +1801,7 @@ function renderCalibConfirmModal(){
   const formHtml = `
     <div class="calib-confirm-form mt-4">
       <div><label class="lbl">วันที่สอบเทียบ *</label>
-        <input type="date" id="calib-confirm-date" class="inp" value="${esc(baseDateISO)}" max="${todayISO()}"/>
+        <input type="date" id="calib-confirm-date" class="inp" value="${esc(baseDateISO)}"/>
       </div>
       <div><label class="lbl">หน่วยงานที่ทำ *</label>
         <input type="text" id="calib-confirm-agency" class="inp" placeholder="เช่น บริษัท/หน่วยงานผู้สอบเทียบ" value="${esc(form.agency||'')}"/>
