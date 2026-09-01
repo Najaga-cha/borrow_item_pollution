@@ -559,6 +559,10 @@ const state = {
   calibConfirmForm: null,
   calibConfirmError: null,
   calibSelected: new Set(),
+  repairConfirmIds: null,
+  repairConfirmForm: null,
+  repairConfirmError: null,
+  brokenSelected: new Set(),
   notifyStatus: {},
   returnSearch: '',
   returnSubTab: 'all',
@@ -1146,6 +1150,7 @@ function render(){
     ${state.partialReturnId ? renderPartialReturnModal() : ''}
     ${state.availCal ? renderAvailabilityCalendarModal() : ''}
     ${state.calibConfirmIds ? renderCalibConfirmModal() : ''}
+    ${state.repairConfirmIds ? renderRepairConfirmModal() : ''}
     ${state.expandedChart ? renderChartExpandModal() : ''}
   `;
   attachHandlers();
@@ -1832,6 +1837,59 @@ function renderCalibConfirmModal(){
   </div>`;
 }
 
+function renderRepairConfirmModal(){
+  const ids = state.repairConfirmIds || [];
+  const list = ids.map(id=>state.equipment.find(x=>x.id===id)).filter(Boolean);
+  if(list.length===0){ state.repairConfirmIds=null; return ''; }
+  const isMulti = list.length>1;
+  const bodyHtml = isMulti
+    ? `<div class="calib-confirm-list">
+        ${list.map(e=>`
+          <div class="calib-confirm-list-item">
+            <div class="calib-confirm-list-name">${esc(e.name)}</div>
+            <div class="calib-confirm-list-sub">${esc(e.assetCode||'-')}</div>
+          </div>`).join('')}
+      </div>`
+    : `<div class="calib-confirm-detail">
+        <div class="calib-confirm-row"><span class="subtle">รายการ</span><b>${esc(list[0].name)}</b></div>
+        <div class="calib-confirm-row"><span class="subtle">รหัสพัสดุ</span><span>${esc(list[0].assetCode||'-')}</span></div>
+      </div>`;
+  const baseDateISO = (state.repairConfirmForm && state.repairConfirmForm.date) || todayISO();
+  const form = state.repairConfirmForm || {};
+  const formHtml = `
+    <div class="calib-confirm-form mt-4">
+      <div><label class="lbl">วันที่ซ่อมเสร็จ *</label>
+        <input type="date" id="repair-confirm-date" class="inp" value="${esc(baseDateISO)}"/>
+      </div>
+      <div><label class="lbl">หน่วยงาน/ร้านที่ซ่อม *</label>
+        <input type="text" id="repair-confirm-agency" class="inp" placeholder="เช่น บริษัท/ร้านผู้รับซ่อม" value="${esc(form.agency||'')}"/>
+      </div>
+      <div><label class="lbl">ค่าใช้จ่าย (บาท) *</label>
+        <input type="number" id="repair-confirm-cost" class="inp" min="0" step="0.01" placeholder="0.00" value="${esc(form.cost||'')}"/>
+      </div>
+      <div><label class="lbl">รายละเอียดการซ่อม *</label>
+        <textarea id="repair-confirm-fixitems" class="inp" rows="3" placeholder="ระบุอาการชำรุด/รายการที่ได้ทำการซ่อมแซม">${esc(form.fixItems||'')}</textarea>
+      </div>
+      ${state.repairConfirmError ? `<div class="calib-confirm-form-error">${esc(state.repairConfirmError)}</div>` : ''}
+    </div>`;
+  return `
+  <div class="modal-backdrop" data-act="cancel-repair-confirm">
+    <div class="modal-card calib-confirm-card">
+      <div class="calib-confirm-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h3 class="text-lg font-bold mb-1 text-center">ยืนยันการซ่อมเครื่องมือ</h3>
+      <p class="text-sm subtle mb-4 text-center">${isMulti ? `ยืนยันว่าเครื่องมือทั้ง ${list.length} รายการนี้ได้รับการส่งซ่อมและซ่อมแซมเสร็จเรียบร้อยแล้วใช่หรือไม่? (สถานะจะเปลี่ยนกลับเป็น "ใช้งานได้")` : 'ยืนยันว่าเครื่องมือนี้ได้รับการส่งซ่อมและซ่อมแซมเสร็จเรียบร้อยแล้วใช่หรือไม่? (สถานะจะเปลี่ยนกลับเป็น "ใช้งานได้")'}</p>
+      ${bodyHtml}
+      ${formHtml}
+      <div class="mt-6 flex justify-end gap-2">
+        <button class="btn-ghost" data-act="cancel-repair-confirm">ยกเลิก</button>
+        <button class="btn-primary" data-act="confirm-repair-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยืนยัน ซ่อมเสร็จแล้ว${isMulti?` (${list.length})`:''}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderPrintSlipContainer(){
   return `<div id="print-area"></div>`;
 }
@@ -2213,6 +2271,8 @@ function renderManageTab(){
     return true;
   });
   const calibAlertCount = calibAlertItems().length;
+  const brokenAlertCount = state.equipment.filter(e=>e.useStatus==='ชำรุด').length;
+  const manageAlertCount = calibAlertCount + brokenAlertCount;
   return `
   <div class="mt-5 space-y-6">
     <div class="flex flex-wrap gap-2 items-center justify-between">
@@ -2220,13 +2280,28 @@ function renderManageTab(){
         <button class="tool-tab ${(!state.manage.view||state.manage.view==='table')?'tool-tab-active':''}" data-act="mview" data-v="table"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> รายการเครื่องมือ</button>
         <button class="tool-tab ${state.manage.view==='calendar'?'tool-tab-active':''}" data-act="mview" data-v="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ปฏิทินการยืม</button>
         <button class="tool-tab ${state.manage.view==='calib'?'tool-tab-active':''}" data-act="mview" data-v="calib" style="position:relative">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/></svg> การสอบเทียบ
-          ${calibAlertCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ต้องสอบเทียบ (เลยกำหนด/ใกล้ถึงกำหนดภายใน 30 วัน)">${calibAlertCount>99?'99+':calibAlertCount}</span>` : ''}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/></svg> จัดการเครื่องมือ
+          ${manageAlertCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ต้องสอบเทียบ หรือ ชำรุดรอส่งซ่อม">${manageAlertCount>99?'99+':manageAlertCount}</span>` : ''}
         </button>
         <button class="tool-tab ${state.manage.view==='order'?'tool-tab-active':''}" data-act="mview" data-v="order"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> จัดลำดับเครื่องมือ</button>
       </div>
     </div>
-    ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : (state.manage.view==='calib' ? renderCalibTab() : renderEquipTable(list)))}
+    ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : (state.manage.view==='calib' ? renderEquipManagementTab() : renderEquipTable(list)))}
+  </div>`;
+}
+
+function renderEquipManagementTab(){
+  const sub = state.manage.calibSubView || 'calib';
+  const brokenCount = state.equipment.filter(e=>e.useStatus==='ชำรุด').length;
+  return `
+  <div class="space-y-4">
+    <div class="flex flex-wrap gap-2">
+      <button class="tool-tab ${sub==='calib'?'tool-tab-active':''}" data-act="calib-subtab" data-v="calib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/></svg> การสอบเทียบ</button>
+      <button class="tool-tab ${sub==='broken'?'tool-tab-active':''}" data-act="calib-subtab" data-v="broken" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> เครื่องมือที่ชำรุด
+        ${brokenCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ชำรุดและต้องนำไปส่งซ่อม">${brokenCount>99?'99+':brokenCount}</span>` : ''}
+      </button>
+    </div>
+    ${sub==='broken' ? renderBrokenTab() : renderCalibTab()}
   </div>`;
 }
 
@@ -2346,6 +2421,86 @@ function renderCalibSelectionBar(){
     <button class="btn-calib-done calib-selection-confirm" data-act="calib-confirm-selected">
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       ยืนยันสอบเทียบแล้ว
+    </button>
+  </div>`;
+}
+
+function renderBrokenTab(){
+  const bm = state.manage.broken || (state.manage.broken = {catFilter:'', search:''});
+  let items = state.equipment.filter(e=>e.useStatus==='ชำรุด');
+  if(bm.catFilter) items = items.filter(e=>e.category===bm.catFilter);
+  if(bm.search) items = items.filter(e=>(e.name+e.assetCode+e.brand+e.model).toLowerCase().includes(bm.search.toLowerCase()));
+  items = items.slice().sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'th'));
+  return `
+  <div class="card p-5">
+    <p class="text-sm subtle mb-4">รายการเครื่องมือที่แจ้งสถานะ "ชำรุด" และต้องนำไปส่งซ่อม — เลือกรายการแล้วกด "ยืนยันซ่อมเสร็จแล้ว" เมื่อได้รับเครื่องมือคืนจากการซ่อมแซม สถานะจะเปลี่ยนกลับเป็น "ใช้งานได้" โดยอัตโนมัติ</p>
+    <div class="flex flex-wrap gap-3 items-end mb-4">
+      <div>
+        <label class="lbl">หมวดหมู่</label>
+        <select id="rb-cat" class="inp">
+          <option value="">ทั้งหมด</option>
+          ${CATEGORIES.map(c=>`<option value="${c}" ${bm.catFilter===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="flex-1 min-w-[180px]">
+        <label class="lbl">ค้นหา</label>
+        <input id="rb-search" class="inp" placeholder="ชื่อเครื่องมือ / รหัสครุภัณฑ์ / ยี่ห้อ" value="${esc(bm.search)}"/>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <span class="pill pill-danger"><svg viewBox="0 0 24 24" fill="#dc2626" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> ชำรุด/รอส่งซ่อม ${state.equipment.filter(e=>e.useStatus==='ชำรุด').length} เครื่อง</span>
+    </div>
+    <div class="text-sm subtle mb-2">พบ ${items.length} รายการ</div>
+    <div class="table-wrap">
+      <table class="data-table calib-plan-table">
+        <thead><tr>
+          <th class="text-center" style="width:36px"><input type="checkbox" class="calib-checkbox" id="broken-select-all" ${items.length>0 && items.every(e=>state.brokenSelected.has(e.id))?'checked':''}/></th>
+          <th>ประเภท</th>
+          <th class="text-center">ลำดับที่</th>
+          <th>รหัสพัสดุ</th>
+          <th>รายละเอียดพัสดุ</th>
+          <th class="text-center">จำนวน</th>
+          <th>ยี่ห้อ/รุ่น</th>
+          <th class="text-right">ราคา</th>
+          <th>ซ่อมล่าสุด</th>
+          <th>สถานะ</th>
+          <th>หมายเหตุ</th>
+        </tr></thead>
+        <tbody>
+          ${items.length===0 ? `<tr><td colspan="11" class="text-center subtle py-6">ไม่พบข้อมูล — ไม่มีเครื่องมือที่ชำรุดในขณะนี้</td></tr>` : items.map((e,idx)=>`
+            <tr class="calib-row-danger ${state.brokenSelected.has(e.id)?'calib-row-selected':''}">
+              <td class="text-center"><input type="checkbox" class="calib-checkbox broken-row-check" data-id="${e.id}" ${state.brokenSelected.has(e.id)?'checked':''}/></td>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${e.category}</span></td>
+              <td class="text-center">${idx+1}</td>
+              <td class="font-mono text-xs calib-asset-code">${esc(e.assetCode||'-')}</td>
+              <td class="text-xs">
+                <div class="font-medium">${esc(e.name)}</div>
+                ${equipDetailLine(e) ? `<div class="subtle">${esc(equipDetailLine(e))}</div>` : ''}
+              </td>
+              <td class="text-center text-xs calib-qty-cell">1 เครื่อง</td>
+              <td class="text-xs">${esc(e.brand||'')} ${esc(e.model||'')}</td>
+              <td class="text-xs text-right">${e.price ? Number(e.price).toLocaleString('th-TH') : '<span class="subtle">-</span>'}</td>
+              <td class="text-xs">${e.lastRepairDate?fmtDateBEShort2(e.lastRepairDate.slice(0,10)):'<span class="subtle">-</span>'}</td>
+              <td class="text-xs" style="white-space:nowrap;"><span class="pill pill-danger" style="white-space:nowrap;">ชำรุด รอส่งซ่อม</span></td>
+              <td class="text-xs">${e.remark ? esc(e.remark) : ''}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  ${renderBrokenSelectionBar()}`;
+}
+
+function renderBrokenSelectionBar(){
+  const n = state.brokenSelected.size;
+  if(n===0) return '';
+  return `
+  <div class="calib-selection-bar">
+    <span class="calib-selection-count">เลือกแล้ว ${n} รายการ</span>
+    <button class="btn-ghost calib-selection-clear" data-act="repair-clear-selection">ล้างการเลือก</button>
+    <button class="btn-calib-done calib-selection-confirm" data-act="repair-confirm-selected">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ยืนยันซ่อมเสร็จแล้ว
     </button>
   </div>`;
 }
@@ -3558,6 +3713,7 @@ function attachHandlers(){
   bindTextInput('form-search-province', v=>{state.form.dropdownSearch.province=v; render();});
   bindTextInput('m-search', v=>{state.manage.search=v; renderSoft();});
   bindTextInput('cb-search', v=>{state.manage.calib.search=v; renderSoft();});
+  bindTextInput('rb-search', v=>{state.manage.broken.search=v; renderSoft();});
   bindTextInput('ret-search', v=>{state.returnSearch=v; renderSoft();});
   bindTextInput('r-search-dept', v=>{state.reports.filterSearch.dept=v; renderSoft();});
   bindTextInput('r-search-province', v=>{state.reports.filterSearch.province=v; renderSoft();});
@@ -3733,6 +3889,7 @@ function onClick(e){
   if(act==='download-slip-pdf'){ downloadSlipPDF(el.dataset.id); return; }
   if(act==='mailto-notify'){ notifyAdmin(el.dataset.id); return; }
   if(act==='mview'){ state.manage.view = el.dataset.v; render(); return; }
+  if(act==='calib-subtab'){ state.manage.calibSubView = el.dataset.v; render(); return; }
   if(act==='reorder-cat'){ state.manage.reorderCat = el.dataset.cat; render(); return; }
   if(act==='reorder-up'){ moveEquipGroup(el.dataset.cat, el.dataset.name, -1); return; }
   if(act==='reorder-down'){ moveEquipGroup(el.dataset.cat, el.dataset.name, 1); return; }
@@ -3777,6 +3934,37 @@ function onClick(e){
     state.calibConfirmIds = null;
     state.calibConfirmForm = null;
     state.calibConfirmError = null;
+    return;
+  }
+  if(act==='repair-clear-selection'){ state.brokenSelected.clear(); render(); return; }
+  if(act==='repair-confirm-selected'){
+    state.repairConfirmIds = Array.from(state.brokenSelected);
+    state.repairConfirmForm = { date: todayISO(), agency:'', cost:'', fixItems:'' };
+    state.repairConfirmError = null;
+    render(); return;
+  }
+  if(act==='cancel-repair-confirm'){ state.repairConfirmIds = null; state.repairConfirmForm = null; state.repairConfirmError = null; render(); return; }
+  if(act==='confirm-repair-done'){
+    const ids = state.repairConfirmIds || [];
+    const dateVal = (document.getElementById('repair-confirm-date')||{}).value || '';
+    const agencyVal = ((document.getElementById('repair-confirm-agency')||{}).value || '').trim();
+    const costVal = ((document.getElementById('repair-confirm-cost')||{}).value || '').trim();
+    const fixItemsVal = ((document.getElementById('repair-confirm-fixitems')||{}).value || '').trim();
+    if(!dateVal || !agencyVal || costVal==='' || !fixItemsVal){
+      state.repairConfirmError = 'กรุณากรอกข้อมูลให้ครบทุกช่องก่อนยืนยัน';
+      state.repairConfirmForm = { date: dateVal || todayISO(), agency: agencyVal, cost: costVal, fixItems: fixItemsVal };
+      render(); return;
+    }
+    if(isNaN(parseFloat(costVal)) || parseFloat(costVal) < 0){
+      state.repairConfirmError = 'กรุณากรอกค่าใช้จ่ายเป็นตัวเลขที่ถูกต้อง';
+      state.repairConfirmForm = { date: dateVal, agency: agencyVal, cost: costVal, fixItems: fixItemsVal };
+      render(); return;
+    }
+    markRepairedBulk(ids, { date: dateVal, agency: agencyVal, cost: parseFloat(costVal), fixItems: fixItemsVal });
+    ids.forEach(id=>state.brokenSelected.delete(id));
+    state.repairConfirmIds = null;
+    state.repairConfirmForm = null;
+    state.repairConfirmError = null;
     return;
   }
   if(act==='cal-prev'){ calShift(-1); return; }
@@ -3840,6 +4028,26 @@ function onChange(e){
   if(el.id==='m-status'){ state.manage.statusFilter = el.value; render(); return; }
   if(el.id==='cb-cat'){ state.manage.calib.catFilter = el.value; render(); return; }
   if(el.id==='cb-status'){ state.manage.calib.statusFilter = el.value; render(); return; }
+  if(el.id==='rb-cat'){ state.manage.broken.catFilter = el.value; render(); return; }
+  if(el.id==='repair-confirm-date'){
+    state.repairConfirmForm = state.repairConfirmForm || {};
+    state.repairConfirmForm.date = el.value;
+    return;
+  }
+  if(el.id==='broken-select-all'){
+    const bm = state.manage.broken || {};
+    let items = state.equipment.filter(x=>x.useStatus==='ชำรุด');
+    if(bm.catFilter) items = items.filter(x=>x.category===bm.catFilter);
+    if(bm.search) items = items.filter(x=>(x.name+x.assetCode+x.brand+x.model).toLowerCase().includes(bm.search.toLowerCase()));
+    if(el.checked){ items.forEach(x=>state.brokenSelected.add(x.id)); }
+    else { items.forEach(x=>state.brokenSelected.delete(x.id)); }
+    render(); return;
+  }
+  if(el.classList && el.classList.contains('broken-row-check')){
+    if(el.checked) state.brokenSelected.add(el.dataset.id);
+    else state.brokenSelected.delete(el.dataset.id);
+    renderSoft(); return;
+  }
   if(el.id==='calib-select-all'){
     const cm = state.manage.calib || {};
     let items = state.equipment.filter(x=>!!x.nextCalib);
@@ -4224,6 +4432,37 @@ async function markCalibratedBulk(ids, details){
     showNotifToast('บันทึกผลการสอบเทียบแล้ว', `${list[0].name} — กำหนดครั้งถัดไป ${fmtDateBEShort2(list[0].nextCalib)}`, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'new');
   } else {
     showNotifToast('บันทึกผลการสอบเทียบแล้ว', `บันทึกผลสำเร็จ ${list.length} รายการ`, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'new');
+  }
+  render();
+}
+
+async function markRepairedBulk(ids, details){
+  const list = ids.map(id=>state.equipment.find(x=>x.id===id)).filter(Boolean);
+  if(list.length===0) return;
+  const todayStr = todayISO();
+  const repairDate = (details && details.date) ? details.date : todayStr;
+  list.forEach(e=>{
+    e.useStatus = 'ใช้งานได้';
+    e.lastRepairDate = repairDate;
+    if(details){
+      e.lastRepairAgency = details.agency || '';
+      e.lastRepairCost = (typeof details.cost === 'number') ? details.cost : (parseFloat(details.cost)||0);
+      e.lastRepairFixItems = details.fixItems || '';
+      e.repairHistory = Array.isArray(e.repairHistory) ? e.repairHistory : [];
+      e.repairHistory.push({
+        date: repairDate,
+        agency: details.agency || '',
+        cost: (typeof details.cost === 'number') ? details.cost : (parseFloat(details.cost)||0),
+        fixItems: details.fixItems || '',
+        recordedAt: new Date().toISOString()
+      });
+    }
+  });
+  await saveEquipment();
+  if(list.length===1){
+    showNotifToast('บันทึกผลการซ่อมแล้ว', `${list[0].name} — เปลี่ยนสถานะเป็น "ใช้งานได้"`, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'new');
+  } else {
+    showNotifToast('บันทึกผลการซ่อมแล้ว', `บันทึกผลสำเร็จ ${list.length} รายการ`, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'new');
   }
   render();
 }
