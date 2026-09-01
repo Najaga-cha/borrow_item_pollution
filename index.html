@@ -1028,7 +1028,7 @@ function autoUpdateCalibStatus(list){
   const today = todayISO();
   let changed = false;
   (list || state.equipment).forEach(item=>{
-    if(item.nextCalib && item.nextCalib < today && item.useStatus !== 'รอสอบเทียบ'){
+    if(item.nextCalib && item.nextCalib < today && item.useStatus !== 'รอสอบเทียบ' && item.useStatus !== 'ชำรุด'){
       item.useStatus = 'รอสอบเทียบ';
       changed = true;
     }
@@ -4407,8 +4407,8 @@ async function updateCalibDate(id, value){
     d.setFullYear(d.getFullYear() + parseInt(e.calibCycle||1));
     e.nextCalib = toLocalISODate(d);
   }
-  // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที
-  if(e.nextCalib && e.nextCalib < todayISO()){ e.useStatus = 'รอสอบเทียบ'; }
+  // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที (ยกเว้นเครื่องมือที่ "ชำรุด")
+  if(e.nextCalib && e.nextCalib < todayISO() && e.useStatus !== 'ชำรุด'){ e.useStatus = 'รอสอบเทียบ'; }
   await saveEquipment();
   render();
 }
@@ -4458,8 +4458,8 @@ async function saveEquipModal(id){
     d.setFullYear(d.getFullYear()+obj.calibCycle);
     obj.nextCalib = toLocalISODate(d);
   } else obj.nextCalib = null;
-  // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที
-  if(obj.nextCalib && obj.nextCalib < todayISO()){ obj.useStatus = 'รอสอบเทียบ'; }
+  // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที (ยกเว้นเครื่องมือที่ "ชำรุด")
+  if(obj.nextCalib && obj.nextCalib < todayISO() && obj.useStatus !== 'ชำรุด'){ obj.useStatus = 'รอสอบเทียบ'; }
 
   if(id){
     const e = state.equipment.find(x=>x.id===id);
