@@ -197,6 +197,9 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .ms-dropdown-btn-open .ms-dropdown-caret{ transform:rotate(180deg); }
 .ms-dropdown-panel{ position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:30; background:var(--card); border:1.5px solid var(--input-border); border-radius:12px; box-shadow: var(--shadow); padding:8px; }
 .ms-dropdown-search{ width:100%; margin-bottom:6px; }
+.ms-dropdown-search-wrap{ position:relative; margin-bottom:6px; }
+.ms-dropdown-search-wrap .ms-dropdown-search{ margin-bottom:0; padding-left:2em; }
+.ms-dropdown-search-icon{ position:absolute; left:0.6em; top:50%; transform:translateY(-50%); width:1em; height:1em; color:var(--muted, #888); pointer-events:none; }
 .ms-dropdown-list{ max-height:200px; overflow-y:auto; }
 .ms-dropdown-empty{ padding:14px 8px; text-align:center; color:var(--subtle); font-size:13px; }
 .ms-dropdown-item{ display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:8px; cursor:pointer; font-size:13.5px; }
@@ -3020,7 +3023,10 @@ function renderFormSearchSelect(ftype, label, options, value, placeholder){
     </button>
     ${isOpen ? `
     <div class="ms-dropdown-panel">
-      <input type="text" id="form-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> พิมพ์เพื่อค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
+      <div class="ms-dropdown-search-wrap">
+        <svg class="ms-dropdown-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="form-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="พิมพ์เพื่อค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
+      </div>
       <div class="ms-dropdown-list">
         ${filteredOptions.length===0 ? `<div class="ms-dropdown-empty">ไม่พบรายการที่ค้นหา</div>` : filteredOptions.map(o=>`
         <div class="ms-dropdown-item" data-act="select-form-dropdown-item" data-ftype="${ftype}" data-fval="${escAttr(o)}">
@@ -3044,7 +3050,10 @@ function renderFilterDropdown(ftype, label, options, selected, iconFn){
     </button>
     ${isOpen ? `
     <div class="ms-dropdown-panel">
-      <input type="text" id="r-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
+      <div class="ms-dropdown-search-wrap">
+        <svg class="ms-dropdown-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="r-search-${ftype}" class="inp-sm ms-dropdown-search" placeholder="ค้นหา..." value="${escAttr(searchVal)}" autocomplete="off" autofocus/>
+      </div>
       <div class="ms-dropdown-list">
         ${filteredOptions.length===0 ? `<div class="ms-dropdown-empty">ไม่พบรายการที่ค้นหา</div>` : filteredOptions.map(o=>`
         <label class="ms-dropdown-item">
