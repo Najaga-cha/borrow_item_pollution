@@ -765,6 +765,41 @@ async function repairCalibDates(){
   render();
   alert(`ซ่อมข้อมูลวันที่สำเร็จ ${fixedCount} รายการ:\n\n${details.join('\n')}`);
 }
+// หาเครื่องมือต้นฉบับใน EQUIPMENT_SEED ที่ตรงกับเครื่องมือปัจจุบัน (เทียบจาก id ก่อน แล้วค่อย fallback ไปเทียบจากรหัสครุภัณฑ์)
+function findSeedItem(e){
+  let s = EQUIPMENT_SEED.find(x=>x.id===e.id);
+  if(s) return s;
+  if(e.assetCode && e.assetCode!=='ไม่มีเลขครุภัณฑ์'){
+    s = EQUIPMENT_SEED.find(x=>x.assetCode===e.assetCode);
+  }
+  return s;
+}
+/* ===================== ซ่อมข้อมูล: กู้คืนสถานะ "ชำรุด" ที่เคยถูกเปลี่ยนเป็น "รอสอบเทียบ" โดยผิดพลาด =====================
+   เดิมฟังก์ชัน autoUpdateCalibStatus() (และอีก 2 จุดที่บันทึกเครื่องมือ) จะเปลี่ยนสถานะใช้งาน (useStatus)
+   ของเครื่องมือเป็น "รอสอบเทียบ" ทันทีที่วันสอบเทียบครั้งถัดไปเลยกำหนด โดย "ไม่ได้" กันไว้ว่าเครื่องมือ
+   ชิ้นนั้นถูกแจ้ง "ชำรุด" อยู่ก่อนแล้ว ทำให้เครื่องมือที่ชำรุดถูกเขียนทับสถานะกลายเป็น "รอสอบเทียบ" ไปในวันถัดไป
+   (ตอนนี้โค้ดที่เกี่ยวข้องทั้ง 3 จุดถูกแก้ให้กันเครื่องมือที่ "ชำรุด"/"ส่งสอบเทียบ" ไว้แล้ว ไม่เกิดซ้ำอีก)
+   แต่ข้อมูลที่เคยถูกเขียนทับไปแล้วในฐานข้อมูลจะไม่ถูกแก้ย้อนหลังให้อัตโนมัติ ฟังก์ชันนี้จึงเทียบกับข้อมูลตั้งต้น
+   ใน EQUIPMENT_SEED (ซึ่งบันทึกไว้ว่าเครื่องมือชิ้นไหน "ชำรุด" มาตั้งแต่แรก) แล้วกู้สถานะกลับให้ครั้งเดียว
+====================================================================================== */
+async function repairBrokenStatus(){
+  let fixedCount = 0;
+  const details = [];
+  state.equipment.forEach(e=>{
+    if(e.useStatus === 'รอสอบเทียบ'){
+      const s = findSeedItem(e);
+      if(s && s.useStatus === 'ชำรุด'){
+        e.useStatus = 'ชำรุด';
+        fixedCount++;
+        details.push(`${e.name} (${e.assetCode||'-'})`);
+      }
+    }
+  });
+  if(fixedCount===0){ alert('ไม่พบรายการที่ต้องกู้คืนสถานะ "ชำรุด"'); return; }
+  await saveEquipment();
+  render();
+  alert(`กู้คืนสถานะ "ชำรุด" สำเร็จ ${fixedCount} รายการ:\n\n${details.join('\n')}`);
+}
 function fmtDateBE(iso){
   if(!iso) return '-';
   const d = new Date(iso+'T00:00:00');
@@ -1031,7 +1066,7 @@ function autoUpdateCalibStatus(list){
   const today = todayISO();
   let changed = false;
   (list || state.equipment).forEach(item=>{
-    if(item.nextCalib && item.nextCalib < today && item.useStatus !== 'รอสอบเทียบ' && item.useStatus !== 'ชำรุด'){
+    if(item.nextCalib && item.nextCalib < today && item.useStatus !== 'รอสอบเทียบ' && item.useStatus !== 'ชำรุด' && item.useStatus !== 'ส่งสอบเทียบ'){
       item.useStatus = 'รอสอบเทียบ';
       changed = true;
     }
@@ -2652,6 +2687,7 @@ function renderEquipTable(list){
           <input type="file" id="import-file" accept=".xlsx,.xls,.csv" class="hidden"/>
         </label>
         <button class="btn-ghost" data-act="repair-calib-dates" title="ซ่อมรายการที่วันที่สอบเทียบแสดงผลผิดเพี้ยน (เช่น 20261-08-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> ซ่อมวันที่ผิดพลาด</button>
+        <button class="btn-ghost" data-act="repair-broken-status" title="กู้คืนสถานะ 'ชำรุด' ของเครื่องมือที่เคยถูกระบบเปลี่ยนเป็น 'รอสอบเทียบ' โดยผิดพลาด (เทียบกับข้อมูลตั้งต้น)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg> กู้คืนสถานะชำรุด</button>
         <button class="btn-danger" data-act="clear-equip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างฐานข้อมูลทั้งหมด</button>
       </div>
     </div>
@@ -3998,6 +4034,7 @@ function onClick(e){
   if(act==='clear-equip'){ clearEquip(); return; }
   if(act==='clear-manage-history'){ clearManageHistory(); return; }
   if(act==='repair-calib-dates'){ repairCalibDates(); return; }
+  if(act==='repair-broken-status'){ repairBrokenStatus(); return; }
   if(act==='calib-clear-selection'){ state.calibSelected.clear(); render(); return; }
   if(act==='calib-confirm-selected'){
     state.calibConfirmIds = Array.from(state.calibSelected);
@@ -4420,7 +4457,7 @@ async function updateCalibDate(id, value){
     e.nextCalib = toLocalISODate(d);
   }
   // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที (ยกเว้นเครื่องมือที่ "ชำรุด")
-  if(e.nextCalib && e.nextCalib < todayISO() && e.useStatus !== 'ชำรุด'){ e.useStatus = 'รอสอบเทียบ'; }
+  if(e.nextCalib && e.nextCalib < todayISO() && e.useStatus !== 'ชำรุด' && e.useStatus !== 'ส่งสอบเทียบ'){ e.useStatus = 'รอสอบเทียบ'; }
   await saveEquipment();
   render();
 }
@@ -4471,7 +4508,7 @@ async function saveEquipModal(id){
     obj.nextCalib = toLocalISODate(d);
   } else obj.nextCalib = null;
   // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที (ยกเว้นเครื่องมือที่ "ชำรุด")
-  if(obj.nextCalib && obj.nextCalib < todayISO() && obj.useStatus !== 'ชำรุด'){ obj.useStatus = 'รอสอบเทียบ'; }
+  if(obj.nextCalib && obj.nextCalib < todayISO() && obj.useStatus !== 'ชำรุด' && obj.useStatus !== 'ส่งสอบเทียบ'){ obj.useStatus = 'รอสอบเทียบ'; }
 
   if(id){
     const e = state.equipment.find(x=>x.id===id);
