@@ -567,6 +567,7 @@ const state = {
   repairConfirmForm: null,
   repairConfirmError: null,
   brokenSelected: new Set(),
+  calibDateBackup: {}, // เก็บวันที่สอบเทียบล่าสุด "ก่อนหน้า" ไว้ชั่วคราวในหน่วยความจำเท่านั้น (ไม่บันทึกลงฐานข้อมูล) เพื่อให้กดปุ่มกู้คืนได้ — รีเฟรชหน้าเว็บแล้วจะหายไป
   clearConfirm: null, // { warnHtml, error, attempts, lockedUntil } — สถานะยืนยันด้วยรหัสก่อนล้างฐานข้อมูลทั้งหมด
   notifyStatus: {},
   returnSearch: '',
@@ -2749,7 +2750,7 @@ function renderEquipTable(list){
               <td>
                 <div class="flex items-center gap-1">
                   <input type="date" class="inp-sm" value="${e.lastCalib?e.lastCalib.slice(0,10):''}" data-act="edit-calib" data-id="${e.id}"/>
-                  ${(e._lastCalibBackup!==undefined && e._lastCalibBackup!==(e.lastCalib||'')) ? `<button type="button" class="icon-btn" data-act="restore-calib" data-id="${e.id}" title="กู้คืนวันที่สอบเทียบล่าสุดก่อนหน้า (${e._lastCalibBackup ? fmtDateShortCE(e._lastCalibBackup.slice(0,10)) : 'ว่าง'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg></button>` : ''}
+                  ${(state.calibDateBackup[e.id]!==undefined && state.calibDateBackup[e.id]!==(e.lastCalib||'')) ? `<button type="button" class="icon-btn" data-act="restore-calib" data-id="${e.id}" title="กู้คืนวันที่สอบเทียบล่าสุดก่อนหน้า (${state.calibDateBackup[e.id] ? fmtDateShortCE(state.calibDateBackup[e.id].slice(0,10)) : 'ว่าง'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg></button>` : ''}
                 </div>
               </td>
               <td class="text-xs ${expired?'text-red-500 font-bold':''}">${e.nextCalib? fmtDateShortCE(e.nextCalib.slice(0,10)) : '-'}</td>
@@ -4533,9 +4534,10 @@ async function updateCalibDate(id, value){
   if(!e) return;
   const prevValue = e.lastCalib || '';
   // เก็บวันที่เดิมสำรองไว้ทุกครั้งที่มีการเปลี่ยนแปลงค่า (ไม่ว่าจะเคลียร์ว่าง หรือเปลี่ยนเป็นวันที่อื่น)
-  // เพื่อให้กดปุ่มกู้คืนย้อนกลับมาเป็นค่าก่อนหน้าได้เสมอ
+  // เพื่อให้กดปุ่มกู้คืนย้อนกลับมาเป็นค่าก่อนหน้าได้ — เก็บไว้ในหน่วยความจำเท่านั้น ไม่บันทึกลงฐานข้อมูล
+  // (รีเฟรชหน้าเว็บแล้วปุ่มกู้คืนจะหายไป)
   if((value||'') !== prevValue){
-    e._lastCalibBackup = prevValue;
+    state.calibDateBackup[id] = prevValue;
   }
   e.lastCalib = value;
   if(value && e.calibCycle){
@@ -4551,8 +4553,9 @@ async function updateCalibDate(id, value){
 // กู้คืนวันที่สอบเทียบล่าสุดที่เพิ่งถูกเปลี่ยน/เคลียร์ไป กลับมาเป็นค่าก่อนหน้า แล้วเอาปุ่มกู้คืนออก (ไม่ต้องกดสลับไปมาได้อีก)
 async function restoreCalibDate(id){
   const e = state.equipment.find(x=>x.id===id);
-  if(!e || e._lastCalibBackup===undefined || e._lastCalibBackup===(e.lastCalib||'')) return;
-  const value = e._lastCalibBackup;
+  const backup = state.calibDateBackup[id];
+  if(!e || backup===undefined || backup===(e.lastCalib||'')) return;
+  const value = backup;
   e.lastCalib = value;
   if(value && e.calibCycle){
     const d = new Date(value+'T00:00:00');
@@ -4560,7 +4563,7 @@ async function restoreCalibDate(id){
     e.nextCalib = toLocalISODate(d);
   }
   if(e.nextCalib && e.nextCalib < todayISO() && e.useStatus !== 'ชำรุด' && e.useStatus !== 'ส่งสอบเทียบ'){ e.useStatus = 'รอสอบเทียบ'; }
-  e._lastCalibBackup = undefined; // กู้คืนแล้ว ไม่ต้องแสดงปุ่มกู้คืนอีก
+  delete state.calibDateBackup[id]; // กู้คืนแล้ว ไม่ต้องแสดงปุ่มกู้คืนอีก
   await saveEquipment();
   render();
 }
