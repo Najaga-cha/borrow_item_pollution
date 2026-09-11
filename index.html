@@ -2883,7 +2883,8 @@ function availCalShift(dir){
   render();
 }
 function unitsForToolName(cat, name){
-  return state.equipment.filter(e=>e.category===cat && e.name===name);
+  // ไม่นับเครื่องมือที่ "ชำรุด" เพราะให้ยืมไม่ได้อยู่แล้ว (ให้ตรงกับตัวเลข "คงเหลือ" ที่หน้ารายการ)
+  return state.equipment.filter(e=>e.category===cat && e.name===name && e.useStatus !== 'ชำรุด');
 }
 function renderAvailabilityCalendarModal(){
   const c = state.availCal;
