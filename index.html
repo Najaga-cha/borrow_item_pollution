@@ -2749,7 +2749,7 @@ function renderEquipTable(list){
               <td>
                 <div class="flex items-center gap-1">
                   <input type="date" class="inp-sm" value="${e.lastCalib?e.lastCalib.slice(0,10):''}" data-act="edit-calib" data-id="${e.id}"/>
-                  ${(!e.lastCalib && e._lastCalibBackup) ? `<button type="button" class="icon-btn" data-act="restore-calib" data-id="${e.id}" title="กู้คืนวันที่สอบเทียบล่าสุดเดิม (${fmtDateShortCE(e._lastCalibBackup.slice(0,10))}) ที่เพิ่งถูกเคลียร์ไป"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg></button>` : ''}
+                  ${(e._lastCalibBackup!==undefined && e._lastCalibBackup!==(e.lastCalib||'')) ? `<button type="button" class="icon-btn" data-act="restore-calib" data-id="${e.id}" title="กู้คืนวันที่สอบเทียบล่าสุดก่อนหน้า (${e._lastCalibBackup ? fmtDateShortCE(e._lastCalibBackup.slice(0,10)) : 'ว่าง'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg></button>` : ''}
                 </div>
               </td>
               <td class="text-xs ${expired?'text-red-500 font-bold':''}">${e.nextCalib? fmtDateShortCE(e.nextCalib.slice(0,10)) : '-'}</td>
@@ -4531,12 +4531,11 @@ async function updateEquipField(id, field, value){
 async function updateCalibDate(id, value){
   const e = state.equipment.find(x=>x.id===id);
   if(!e) return;
-  // ถ้ากดเคลียร์วันที่ (value ว่าง) และเดิมมีวันที่อยู่ ให้เก็บวันที่เดิมสำรองไว้ก่อน เผื่อผู้ใช้ต้องการกู้คืน
-  if(!value && e.lastCalib){
-    e._lastCalibBackup = e.lastCalib;
-  } else if(value){
-    // เมื่อเลือกวันที่ใหม่ (ไม่ว่าง) แล้ว ถือว่าไม่ต้องใช้ข้อมูลสำรองอีกต่อไป
-    e._lastCalibBackup = null;
+  const prevValue = e.lastCalib || '';
+  // เก็บวันที่เดิมสำรองไว้ทุกครั้งที่มีการเปลี่ยนแปลงค่า (ไม่ว่าจะเคลียร์ว่าง หรือเปลี่ยนเป็นวันที่อื่น)
+  // เพื่อให้กดปุ่มกู้คืนย้อนกลับมาเป็นค่าก่อนหน้าได้เสมอ
+  if((value||'') !== prevValue){
+    e._lastCalibBackup = prevValue;
   }
   e.lastCalib = value;
   if(value && e.calibCycle){
@@ -4549,10 +4548,10 @@ async function updateCalibDate(id, value){
   await saveEquipment();
   render();
 }
-// กู้คืนวันที่สอบเทียบล่าสุดที่ถูกกดเคลียร์ไปโดยไม่ตั้งใจ กลับมาเป็นค่าเดิม
+// กู้คืนวันที่สอบเทียบล่าสุดที่เพิ่งถูกเปลี่ยน/เคลียร์ไป กลับมาเป็นค่าก่อนหน้า
 async function restoreCalibDate(id){
   const e = state.equipment.find(x=>x.id===id);
-  if(!e || !e._lastCalibBackup) return;
+  if(!e || e._lastCalibBackup===undefined || e._lastCalibBackup===(e.lastCalib||'')) return;
   await updateCalibDate(id, e._lastCalibBackup);
 }
 async function delEquip(id){
