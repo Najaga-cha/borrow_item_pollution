@@ -294,6 +294,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .calib-confirm-icon{ width:52px; height:52px; margin:0 auto 14px; border-radius:999px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center; }
 .calib-confirm-icon svg{ width:26px; height:26px; }
 :root[data-theme="dark"] .calib-confirm-icon{ background:rgba(16,185,129,.15); color:#6ee7b7; }
+.clear-confirm-warnbox{ margin-top:10px; text-align:left; font-size:12.5px; line-height:1.6; background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25); border-radius:10px; padding:10px 12px; }
 .calib-confirm-detail{ background:var(--chip-bg); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
 .calib-confirm-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; }
 .calib-confirm-row b{ text-align:right; }
@@ -566,6 +567,7 @@ const state = {
   repairConfirmForm: null,
   repairConfirmError: null,
   brokenSelected: new Set(),
+  clearConfirm: null, // { warnHtml, error, attempts, lockedUntil } — สถานะยืนยันด้วยรหัสก่อนล้างฐานข้อมูลทั้งหมด
   notifyStatus: {},
   returnSearch: '',
   returnSubTab: 'all',
@@ -1189,6 +1191,7 @@ function render(){
     ${state.availCal ? renderAvailabilityCalendarModal() : ''}
     ${state.calibConfirmIds ? renderCalibConfirmModal() : ''}
     ${state.repairConfirmIds ? renderRepairConfirmModal() : ''}
+    ${state.clearConfirm ? renderClearConfirmModal() : ''}
     ${state.expandedChart ? renderChartExpandModal() : ''}
   `;
   attachHandlers();
@@ -1923,6 +1926,35 @@ function renderRepairConfirmModal(){
       <div class="mt-6 flex justify-end gap-2">
         <button class="btn-ghost" data-act="cancel-repair-confirm">ยกเลิก</button>
         <button class="btn-primary" data-act="confirm-repair-done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยืนยัน ซ่อมเสร็จแล้ว${isMulti?` (${list.length})`:''}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderClearConfirmModal(){
+  const cc = state.clearConfirm;
+  if(!cc) return '';
+  const now = Date.now();
+  const locked = cc.lockedUntil && cc.lockedUntil > now;
+  const secsLeft = locked ? Math.ceil((cc.lockedUntil - now)/1000) : 0;
+  return `
+  <div class="modal-backdrop" data-act="cancel-clear-confirm">
+    <div class="modal-card calib-confirm-card">
+      <div class="calib-confirm-icon" style="color:#ef4444;border-color:#ef4444">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <h3 class="text-lg font-bold mb-1 text-center">ล้างฐานข้อมูลเครื่องมือทั้งหมด</h3>
+      <p class="text-sm subtle mb-4 text-center">${cc.warnHtml}</p>
+      <div class="mt-2">
+        <label class="lbl">กรอกรหัสยืนยันเพื่อดำเนินการต่อ *</label>
+        <input type="password" id="clear-confirm-code" class="inp" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          placeholder="รหัสยืนยัน" ${locked?'disabled':''} />
+        ${cc.error ? `<div class="calib-confirm-form-error">${esc(cc.error)}</div>` : ''}
+        ${locked ? `<div class="calib-confirm-form-error">กรอกผิดหลายครั้งเกินไป กรุณารออีก ${secsLeft} วินาทีแล้วลองใหม่</div>` : ''}
+      </div>
+      <div class="mt-6 flex justify-end gap-2">
+        <button class="btn-ghost" data-act="cancel-clear-confirm">ยกเลิก</button>
+        <button class="btn-danger" data-act="confirm-clear-do" ${locked?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ยืนยันล้างฐานข้อมูล</button>
       </div>
     </div>
   </div>`;
@@ -3852,6 +3884,7 @@ function attachHandlers(){
   bindTextInput('r-unit-search', v=>{state.reports.unitSearch=v; renderSoft();});
   bindEnterKey('login-user', doLogin);
   bindEnterKey('login-pass', doLogin);
+  bindEnterKey('clear-confirm-code', ()=>{ document.querySelector('[data-act="confirm-clear-do"]')?.click(); });
   bindPhoneInput('f-phone');
 
   document.addEventListener('click', onDocumentClickCloseFilterDropdown);
@@ -4035,6 +4068,31 @@ function onClick(e){
   if(act==='save-equip'){ saveEquipModal(el.dataset.id); return; }
   if(act==='del-equip'){ delEquip(el.dataset.id); return; }
   if(act==='clear-equip'){ clearEquip(); return; }
+  if(act==='cancel-clear-confirm'){ state.clearConfirm = null; render(); return; }
+  if(act==='confirm-clear-do'){
+    const cc = state.clearConfirm;
+    if(!cc) return;
+    if(cc.lockedUntil && cc.lockedUntil > Date.now()) return;
+    const inputEl = document.getElementById('clear-confirm-code');
+    const val = (inputEl ? inputEl.value : '').trim();
+    if(val !== '@123456'){
+      cc.attempts = (cc.attempts||0) + 1;
+      if(cc.attempts >= 3){
+        cc.lockedUntil = Date.now() + 30000; // ล็อก 30 วินาทีหลังกรอกผิดครบ 3 ครั้ง กันการเดารหัสสุ่ม
+        cc.attempts = 0;
+        cc.error = 'กรอกรหัสผิดครบ 3 ครั้ง ระบบจะล็อกชั่วคราว';
+        render();
+        setTimeout(()=>{ if(state.clearConfirm===cc){ cc.lockedUntil = 0; cc.error = null; render(); } }, 30000);
+      } else {
+        cc.error = 'รหัสยืนยันไม่ถูกต้อง';
+        render();
+      }
+      return;
+    }
+    state.clearConfirm = null;
+    doClearEquip();
+    return;
+  }
   if(act==='clear-manage-history'){ clearManageHistory(); return; }
   if(act==='repair-calib-dates'){ repairCalibDates(); return; }
   if(act==='repair-broken-status'){ repairBrokenStatus(); return; }
@@ -4470,7 +4528,7 @@ async function delEquip(id){
   await saveEquipment();
   render();
 }
-async function clearEquip(){
+function clearEquip(){
   // ตรวจสอบก่อนว่ามีใบยืมที่ยังไม่คืน (active) อ้างอิงเครื่องมืออยู่หรือไม่ เพื่อเตือนแอดมิน
   // เพราะระบบจะจำเครื่องมือที่ถูกยืมค้างไว้ได้จากรหัสครุภัณฑ์ (ไม่ใช่แค่ id) — ถ้านำเข้าเครื่องมือใหม่
   // โดยใส่ "รหัสครุภัณฑ์" เดิมให้ตรงกับของเก่า ระบบจะเชื่อมโยงสถานะ "ถูกยืมอยู่" กลับมาให้อัตโนมัติ
@@ -4481,22 +4539,19 @@ async function clearEquip(){
     const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : b.items;
     (list||[]).forEach(it=>{ if(!it.returned && it.equipmentId) heldItemIds.add(it.equipmentId); });
   });
-  let warn = 'ยืนยันล้างฐานข้อมูลเครื่องมือทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้';
+  let warnHtml = 'ยืนยันล้างฐานข้อมูลเครื่องมือทั้งหมด? <b>การกระทำนี้ไม่สามารถย้อนกลับได้</b>';
   if(heldItemIds.size > 0){
-    warn += `\n\n<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ขณะนี้มีเครื่องมือ ${heldItemIds.size} รายการที่ถูกยืมอยู่ (ยังไม่คืน)\n`
-      + 'เมื่อล้างฐานข้อมูลแล้วนำเข้าเครื่องมือชุดใหม่ ระบบจะเชื่อมโยง "สถานะถูกยืมอยู่" กลับให้อัตโนมัติ โดย:\n'
-      + '• เครื่องมือที่มี "รหัสครุภัณฑ์" — ต้องกรอกรหัสให้ตรงกับของเดิมเป๊ะ ๆ\n'
+    warnHtml += `<div class="clear-confirm-warnbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> ขณะนี้มีเครื่องมือ ${heldItemIds.size} รายการที่ถูกยืมอยู่ (ยังไม่คืน)<br/>`
+      + 'เมื่อล้างฐานข้อมูลแล้วนำเข้าเครื่องมือชุดใหม่ ระบบจะเชื่อมโยง "สถานะถูกยืมอยู่" กลับให้อัตโนมัติ โดย:<br/>'
+      + '• เครื่องมือที่มี "รหัสครุภัณฑ์" — ต้องกรอกรหัสให้ตรงกับของเดิมเป๊ะ ๆ<br/>'
       + '• เครื่องมือที่ "ไม่มีรหัสครุภัณฑ์" — ระบบจะลองเทียบจาก หมวดหมู่ + ชื่อ + ลำดับเครื่องในหมวดหมู่แทน '
-      + '(ต้องนำเข้าไฟล์ที่เรียงลำดับแถวในแต่ละหมวดหมู่เหมือนเดิม ไม่งั้นจะจับคู่ผิดตัวได้)\n'
-      + 'หากไม่มั่นใจว่าลำดับจะตรงกัน แนะนำให้รอจนใบยืมค้างเหล่านี้ถูกกดคืนก่อน หรือกรอกรหัสครุภัณฑ์ให้ตรงกับของเดิมตอนนำเข้าใหม่จะแม่นยำกว่า';
+      + '(ต้องนำเข้าไฟล์ที่เรียงลำดับแถวในแต่ละหมวดหมู่เหมือนเดิม ไม่งั้นจะจับคู่ผิดตัวได้)<br/>'
+      + 'หากไม่มั่นใจว่าลำดับจะตรงกัน แนะนำให้รอจนใบยืมค้างเหล่านี้ถูกกดคืนก่อน หรือกรอกรหัสครุภัณฑ์ให้ตรงกับของเดิมตอนนำเข้าใหม่จะแม่นยำกว่า</div>';
   }
-  if(!confirm(warn)) return;
-  const code = prompt('เพื่อยืนยันอีกครั้ง กรุณากรอก "รหัสยืนยัน" เพื่อล้างฐานข้อมูลทั้งหมด');
-  if(code === null) return; // กดยกเลิก
-  if(code !== '@123456'){
-    alert('รหัสยืนยันไม่ถูกต้อง ยกเลิกการล้างฐานข้อมูล');
-    return;
-  }
+  state.clearConfirm = { warnHtml, error:null, attempts:0, lockedUntil:0 };
+  render();
+}
+async function doClearEquip(){
   state.equipment = [];
   await saveEquipment();
   render();
