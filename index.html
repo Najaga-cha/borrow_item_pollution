@@ -4194,7 +4194,30 @@ function onChange(e){
   if(el.id==='f-returndate'){ state.form.returnDate = el.value; render(); return; }
 
   if(act==='qty-tool'){ setQty(el.dataset.cat, el.dataset.name, parseInt(el.value)||1); return; }
-  if(act==='edit-status'){ updateEquipField(el.dataset.id,'useStatus',el.value); return; }
+  if(act==='edit-status'){
+    const id = el.dataset.id;
+    const eq = state.equipment.find(x=>x.id===id);
+    const newVal = el.value;
+    const prevVal = eq ? eq.useStatus : null;
+    // ถ้าเปลี่ยนจากสถานะ "ชำรุด" หรือ "รอสอบเทียบ" ไปเป็น "ใช้งานได้" โดยตรงจากดรอปดาวน์นี้
+    // ห้ามเปลี่ยนสถานะทันที ต้องพาไปกรอกข้อมูลยืนยัน (ซ่อม/สอบเทียบ) ที่หน้าจัดการเครื่องมือก่อน
+    if(eq && newVal==='ใช้งานได้' && (prevVal==='ชำรุด' || prevVal==='รอสอบเทียบ')){
+      state.manage.view = 'calib';
+      if(prevVal==='ชำรุด'){
+        state.manage.calibSubView = 'broken';
+        state.brokenSelected.add(id);
+        alert(`เครื่องมือ "${eq.name}" มีสถานะ "ชำรุด" อยู่ก่อนแล้ว\nกรุณากรอกข้อมูลการซ่อมให้ครบถ้วนก่อนจึงจะเปลี่ยนสถานะเป็น "ใช้งานได้" ได้\n\nระบบได้เลือกรายการนี้ไว้ให้แล้วในแท็บ "เครื่องมือที่ชำรุด" — กดปุ่ม "ยืนยันซ่อมเสร็จแล้ว" เพื่อกรอกข้อมูลและยืนยัน`);
+      } else {
+        state.manage.calibSubView = 'calib';
+        state.calibSelected.add(id);
+        alert(`เครื่องมือ "${eq.name}" มีสถานะ "รอสอบเทียบ" อยู่ก่อนแล้ว\nกรุณากรอกข้อมูลการสอบเทียบให้ครบถ้วนก่อนจึงจะเปลี่ยนสถานะเป็น "ใช้งานได้" ได้\n\nระบบได้เลือกรายการนี้ไว้ให้แล้วในแท็บ "การสอบเทียบ" — กดปุ่ม "ยืนยันสอบเทียบเสร็จแล้ว" เพื่อกรอกข้อมูลและยืนยัน`);
+      }
+      render();
+      return;
+    }
+    updateEquipField(id,'useStatus',newVal);
+    return;
+  }
   if(act==='edit-calib'){ updateCalibDate(el.dataset.id, el.value); return; }
 
   if(el.id==='calib-confirm-date'){
