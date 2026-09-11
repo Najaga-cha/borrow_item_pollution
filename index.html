@@ -4548,11 +4548,21 @@ async function updateCalibDate(id, value){
   await saveEquipment();
   render();
 }
-// กู้คืนวันที่สอบเทียบล่าสุดที่เพิ่งถูกเปลี่ยน/เคลียร์ไป กลับมาเป็นค่าก่อนหน้า
+// กู้คืนวันที่สอบเทียบล่าสุดที่เพิ่งถูกเปลี่ยน/เคลียร์ไป กลับมาเป็นค่าก่อนหน้า แล้วเอาปุ่มกู้คืนออก (ไม่ต้องกดสลับไปมาได้อีก)
 async function restoreCalibDate(id){
   const e = state.equipment.find(x=>x.id===id);
   if(!e || e._lastCalibBackup===undefined || e._lastCalibBackup===(e.lastCalib||'')) return;
-  await updateCalibDate(id, e._lastCalibBackup);
+  const value = e._lastCalibBackup;
+  e.lastCalib = value;
+  if(value && e.calibCycle){
+    const d = new Date(value+'T00:00:00');
+    d.setFullYear(d.getFullYear() + parseInt(e.calibCycle||1));
+    e.nextCalib = toLocalISODate(d);
+  }
+  if(e.nextCalib && e.nextCalib < todayISO() && e.useStatus !== 'ชำรุด' && e.useStatus !== 'ส่งสอบเทียบ'){ e.useStatus = 'รอสอบเทียบ'; }
+  e._lastCalibBackup = undefined; // กู้คืนแล้ว ไม่ต้องแสดงปุ่มกู้คืนอีก
+  await saveEquipment();
+  render();
 }
 async function delEquip(id){
   if(!confirm('ยืนยันการลบเครื่องมือนี้?')) return;
