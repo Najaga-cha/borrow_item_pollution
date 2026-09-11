@@ -2793,11 +2793,6 @@ function renderEquipModal(){
         <div><label class="lbl">ยี่ห้อ</label><input id="em-brand" class="inp" value="${esc(e.brand||'')}"/></div>
         <div><label class="lbl">รุ่น</label><input id="em-model" class="inp" value="${esc(e.model||'')}"/></div>
         <div><label class="lbl">Serial Number</label><input id="em-serial" class="inp" value="${esc(e.serial||'')}"/></div>
-        <div><label class="lbl">สถานะสภาพ</label>
-          <select id="em-condition" class="inp">
-            ${['เครื่องมือสภาพสมบูรณ์','เครื่องมือที่ไม่พร้อมใช้งาน','เสื่อมสภาพ'].map(c=>`<option ${e.condition===c?'selected':''}>${c}</option>`).join('')}
-          </select>
-        </div>
         <div><label class="lbl">รอบสอบเทียบ (ปี)</label><input type="number" id="em-calibCycle" class="inp" value="${e.calibCycle||1}"/></div>
         <div><label class="lbl">ปี พ.ศ. ที่ได้มา</label><input id="em-yearGot" class="inp" value="${esc(e.yearGot||'')}"/></div>
         <div><label class="lbl">พารามิเตอร์ที่วัดได้</label><input id="em-params" class="inp" value="${esc(e.params||'')}"/></div>
@@ -4612,7 +4607,7 @@ async function saveEquipModal(id){
   const obj = {
     category: val('em-category'), name: val('em-name'), assetCode: val('em-assetCode'),
     brand: val('em-brand'), model: val('em-model'), serial: val('em-serial'),
-    condition: val('em-condition'), useStatus: existing ? existing.useStatus : 'ใช้งานได้',
+    condition: existing ? existing.condition : 'เครื่องมือสภาพสมบูรณ์', useStatus: existing ? existing.useStatus : 'ใช้งานได้',
     lastCalib: existing ? existing.lastCalib : '', calibCycle: parseInt(val('em-calibCycle'))||1,
     yearGot: val('em-yearGot'), params: val('em-params'),
   };
