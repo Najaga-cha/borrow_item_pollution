@@ -1681,6 +1681,8 @@ function renderBorrowTab(){
 
     ${f.selectedCats.length? renderToolPicker() : `<div class="empty-hint mb-6">เลือกประเภทเครื่องมือด้านบนเพื่อแสดงรายการเครื่องมือที่ยืมได้</div>`}
 
+    ${renderCoBorrowSuggestions()}
+
     <div class="mt-6 flex justify-end gap-2">
       <button class="btn-ghost" data-act="reset-form">ล้างฟอร์ม</button>
       <button class="btn-primary" data-act="submit-borrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ยื่นคำขอยืม</button>
@@ -2355,9 +2357,11 @@ function renderManageTab(){
           ${manageAlertCount>0 ? `<span class="tab-corner-badge" title="เครื่องมือที่ต้องสอบเทียบ หรือ ชำรุดรอส่งซ่อม">${manageAlertCount>99?'99+':manageAlertCount}</span>` : ''}
         </button>
         <button class="tool-tab ${state.manage.view==='order'?'tool-tab-active':''}" data-act="mview" data-v="order"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> จัดลำดับเครื่องมือ</button>
+        <button class="tool-tab ${state.manage.view==='risk'?'tool-tab-active':''}" data-act="mview" data-v="risk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg> ความเสี่ยงเครื่องมือ</button>
+        <button class="tool-tab ${state.manage.view==='dq'?'tool-tab-active':''}" data-act="mview" data-v="dq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> คุณภาพข้อมูล</button>
       </div>
     </div>
-    ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : (state.manage.view==='calib' ? renderEquipManagementTab() : renderEquipTable(list)))}
+    ${state.manage.view==='calendar' ? renderCalendar() : (state.manage.view==='order' ? renderReorderTab() : (state.manage.view==='calib' ? renderEquipManagementTab() : (state.manage.view==='risk' ? renderRiskWatchlistTable() : (state.manage.view==='dq' ? renderDataQualityPanel() : renderEquipTable(list)))))}
   </div>`;
 }
 
@@ -4037,6 +4041,11 @@ function onClick(e){
   if(act==='dismiss-banner'){ state.lastCreatedBorrowId=null; render(); return; }
   if(act==='toggle-cat'){ toggleCat(el.dataset.cat); render(); return; }
   if(act==='toggle-tool'){ toggleTool(el.dataset.cat, el.dataset.name); render(); return; }
+  if(act==='quick-add-suggestion'){
+    const cat = el.dataset.cat, name = el.dataset.name;
+    if(cat && !state.form.selectedCats.includes(cat)) state.form.selectedCats.push(cat);
+    toggleTool(cat, name); render(); return;
+  }
   if(act==='submit-borrow'){ submitBorrow(); return; }
   if(act==='confirm-submit-borrow'){ confirmSubmitBorrow(); return; }
   if(act==='cancel-confirm-borrow'){ cancelConfirmBorrow(); return; }
@@ -5007,6 +5016,248 @@ function updateLiveClock(){
 function startLiveClock(){
   updateLiveClock();
   setInterval(updateLiveClock, 1000);
+}
+
+
+/* ===================== Data Science Additions: Risk Scoring / Recommendation / Data Quality ===================== */
+
+// ---------- 3) Risk Scoring (คะแนนความเสี่ยง "ควรเฝ้าระวัง") ----------
+function thaiYearToAD(y){
+  if(!y) return null;
+  return y > 2400 ? y - 543 : y;
+}
+
+function computeBorrowFrequency(equipmentId, assetCode, months = 12){
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - months);
+  let count = 0;
+  state.borrows.forEach(b=>{
+    const created = b.createdAt ? new Date(b.createdAt) : null;
+    if(created && created < cutoff) return;
+    (b.itemsExpanded && b.itemsExpanded.length ? b.itemsExpanded : (b.items||[])).forEach(it=>{
+      if(it.equipmentId === equipmentId){ count++; return; }
+      if(isUsableAssetCode(assetCode) && isUsableAssetCode(it.assetCode) && String(it.assetCode).trim()===String(assetCode).trim()) count++;
+    });
+  });
+  return count;
+}
+
+function computeRiskScore(e){
+  let score = 0;
+  const reasons = [];
+
+  if(e.useStatus === 'ชำรุด'){ score += 35; reasons.push('สถานะปัจจุบัน: ชำรุด'); }
+
+  const adYear = thaiYearToAD(e.yearGot);
+  if(adYear){
+    const age = new Date().getFullYear() - adYear;
+    if(age > 0){
+      const ageScore = Math.min(20, age * 1.2);
+      score += ageScore;
+      if(age >= 10) reasons.push(`อายุใช้งาน ${age} ปี`);
+    }
+  }
+
+  if(e.nextCalib){
+    const next = new Date(e.nextCalib);
+    if(!isNaN(next) && next < new Date()){
+      score += 20;
+      const overdueDays = Math.round((new Date() - next) / 86400000);
+      reasons.push(`เลยกำหนดสอบเทียบ ${overdueDays} วัน`);
+    }
+  }
+
+  const freq = computeBorrowFrequency(e.id, e.assetCode);
+  const freqScore = Math.min(15, freq * 1.5);
+  score += freqScore;
+  if(freq >= 5) reasons.push(`ถูกยืม ${freq} ครั้งใน 12 เดือนล่าสุด`);
+
+  if(e.condition === 'เสื่อมสภาพ' || e.condition === 'เครื่องมือที่ไม่พร้อมใช้งาน'){
+    score += 10; reasons.push(`สภาพ: ${e.condition}`);
+  }
+
+  return { score: Math.min(100, Math.round(score)), reasons };
+}
+
+function buildRiskWatchlist(topN = 40){
+  return state.equipment
+    .map(e => ({ e, ...computeRiskScore(e) }))
+    .filter(r => r.score >= 30)
+    .sort((a,b) => b.score - a.score)
+    .slice(0, topN);
+}
+
+function renderRiskWatchlistTable(){
+  const rows = buildRiskWatchlist();
+  return `
+  <div class="card p-5">
+    <h3 class="font-bold mb-1">เครื่องมือที่ควรเฝ้าระวัง (Risk Watchlist)</h3>
+    <p class="text-sm subtle mb-4">คำนวณจากสถานะปัจจุบัน + อายุการใช้งาน + กำหนดสอบเทียบ + ความถี่การยืมใน 12 เดือนล่าสุด (คะแนนยิ่งสูง ยิ่งควรตรวจสภาพก่อน)</p>
+    ${rows.length===0 ? `<div class="empty-hint">ยังไม่มีเครื่องมือที่เข้าเกณฑ์ควรเฝ้าระวังในตอนนี้</div>` : `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>ชื่อเครื่องมือ</th><th>รหัสครุภัณฑ์</th><th>หมวดหมู่</th><th>คะแนนความเสี่ยง</th><th>เหตุผล</th></tr></thead>
+        <tbody>
+          ${rows.map(r=>`
+          <tr class="${r.score>=60?'calib-row-danger':(r.score>=45?'calib-row-warn':'')}">
+            <td>${esc(r.e.name)}</td>
+            <td class="font-mono text-xs">${esc(r.e.assetCode||'-')}</td>
+            <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[r.e.category]?.bg||'#888'}">${esc(r.e.category||'-')}</span></td>
+            <td><b>${r.score}</b>/100</td>
+            <td class="text-xs">${r.reasons.join(' • ')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`}
+  </div>`;
+}
+
+// ---------- 5) Recommendation (แนะนำเครื่องมือที่มักยืมคู่กัน) ----------
+function buildCoOccurrenceMatrix(){
+  const matrix = {};
+  const singleCount = {};
+  state.borrows.forEach(b=>{
+    const names = [...new Set((b.items||[]).map(it=>it.name))];
+    names.forEach(a=>{
+      singleCount[a] = (singleCount[a]||0) + 1;
+      if(!matrix[a]) matrix[a] = {};
+      names.forEach(bName=>{
+        if(a===bName) return;
+        matrix[a][bName] = (matrix[a][bName]||0) + 1;
+      });
+    });
+  });
+  return { matrix, singleCount };
+}
+
+function recommendCoBorrowed(selectedNames, topN = 5){
+  const { matrix, singleCount } = buildCoOccurrenceMatrix();
+  const scores = {};
+  selectedNames.forEach(name=>{
+    const partners = matrix[name] || {};
+    Object.entries(partners).forEach(([partnerName, count])=>{
+      if(selectedNames.includes(partnerName)) return;
+      const confidence = count / (singleCount[name] || 1);
+      scores[partnerName] = (scores[partnerName]||0) + confidence;
+    });
+  });
+  return Object.entries(scores)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0, topN)
+    .map(([name, s])=>{
+      const eq = state.equipment.find(x=>x.name===name);
+      return { name, category: eq ? eq.category : (state.form.selectedCats[0]||''), confidence: Math.round(Math.min(1,s)*100) };
+    });
+}
+
+function renderCoBorrowSuggestions(){
+  const f = state.form;
+  const pickedNames = [...new Set(Object.keys(f.picks||{}).map(key=> key.split('|')[0]))];
+  if(!pickedNames.length) return '';
+  const recs = recommendCoBorrowed(pickedNames).filter(r=>!pickedNames.includes(r.name));
+  if(!recs.length) return '';
+  return `
+  <div class="chip-bg" style="padding:10px 14px;border-radius:12px;margin:-10px 0 16px 0;border:1px solid var(--border)">
+    <div class="text-sm font-semibold mb-2">คนอื่นมักยืมคู่กับรายการที่คุณเลือก:</div>
+    <div class="flex flex-wrap gap-2">
+      ${recs.map(r=>`<button type="button" class="tab-btn" style="background:var(--card);color:var(--text);font-size:12px;padding:6px 12px" data-act="quick-add-suggestion" data-cat="${escAttr(r.category)}" data-name="${escAttr(r.name)}">
+        + ${esc(r.name)} <span class="subtle">(${r.confidence}%)</span>
+      </button>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ---------- 6) Data Quality Checks (ตรวจสอบคุณภาพข้อมูล) ----------
+function thaiDigitsToArabic(str){
+  if(str==null) return str;
+  const map = {'๐':'0','๑':'1','๒':'2','๓':'3','๔':'4','๕':'5','๖':'6','๗':'7','๘':'8','๙':'9'};
+  return String(str).replace(/[๐-๙]/g, d => map[d]);
+}
+
+function runDataQualityChecks(){
+  const issues = [];
+  const nowADYear = new Date().getFullYear();
+
+  const byAssetCode = {};
+  state.equipment.forEach(e=>{
+    if(!isUsableAssetCode(e.assetCode)) return;
+    const key = String(e.assetCode).trim();
+    (byAssetCode[key] = byAssetCode[key]||[]).push(e);
+  });
+  Object.entries(byAssetCode).forEach(([code, list])=>{
+    if(list.length > 1){
+      issues.push({ type:'duplicate-assetcode', severity:'high',
+        message:`รหัสครุภัณฑ์ "${code}" ซ้ำกัน ${list.length} รายการ: ${list.map(e=>e.name).join(', ')}`,
+        ids: list.map(e=>e.id) });
+    }
+  });
+
+  state.equipment.forEach(e=>{
+    ['assetCode','serial'].forEach(field=>{
+      const v = e[field];
+      if(v && /[๐-๙]/.test(String(v))){
+        issues.push({ type:'thai-digit-mixed', severity:'low',
+          message:`${field==='assetCode'?'รหัสครุภัณฑ์':'หมายเลขซีเรียล'} ของ "${e.name}" ใช้เลขไทย แนะนำแปลงเป็น "${thaiDigitsToArabic(v)}"`,
+          ids:[e.id] });
+      }
+    });
+  });
+
+  state.equipment.forEach(e=>{
+    if(e.lastCalib && e.nextCalib){
+      const last = new Date(e.lastCalib), next = new Date(e.nextCalib);
+      if(!isNaN(last) && !isNaN(next) && next < last){
+        issues.push({ type:'calib-date-logic', severity:'high',
+          message:`"${e.name}": วันสอบเทียบครั้งถัดไป (${e.nextCalib}) มาก่อนวันสอบเทียบล่าสุด (${e.lastCalib})`,
+          ids:[e.id] });
+      }
+    }
+  });
+
+  state.equipment.forEach(e=>{
+    const needsCalib = e.calibStatus && e.calibStatus.trim() !== 'ไม่ต้องส่งสอบเทียบ';
+    if(needsCalib && !e.nextCalib){
+      issues.push({ type:'missing-nextcalib', severity:'medium',
+        message:`"${e.name}": ระบุว่าต้องสอบเทียบ (${e.calibStatus.trim()}) แต่ไม่มีวันสอบเทียบครั้งถัดไป`,
+        ids:[e.id] });
+    }
+  });
+
+  state.equipment.forEach(e=>{
+    const adYear = e.yearGot > 2400 ? e.yearGot - 543 : e.yearGot;
+    if(adYear && adYear > nowADYear){
+      issues.push({ type:'future-year', severity:'medium',
+        message:`"${e.name}": ปีที่ได้รับ (พ.ศ. ${e.yearGot}) อยู่ในอนาคต ตรวจสอบว่าใส่ปีถูกหรือไม่`,
+        ids:[e.id] });
+    }
+  });
+
+  const sevWeight = { high:0, medium:1, low:2 };
+  return issues.sort((a,b)=> sevWeight[a.severity]-sevWeight[b.severity]);
+}
+
+function renderDataQualityPanel(){
+  const issues = runDataQualityChecks();
+  const counts = { high:0, medium:0, low:0 };
+  issues.forEach(i=>counts[i.severity]++);
+  return `
+  <div class="card p-5">
+    <h3 class="font-bold mb-1">ตรวจสอบคุณภาพข้อมูลเครื่องมือ</h3>
+    <p class="text-sm subtle mb-4">ตรวจอัตโนมัติ: รหัสครุภัณฑ์ซ้ำ • เลขไทยปนอารบิก • วันที่สอบเทียบผิดตรรกะ • ข้อมูลสอบเทียบไม่ครบ • ปีที่ได้รับผิดปกติ</p>
+    <div class="flex gap-2 mb-4 flex-wrap">
+      <span class="pill pill-danger">รุนแรง ${counts.high}</span>
+      <span class="pill pill-warn">ปานกลาง ${counts.medium}</span>
+      <span class="pill">เล็กน้อย ${counts.low}</span>
+    </div>
+    ${issues.length===0 ? `<div class="empty-hint">ไม่พบปัญหาข้อมูลที่ตรวจสอบได้ในตอนนี้</div>` : `
+    <div class="space-y-2" style="max-height:520px;overflow-y:auto">
+      ${issues.map(i=>`
+      <div class="notif-item ${i.severity==='high'?'calib-row-danger':(i.severity==='medium'?'calib-row-warn':'')}" style="border-radius:10px;cursor:default">
+        <div class="notif-text">
+          <div class="notif-sub" style="font-size:12.5px">[${i.severity==='high'?'รุนแรง':(i.severity==='medium'?'ปานกลาง':'เล็กน้อย')}] ${esc(i.message)}</div>
+        </div>
+      </div>`).join('')}
+    </div>`}
+  </div>`;
 }
 
 /* ===================== Boot ===================== */
