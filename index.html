@@ -1638,12 +1638,12 @@ function renderBorrowTab(){
       </div>
       <div>
         <label class="lbl">วันที่ยืม (ปฏิทิน) *</label>
-        <input id="f-borrowdate" type="date" class="inp" value="${f.borrowDate}"/>
+        <input id="f-borrowdate" type="date" class="inp" min="${todayISO()}" value="${f.borrowDate}"/>
         <div class="hint-be">${f.borrowDate? 'พ.ศ. '+beYear(new Date(f.borrowDate).getFullYear()) : ''}</div>
       </div>
       <div>
         <label class="lbl">วันที่คืน (ปฏิทิน) *</label>
-        <input id="f-returndate" type="date" class="inp" value="${f.returnDate}"/>
+        <input id="f-returndate" type="date" class="inp" min="${f.borrowDate || todayISO()}" value="${f.returnDate}"/>
         <div class="hint-be">${f.returnDate? 'พ.ศ. '+beYear(new Date(f.returnDate).getFullYear()) : ''}</div>
       </div>
       <div>
@@ -4384,6 +4384,7 @@ function buildBorrowDraft(){
   if(!f.name) errs.push('กรุณากรอกชื่อ-นามสกุลผู้ยืม');
   if(!f.borrowDate) errs.push('กรุณาเลือกวันที่ยืม');
   if(!f.returnDate) errs.push('กรุณาเลือกวันที่คืน');
+  if(f.borrowDate && f.borrowDate < todayISO()) errs.push('ไม่สามารถเลือกวันที่ยืมย้อนหลังได้ กรุณาเลือกวันที่ตั้งแต่วันนี้เป็นต้นไป');
   if(f.borrowDate && f.returnDate && f.returnDate < f.borrowDate) errs.push('วันที่คืนต้องไม่ก่อนวันที่ยืม');
   if(!f.province) errs.push('กรุณาระบุพื้นที่ปฏิบัติงาน');
   if(!PROVINCES.includes(f.province)) errs.push('กรุณาเลือกจังหวัดจากรายการที่ค้นหา');
