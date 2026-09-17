@@ -761,6 +761,13 @@ async function repairCalibDates(){
       changed = true;
       details.push(`${e.name} (${e.assetCode||'-'}): สอบเทียบครั้งถัดไป "${before}" → "${e.nextCalib||'-'}"`);
     }
+    // เคสข้อมูลค้าง: ไม่มีวันสอบเทียบล่าสุดแล้ว (เคยถูกเคลียร์) แต่วันสอบเทียบครั้งถัดไปยังค้างค่าเก่าอยู่ (เกิดจากบั๊กเดิมที่แก้ไปแล้ว) — ล้างให้ตรงกัน
+    if(!e.lastCalib && e.nextCalib){
+      const before = e.nextCalib;
+      e.nextCalib = null;
+      changed = true;
+      details.push(`${e.name} (${e.assetCode||'-'}): ล้างวันสอบเทียบครั้งถัดไปที่ค้างอยู่ "${before}" เนื่องจากไม่มีวันสอบเทียบล่าสุดแล้ว`);
+    }
     if(changed) fixedCount++;
   });
   if(fixedCount===0){ alert('ไม่พบวันที่ที่ผิดรูปแบบในระบบ'); return; }
@@ -2771,7 +2778,7 @@ function renderEquipTable(list){
       </table>
     </div>
     <div class="flex flex-wrap gap-2 justify-end mt-4 pt-4" style="border-top:1px solid var(--border,rgba(255,255,255,.08))">
-      <button class="btn-ghost" data-act="repair-calib-dates" title="ซ่อมรายการที่วันที่สอบเทียบแสดงผลผิดเพี้ยน (เช่น 20261-08-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> ซ่อมวันที่ผิดพลาด</button>
+      <button class="btn-ghost" data-act="repair-calib-dates" title="ซ่อมรายการที่วันที่สอบเทียบแสดงผลผิดเพี้ยน (เช่น 20261-08-1) หรือมีวันสอบเทียบครั้งถัดไปค้างอยู่ทั้งที่ไม่มีวันสอบเทียบล่าสุด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> ซ่อมวันที่ผิดพลาด</button>
       <button class="btn-ghost" data-act="repair-broken-status" title="กู้คืนสถานะ 'ชำรุด' ของเครื่องมือที่เคยถูกระบบเปลี่ยนเป็น 'รอสอบเทียบ' โดยผิดพลาด (เทียบกับข้อมูลตั้งต้น)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg> กู้คืนสถานะชำรุด</button>
       <button class="btn-danger" data-act="clear-equip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างฐานข้อมูลทั้งหมด</button>
     </div>
@@ -4554,13 +4561,16 @@ async function updateCalibDate(id, value){
     const d = new Date(value+'T00:00:00');
     d.setFullYear(d.getFullYear() + parseInt(e.calibCycle||1));
     e.nextCalib = toLocalISODate(d);
+  } else {
+    // ถ้าเคลียร์วันที่สอบเทียบล่าสุดออก ต้องเคลียร์วันสอบเทียบครั้งถัดไปด้วย ไม่งั้นจะค้างค่าเก่าไว้ผิดๆ
+    e.nextCalib = null;
   }
   // ถ้าวันสอบเทียบครั้งถัดไปเลยกำหนดวันปัจจุบันแล้ว ให้ปรับสถานะใช้งานเป็น "รอสอบเทียบ" ทันที (ยกเว้นเครื่องมือที่ "ชำรุด")
   if(e.nextCalib && e.nextCalib < todayISO() && e.useStatus !== 'ชำรุด' && e.useStatus !== 'ส่งสอบเทียบ'){ e.useStatus = 'รอสอบเทียบ'; }
   await saveEquipment();
   render();
 }
-// กู้คืนวันที่สอบเทียบล่าสุดที่เพิ่งถูกเปลี่ยน/เคลียร์ไป กลับมาเป็นค่าก่อนหน้า แล้วเอาปุ่มกู้คืนออก (ไม่ต้องกดสลับไปมาได้อีก)
+// กู้คืนวันที่สอบเทียบล่าสุดที่เพิ่งถูกเปลี่ยน/เคลียร์ไป กลับมาเป็นค่าก่อนหน้า พร้อมคำนวณวันสอบเทียบครั้งถัดไปกลับคืนด้วย แล้วเอาปุ่มกู้คืนออก (ไม่ต้องกดสลับไปมาได้อีก)
 async function restoreCalibDate(id){
   const e = state.equipment.find(x=>x.id===id);
   const backup = state.calibDateBackup[id];
@@ -4571,6 +4581,9 @@ async function restoreCalibDate(id){
     const d = new Date(value+'T00:00:00');
     d.setFullYear(d.getFullYear() + parseInt(e.calibCycle||1));
     e.nextCalib = toLocalISODate(d);
+  } else {
+    // กู้คืนกลับไปเป็นค่าว่าง ก็ต้องเคลียร์วันสอบเทียบครั้งถัดไปกลับไปด้วยเช่นกัน
+    e.nextCalib = null;
   }
   if(e.nextCalib && e.nextCalib < todayISO() && e.useStatus !== 'ชำรุด' && e.useStatus !== 'ส่งสอบเทียบ'){ e.useStatus = 'รอสอบเทียบ'; }
   delete state.calibDateBackup[id]; // กู้คืนแล้ว ไม่ต้องแสดงปุ่มกู้คืนอีก
