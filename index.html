@@ -4744,6 +4744,14 @@ async function clearManageHistory(){
 }
 
 /* Excel import using SheetJS */
+// ตอน "เพิ่ม/อัปเดต" (ไม่ใช่แทนที่ทั้งหมด) ระบบจะจับคู่แต่ละแถวในไฟล์กับเครื่องมือที่มีอยู่แล้วก่อน
+// ชั้นหลัก: เทียบ "รหัสครุภัณฑ์" (เฉพาะรหัสที่ใช้งานได้จริง ไม่ใช่ค่าว่าง/"-"/"ไม่มีเลขครุภัณฑ์")
+// ชั้นสำรอง: ถ้าทั้งสองฝั่งไม่มีรหัสครุภัณฑ์ที่ใช้งานได้ ให้เทียบจาก "หมวดหมู่ + ชื่อเครื่องมือ" แทน
+// (สอดคล้องกับตรรกะจับคู่เครื่องมือที่ใช้อยู่แล้วในส่วนอื่นของระบบ เช่น unitIsHeldForRange)
+// ถ้าเจอรายการที่ตรงกัน จะ "อัปเดต" ข้อมูล (เช่น วันสอบเทียบล่าสุด) ให้รายการเดิม โดยยังคง id / order /
+// ประวัติสอบเทียบ-ซ่อมบำรุง (calibHistory, repairHistory) ของรายการเดิมไว้ทั้งหมด เพื่อไม่ให้ใบยืมที่ค้างอยู่
+// หรือประวัติที่เคยบันทึกไว้หลุดการเชื่อมโยง — ถ้าไม่เจอ ถือว่าเป็นรายการใหม่ จึงค่อยสร้างรายการเพิ่ม
+// ทำให้นำเข้าไฟล์ Excel ต้นฉบับซ้ำได้เรื่อยๆ โดยไม่สร้างรายการซ้ำ แค่ทำให้ข้อมูลตรงกับไฟล์ในคราวเดียว
 function importExcel(file){
   if(!file) return;
   const reader = new FileReader();
@@ -4753,32 +4761,74 @@ function importExcel(file){
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false});
       const header = rows[0];
-      const newItems = [];
+      const parsedRows = [];
       const orderCounters = {};
       for(let i=1;i<rows.length;i++){
         const r = rows[i];
         if(!r || !r[1]) continue;
         const cat = r[0]||'';
         if(orderCounters[cat]===undefined) orderCounters[cat] = nextOrderForCategory(cat);
-        newItems.push({
-          id: uid('EQ'),
+        parsedRows.push({
           category: cat, name: r[1]||'', dept: r[2]||'', yearGot: r[3]||'',
           condition: r[4]||'', calibStatus: r[5]||'', useStatus: r[6]||'ใช้งานได้',
           lastCalib: r[7]? excelDateToISO(r[7]) : null,
           calibCycle: parseInt(r[8],10)||1,
           nextCalib: r[9]? excelDateToISO(r[9]) : null,
           brand: r[10]||'', model: r[11]||'', serial: r[12]||'', assetCode: r[13]||'', params: r[14]||'',
-          order: orderCounters[cat]++,
+          fallbackOrder: orderCounters[cat]++,
         });
       }
-      if(newItems.length===0){ alert('ไม่พบข้อมูลเครื่องมือในไฟล์ที่นำเข้า'); return; }
-      const merge = confirm(`พบเครื่องมือ ${newItems.length} รายการในไฟล์\n\nกด "ตกลง" เพื่อ "เพิ่มต่อ" ในฐานข้อมูลเดิม\nกด "ยกเลิก" เพื่อ "แทนที่" ฐานข้อมูลเดิมทั้งหมด`);
-      if(merge) state.equipment = state.equipment.concat(newItems);
-      else state.equipment = newItems;
+      if(parsedRows.length===0){ alert('ไม่พบข้อมูลเครื่องมือในไฟล์ที่นำเข้า'); return; }
+      const merge = confirm(`พบเครื่องมือ ${parsedRows.length} รายการในไฟล์\n\nกด "ตกลง" เพื่อ "เพิ่ม/อัปเดต" ในฐานข้อมูลเดิม (รายการที่รหัสครุภัณฑ์ตรงกับของเดิมจะถูกอัปเดตข้อมูลให้ตรงกับไฟล์ ไม่สร้างซ้ำ)\nกด "ยกเลิก" เพื่อ "แทนที่" ฐานข้อมูลเดิมทั้งหมดด้วยไฟล์นี้`);
+      let addedCount = 0, updatedCount = 0;
+      if(merge){
+        const matchedExistingIds = new Set(); // กันไม่ให้สองแถวในไฟล์จับคู่ไปอัปเดตรายการเดิมชิ้นเดียวกันซ้ำ
+        parsedRows.forEach(row=>{
+          const rowCodeUsable = isUsableAssetCode(row.assetCode);
+          let match = null;
+          if(rowCodeUsable){
+            match = state.equipment.find(ex=> !matchedExistingIds.has(ex.id)
+              && isUsableAssetCode(ex.assetCode) && String(ex.assetCode).trim()===String(row.assetCode).trim());
+          }
+          if(!match){
+            match = state.equipment.find(ex=> !matchedExistingIds.has(ex.id)
+              && !isUsableAssetCode(ex.assetCode) && !rowCodeUsable
+              && ex.category===row.category && ex.name===row.name);
+          }
+          if(match){
+            matchedExistingIds.add(match.id);
+            match.category = row.category; match.name = row.name; match.dept = row.dept; match.yearGot = row.yearGot;
+            match.condition = row.condition; match.calibStatus = row.calibStatus; match.useStatus = row.useStatus;
+            match.lastCalib = row.lastCalib; match.calibCycle = row.calibCycle; match.nextCalib = row.nextCalib;
+            match.brand = row.brand; match.model = row.model; match.serial = row.serial;
+            match.assetCode = row.assetCode; match.params = row.params;
+            updatedCount++;
+          }else{
+            state.equipment.push({
+              id: uid('EQ'), category: row.category, name: row.name, dept: row.dept, yearGot: row.yearGot,
+              condition: row.condition, calibStatus: row.calibStatus, useStatus: row.useStatus,
+              lastCalib: row.lastCalib, calibCycle: row.calibCycle, nextCalib: row.nextCalib,
+              brand: row.brand, model: row.model, serial: row.serial, assetCode: row.assetCode, params: row.params,
+              order: row.fallbackOrder,
+            });
+            addedCount++;
+          }
+        });
+      }else{
+        state.equipment = parsedRows.map(row=>({
+          id: uid('EQ'), category: row.category, name: row.name, dept: row.dept, yearGot: row.yearGot,
+          condition: row.condition, calibStatus: row.calibStatus, useStatus: row.useStatus,
+          lastCalib: row.lastCalib, calibCycle: row.calibCycle, nextCalib: row.nextCalib,
+          brand: row.brand, model: row.model, serial: row.serial, assetCode: row.assetCode, params: row.params,
+          order: row.fallbackOrder,
+        }));
+        addedCount = parsedRows.length;
+      }
       autoUpdateCalibStatus();
       await saveEquipment();
       render();
-      alert('นำเข้าข้อมูลสำเร็จ');
+      if(merge) alert(`นำเข้าข้อมูลสำเร็จ\nอัปเดตรายการเดิม: ${updatedCount} รายการ\nเพิ่มรายการใหม่: ${addedCount} รายการ`);
+      else alert('นำเข้าข้อมูลสำเร็จ');
     }catch(err){
       alert('เกิดข้อผิดพลาดในการอ่านไฟล์: '+err.message);
     }
