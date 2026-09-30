@@ -4759,7 +4759,7 @@ function importExcel(file){
     try{
       const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false});
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
       const header = rows[0];
       const parsedRows = [];
       const orderCounters = {};
@@ -4778,6 +4778,13 @@ function importExcel(file){
           fallbackOrder: orderCounters[cat]++,
         });
       }
+      parsedRows.forEach(row=>{
+        if(row.lastCalib && !row.nextCalib){
+          const dd = new Date(row.lastCalib+'T00:00:00');
+          dd.setFullYear(dd.getFullYear() + (parseInt(row.calibCycle,10)||1));
+          row.nextCalib = toLocalISODate(dd);
+        }
+      });
       if(parsedRows.length===0){ alert('ไม่พบข้อมูลเครื่องมือในไฟล์ที่นำเข้า'); return; }
       const merge = confirm(`พบเครื่องมือ ${parsedRows.length} รายการในไฟล์\n\nกด "ตกลง" เพื่อ "เพิ่ม/อัปเดต" ในฐานข้อมูลเดิม (รายการที่รหัสครุภัณฑ์ตรงกับของเดิมจะถูกอัปเดตข้อมูลให้ตรงกับไฟล์ ไม่สร้างซ้ำ)\nกด "ยกเลิก" เพื่อ "แทนที่" ฐานข้อมูลเดิมทั้งหมดด้วยไฟล์นี้`);
       let addedCount = 0, updatedCount = 0;
@@ -4836,31 +4843,36 @@ function importExcel(file){
   reader.readAsArrayBuffer(file);
 }
 function excelDateToISO(v){
-  if(!v) return null;
-  if(v instanceof Date) return toLocalISODate(v);
-  const s = String(v).trim();
-  // รองรับรูปแบบ วัน/เดือน/ปี หรือ วัน-เดือน-ปี (เช่น 26/02/2026) ซึ่ง Excel/ผู้ใช้มักกรอกเป็นข้อความแบบไทย
-  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(m){
-    let [, dd, mm, yyyy] = m;
-    dd = parseInt(dd,10); mm = parseInt(mm,10); yyyy = parseInt(yyyy,10);
-    // ถ้าปีดูเหมือน พ.ศ. (มากกว่าปีปัจจุบัน ค.ศ. + 400) ให้แปลงเป็น ค.ศ.
-    if(yyyy > 2400) yyyy -= 543;
-    if(mm>=1 && mm<=12 && dd>=1 && dd<=31){
-      const d = new Date(yyyy, mm-1, dd);
-      if(!isNaN(d)) return toLocalISODate(d);
-    }
+  if(v === null || v === undefined || v === '') return null;
+  const pad = n => String(n).padStart(2,'0');
+  const build = (y, m, d)=>{
+    if(y > 2400) y -= 543;                 // ปี พ.ศ. -> ค.ศ.
+    if(y < 100) y += 2000;                 // ปี 2 หลัก เช่น 26 -> 2026
+    if(m < 1 || m > 12 || d < 1 || d > 31) return null;
+    const dt = new Date(y, m-1, d);
+    if(dt.getFullYear() !== y || dt.getMonth() !== m-1 || dt.getDate() !== d) return null; // เช่น 31/02
+    return y + '-' + pad(m) + '-' + pad(d);
+  };
+  // 1) Date object (อ่านด้วย cellDates:true) — บวก 12 ชม. กันวันเพี้ยนจากการปัดเวลา/timezone
+  if(v instanceof Date){
+    if(isNaN(v)) return null;
+    return toLocalISODate(new Date(v.getTime() + 12*3600*1000));
   }
-  // รองรับรูปแบบ ปี-เดือน-วัน (ISO) เช่น 2026-02-26
-  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m){
-    let [, yyyy, mm, dd] = m;
-    const d = new Date(parseInt(yyyy,10), parseInt(mm,10)-1, parseInt(dd,10));
-    if(!isNaN(d)) return toLocalISODate(d);
+  // 2) ตัวเลขซีเรียลของ Excel (เช่น 45527)
+  if(typeof v === 'number'){
+    if(v < 1 || v > 80000) return null;
+    const dt = new Date(Math.round((v - 25569) * 86400000));
+    return dt.getUTCFullYear() + '-' + pad(dt.getUTCMonth()+1) + '-' + pad(dt.getUTCDate());
   }
-  // เผื่อกรณีอื่นๆ ที่ Excel ส่งมาเป็นเลข serial date หรือรูปแบบที่ JS อ่านได้ตรงๆ
-  const d2 = new Date(v);
-  if(!isNaN(d2)) return toLocalISODate(d2);
+  // 3) ข้อความ — แปลงเลขไทย -> อารบิก และรวมตัวคั่นให้เป็นแบบเดียวกัน
+  let s = String(v).trim().replace(/[๐-๙]/g, ch => String(ch.charCodeAt(0) - 0x0E50));
+  s = s.replace(/\s+/g, '').replace(/[.\-]/g, '/');
+  // ปี-เดือน-วัน (ISO) เช่น 2026/02/26
+  let m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})(?!\d)/);
+  if(m) return build(+m[1], +m[2], +m[3]);
+  // วัน/เดือน/ปี เสมอ (ไม่ใช้ new Date(string) เพราะ JS จะตีความเป็น เดือน/วัน/ปี)
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})(?!\d)/);
+  if(m) return build(+m[3], +m[2], +m[1]);
   return null;
 }
 
