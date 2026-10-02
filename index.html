@@ -1098,6 +1098,8 @@ function autoUpdateCalibStatus(list){
   const today = todayISO();
   let changed = false;
   (list || state.equipment).forEach(item=>{
+    // สถานะที่มาจากไฟล์นำเข้า: ยึดตามไฟล์ ไม่ปรับอัตโนมัติ จนกว่าวันสอบเทียบครั้งถัดไปจะถูกเปลี่ยน (เช่น บันทึกผลสอบเทียบใหม่)
+    if(item.importLockNextCalib !== undefined && item.importLockNextCalib === (item.nextCalib||'')) return;
     if(item.nextCalib && item.nextCalib < today && item.useStatus !== 'รอสอบเทียบ' && item.useStatus !== 'ชำรุด' && item.useStatus !== 'ส่งสอบเทียบ'){
       item.useStatus = 'รอสอบเทียบ';
       changed = true;
@@ -4811,27 +4813,45 @@ function importExcel(file){
       const merge = confirm(`พบเครื่องมือ ${parsedRows.length} รายการในไฟล์\n\nกด "ตกลง" เพื่อ "เพิ่ม/อัปเดต" ในฐานข้อมูลเดิม (รายการที่รหัสครุภัณฑ์ตรงกับของเดิมจะถูกอัปเดตข้อมูลให้ตรงกับไฟล์ ไม่สร้างซ้ำ)\nกด "ยกเลิก" เพื่อ "แทนที่" ฐานข้อมูลเดิมทั้งหมดด้วยไฟล์นี้`);
       let addedCount = 0, updatedCount = 0;
       if(merge){
-        const existingBeforeImport = state.equipment.slice(); // [แก้ไข] จับคู่เฉพาะรายการที่มีอยู่ก่อนนำเข้า ไม่จับคู่กับแถวที่เพิ่งเพิ่มในรอบนี้
-        const matchedExistingIds = new Set(); // กันไม่ให้สองแถวในไฟล์จับคู่ไปอัปเดตรายการเดิมชิ้นเดียวกันซ้ำ
-        parsedRows.forEach(row=>{
-          const rowCodeUsable = isUsableAssetCode(row.assetCode);
-          let match = null;
-          if(rowCodeUsable){
-            match = existingBeforeImport.find(ex=> !matchedExistingIds.has(ex.id)
-              && isUsableAssetCode(ex.assetCode) && String(ex.assetCode).trim()===String(row.assetCode).trim());
-          }
-          if(!match){
-            match = existingBeforeImport.find(ex=> !matchedExistingIds.has(ex.id)
-              && !isUsableAssetCode(ex.assetCode) && !rowCodeUsable
-              && ex.category===row.category && ex.name===row.name);
-          }
+        const existingBeforeImport = state.equipment.slice(); // จับคู่เฉพาะรายการที่มีอยู่ก่อนนำเข้า
+        const matchedExistingIds = new Set();
+        const rowMatch = new Array(parsedRows.length).fill(null);
+        const codeOf = x => String(x.assetCode||'').trim();
+        const rowCodes = new Set(parsedRows.filter(r=>isUsableAssetCode(r.assetCode)).map(codeOf));
+        // รอบที่ 1: รหัสครุภัณฑ์ตรงกัน
+        parsedRows.forEach((row,i)=>{
+          if(!isUsableAssetCode(row.assetCode)) return;
+          const m = existingBeforeImport.find(ex=> !matchedExistingIds.has(ex.id) && isUsableAssetCode(ex.assetCode) && codeOf(ex)===codeOf(row));
+          if(m){ rowMatch[i]=m; matchedExistingIds.add(m.id); }
+        });
+        // รอบที่ 2: หมายเลขเครื่อง (Serial) ตรงกัน + หมวดหมู่/ชื่อเดียวกัน
+        parsedRows.forEach((row,i)=>{
+          if(rowMatch[i]) return;
+          const sn = String(row.serial||'').trim();
+          if(!sn || sn==='-') return;
+          const m = existingBeforeImport.find(ex=> !matchedExistingIds.has(ex.id) && String(ex.serial||'').trim()===sn && ex.category===row.category && ex.name===row.name);
+          if(m){ rowMatch[i]=m; matchedExistingIds.add(m.id); }
+        });
+        // รอบที่ 3: หมวดหมู่ + ชื่อเดียวกัน (แถวที่ยังไม่ถูกจับคู่ กับรายการเดิมที่ยังไม่ถูกจับคู่)
+        // ไม่ดึงรายการเดิมที่รหัสครุภัณฑ์ไปตรงกับแถวอื่นในไฟล์ — กันเกิดรายการซ้ำเมื่อรหัสในไฟล์ใหม่ไม่ตรงกับของเดิม
+        parsedRows.forEach((row,i)=>{
+          if(rowMatch[i]) return;
+          const m = existingBeforeImport.find(ex=> !matchedExistingIds.has(ex.id)
+            && ex.category===row.category && ex.name===row.name
+            && !(isUsableAssetCode(ex.assetCode) && rowCodes.has(codeOf(ex))));
+          if(m){ rowMatch[i]=m; matchedExistingIds.add(m.id); }
+        });
+        parsedRows.forEach((row,i)=>{
+          const match = rowMatch[i];
           if(match){
-            matchedExistingIds.add(match.id);
+            // ยึดข้อมูลจากไฟล์เป็นหลัก: เขียนทับทุกช่อง แม้ในไฟล์เป็นค่าว่าง (เช่น ไม่มีวันสอบเทียบ ก็ล้างของเดิมออก)
             match.category = row.category; match.name = row.name; match.dept = row.dept; match.yearGot = row.yearGot;
             match.condition = row.condition; match.calibStatus = row.calibStatus; match.useStatus = row.useStatus;
             match.lastCalib = row.lastCalib; match.calibCycle = row.calibCycle; match.nextCalib = row.nextCalib;
             match.brand = row.brand; match.model = row.model; match.serial = row.serial;
             match.assetCode = row.assetCode; match.params = row.params;
+            if(!row.lastCalib){ match.lastCalibAgency = ''; match.lastCalibCost = 0; match.lastCalibFixItems = ''; } // ไม่มีวันสอบเทียบล่าสุดในไฟล์ → ล้างรายละเอียดสอบเทียบครั้งล่าสุดที่ค้างอยู่ (ประวัติ calibHistory ยังเก็บไว้)
+            match.importLockNextCalib = row.nextCalib || ''; // ล็อกสถานะตามไฟล์
             updatedCount++;
           }else{
             state.equipment.push({
@@ -4839,7 +4859,7 @@ function importExcel(file){
               condition: row.condition, calibStatus: row.calibStatus, useStatus: row.useStatus,
               lastCalib: row.lastCalib, calibCycle: row.calibCycle, nextCalib: row.nextCalib,
               brand: row.brand, model: row.model, serial: row.serial, assetCode: row.assetCode, params: row.params,
-              order: row.fallbackOrder,
+              order: row.fallbackOrder, importLockNextCalib: row.nextCalib || '',
             });
             addedCount++;
           }
@@ -4850,7 +4870,7 @@ function importExcel(file){
           condition: row.condition, calibStatus: row.calibStatus, useStatus: row.useStatus,
           lastCalib: row.lastCalib, calibCycle: row.calibCycle, nextCalib: row.nextCalib,
           brand: row.brand, model: row.model, serial: row.serial, assetCode: row.assetCode, params: row.params,
-          order: row.fallbackOrder,
+          order: row.fallbackOrder, importLockNextCalib: row.nextCalib || '',
         }));
         addedCount = parsedRows.length;
       }
