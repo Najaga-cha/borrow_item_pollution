@@ -4645,8 +4645,13 @@ function clearEquip(){
 }
 async function doClearEquip(){
   state.equipment = [];
+  state.calibDateBackup = {};                 // ทิ้งข้อมูลสำรองวันสอบเทียบของเครื่องมือเดิม
+  notifReadCalib = new Set();                 // ล้างสถานะ "อ่านแล้ว" ของการแจ้งเตือนสอบเทียบของเครื่องมือเดิม
+  try{ await persistNotifReadState(); }catch(_){}
   await saveEquipment();
   render();
+  // ล้างเสร็จ → เปิดหน้าต่างเลือกไฟล์ Excel ให้นำเข้าข้อมูลชุดใหม่ทันที (ฐานข้อมูลว่าง จึงนำเข้าแทนที่ทั้งหมด ใช้สถานะ/วันที่ตามไฟล์)
+  setTimeout(()=>{ const inp = document.getElementById('import-file'); if(inp){ try{ inp.value=''; inp.click(); }catch(_){} } }, 150);
 }
 async function saveEquipModal(id){
   const val = fid=>document.getElementById(fid).value;
@@ -4810,7 +4815,8 @@ function importExcel(file){
         }
       });
       if(parsedRows.length===0){ alert('ไม่พบข้อมูลเครื่องมือในไฟล์ที่นำเข้า'); return; }
-      const merge = confirm(`พบเครื่องมือ ${parsedRows.length} รายการในไฟล์\n\nกด "ตกลง" เพื่อ "เพิ่ม/อัปเดต" ในฐานข้อมูลเดิม (รายการที่รหัสครุภัณฑ์ตรงกับของเดิมจะถูกอัปเดตข้อมูลให้ตรงกับไฟล์ ไม่สร้างซ้ำ)\nกด "ยกเลิก" เพื่อ "แทนที่" ฐานข้อมูลเดิมทั้งหมดด้วยไฟล์นี้`);
+      const dbWasEmpty = state.equipment.length === 0; // ฐานข้อมูลว่าง (เช่น เพิ่งกดล้างข้อมูล) → นำเข้าแทนที่ทั้งหมดเลย ไม่ต้องถาม
+      const merge = dbWasEmpty ? false : confirm(`พบเครื่องมือ ${parsedRows.length} รายการในไฟล์\n\nกด "ตกลง" เพื่อ "เพิ่ม/อัปเดต" ในฐานข้อมูลเดิม (รายการที่รหัสครุภัณฑ์ตรงกับของเดิมจะถูกอัปเดตข้อมูลให้ตรงกับไฟล์ ไม่สร้างซ้ำ)\nกด "ยกเลิก" เพื่อ "แทนที่" ฐานข้อมูลเดิมทั้งหมดด้วยไฟล์นี้`);
       let addedCount = 0, updatedCount = 0;
       if(merge){
         const existingBeforeImport = state.equipment.slice(); // จับคู่เฉพาะรายการที่มีอยู่ก่อนนำเข้า
@@ -4873,12 +4879,17 @@ function importExcel(file){
           order: row.fallbackOrder, importLockNextCalib: row.nextCalib || '',
         }));
         addedCount = parsedRows.length;
+        // โหมดแทนที่: ข้อมูลเดิมถูกเอาออกหมดแล้ว → ล้างข้อมูลที่อ้างอิงเครื่องมือเดิมทิ้งด้วย
+        state.calibDateBackup = {};
+        const liveIds = new Set(state.equipment.map(x=>x.id));
+        notifReadCalib = new Set(Array.from(notifReadCalib).filter(id=>liveIds.has(id)));
+        try{ await persistNotifReadState(); }catch(_){}
       }
       autoUpdateCalibStatus();
       await saveEquipment();
       render();
       if(merge) alert(`นำเข้าข้อมูลสำเร็จ\nอัปเดตรายการเดิม: ${updatedCount} รายการ\nเพิ่มรายการใหม่: ${addedCount} รายการ`);
-      else alert('นำเข้าข้อมูลสำเร็จ');
+      else alert(`นำเข้าข้อมูลสำเร็จ — แทนที่ข้อมูลเดิมด้วยข้อมูลจากไฟล์ ${addedCount} รายการ (สถานะและวันสอบเทียบตามไฟล์)`);
     }catch(err){
       alert('เกิดข้อผิดพลาดในการอ่านไฟล์: '+err.message);
     }
