@@ -738,6 +738,18 @@ function salvageDateDigits(s){
 }
 // ซ่อมรายการเครื่องมือที่ lastCalib/nextCalib เพี้ยนรูปแบบ (ไม่ใช่ YYYY-MM-DD ที่ถูกต้อง)
 // คำนวณ nextCalib ใหม่จาก lastCalib (ถ้ากู้ได้) + รอบสอบเทียบ ให้ถูกต้องเสมอ
+// ตั้ง "รอบสอบเทียบ (ปี)" ของเครื่องมือทุกชิ้นเป็น 1 ปี แล้วคำนวณวันสอบเทียบครั้งถัดไปใหม่ (ล่าสุด + 1 ปี)
+async function setAllCalibCycleOne(){
+  const targets = state.equipment.filter(e=> parseInt(e.calibCycle,10) !== 1);
+  if(targets.length===0){ alert('เครื่องมือทุกชิ้นมีรอบสอบเทียบ 1 ปีอยู่แล้ว'); return; }
+  if(!confirm(`พบเครื่องมือ ${targets.length} รายการที่รอบสอบเทียบไม่ใช่ 1 ปี\n\nต้องการตั้งเป็น 1 ปี และคำนวณวันสอบเทียบครั้งถัดไปใหม่ใช่หรือไม่?`)) return;
+  targets.forEach(e=>{ e.calibCycle = 1; });
+  syncNextCalib();
+  autoUpdateCalibStatus();
+  await saveEquipment();
+  render();
+  alert(`ตั้งรอบสอบเทียบเป็น 1 ปี สำเร็จ ${targets.length} รายการ`);
+}
 async function repairCalibDates(){
   let fixedCount = 0;
   const details = [];
@@ -1095,9 +1107,11 @@ function isCalibExpired(item){
 function syncNextCalib(list){
   let changed = false;
   (list || state.equipment).forEach(e=>{
+    // รอบสอบเทียบทุกชิ้นคงที่ 1 ปี
+    if(e.calibCycle !== 1){ e.calibCycle = 1; changed = true; }
     const last = e.lastCalib ? String(e.lastCalib).slice(0,10) : '';
     if(!last || !isValidISODate(last)) return;
-    const cycle = parseInt(e.calibCycle,10) || 1;
+    const cycle = 1;
     const d = new Date(last+'T00:00:00');
     d.setFullYear(d.getFullYear() + cycle);
     const expected = toLocalISODate(d);
@@ -2823,6 +2837,7 @@ function renderEquipTable(list){
     </div>
     <div class="flex flex-wrap gap-2 justify-end mt-4 pt-4" style="border-top:1px solid var(--border,rgba(255,255,255,.08))">
       <button class="btn-ghost" data-act="repair-calib-dates" title="ซ่อมรายการที่วันที่สอบเทียบแสดงผลผิดเพี้ยน (เช่น 20261-08-1) หรือมีวันสอบเทียบครั้งถัดไปค้างอยู่ทั้งที่ไม่มีวันสอบเทียบล่าสุด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> ซ่อมวันที่ผิดพลาด</button>
+      <button class="btn-ghost" data-act="set-all-cycle-1" title="ตั้งรอบสอบเทียบของเครื่องมือทุกชิ้นเป็น 1 ปี แล้วคำนวณวันสอบเทียบครั้งถัดไปใหม่">ตั้งรอบสอบเทียบทุกชิ้น = 1 ปี</button>
       <button class="btn-ghost" data-act="repair-broken-status" title="กู้คืนสถานะ 'ชำรุด' ของเครื่องมือที่เคยถูกระบบเปลี่ยนเป็น 'รอสอบเทียบ' โดยผิดพลาด (เทียบกับข้อมูลตั้งต้น)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg> กู้คืนสถานะชำรุด</button>
       <button class="btn-danger" data-act="clear-equip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างฐานข้อมูลทั้งหมด</button>
     </div>
@@ -2848,7 +2863,7 @@ function renderEquipModal(){
         <div><label class="lbl">ยี่ห้อ</label><input id="em-brand" class="inp" value="${esc(e.brand||'')}"/></div>
         <div><label class="lbl">รุ่น</label><input id="em-model" class="inp" value="${esc(e.model||'')}"/></div>
         <div><label class="lbl">Serial Number</label><input id="em-serial" class="inp" value="${esc(e.serial||'')}"/></div>
-        <div><label class="lbl">รอบสอบเทียบ (ปี)</label><input type="number" id="em-calibCycle" class="inp" value="${e.calibCycle||1}"/></div>
+        <div><label class="lbl">รอบสอบเทียบ (ปี)</label><input type="number" id="em-calibCycle" class="inp" value="1" readonly title="รอบสอบเทียบคงที่ 1 ปี"/></div>
         <div><label class="lbl">ปี พ.ศ. ที่ได้มา</label><input id="em-yearGot" class="inp" value="${esc(e.yearGot||'')}"/></div>
         <div><label class="lbl">พารามิเตอร์ที่วัดได้</label><input id="em-params" class="inp" value="${esc(e.params||'')}"/></div>
       </div>
@@ -4148,6 +4163,7 @@ function onClick(e){
   }
   if(act==='clear-manage-history'){ clearManageHistory(); return; }
   if(act==='repair-calib-dates'){ repairCalibDates(); return; }
+  if(act==='set-all-cycle-1'){ setAllCalibCycleOne(); return; }
   if(act==='repair-broken-status'){ repairBrokenStatus(); return; }
   if(act==='calib-clear-selection'){ state.calibSelected.clear(); render(); return; }
   if(act==='calib-confirm-selected'){
@@ -4680,7 +4696,7 @@ async function saveEquipModal(id){
     category: val('em-category'), name: val('em-name'), assetCode: val('em-assetCode'),
     brand: val('em-brand'), model: val('em-model'), serial: val('em-serial'),
     condition: existing ? existing.condition : 'เครื่องมือสภาพสมบูรณ์', useStatus: existing ? existing.useStatus : 'ใช้งานได้',
-    lastCalib: existing ? existing.lastCalib : '', calibCycle: parseInt(val('em-calibCycle'))||1,
+    lastCalib: existing ? existing.lastCalib : '', calibCycle: 1,
     yearGot: val('em-yearGot'), params: val('em-params'),
   };
   if(!obj.name){ alert('กรุณากรอกชื่อเครื่องมือ'); return; }
@@ -4821,7 +4837,7 @@ function importExcel(file){
           category: cat, name: r[1]||'', dept: r[2]||'', yearGot: r[3]||'',
           condition: r[4]||'', calibStatus: r[5]||'', useStatus: r[6]||'ใช้งานได้',
           lastCalib: r[7]? excelDateToISO(r[7]) : null,
-          calibCycle: parseInt(r[8],10)||1,
+          calibCycle: 1, // รอบสอบเทียบคงที่ 1 ปี
           nextCalib: r[9]? excelDateToISO(r[9]) : null,
           brand: r[10]||'', model: r[11]||'', serial: r[12]||'', assetCode: r[13]||'', params: r[14]||'',
           fallbackOrder: orderCounters[cat]++,
