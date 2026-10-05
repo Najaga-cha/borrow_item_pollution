@@ -934,7 +934,7 @@ async function initData(){
   else if(!Array.isArray(eq)) eq = [];
   state.equipment = eq;
   {
-    const calibChanged = autoUpdateCalibStatus();
+    const nextSynced = syncNextCalib(); const calibChanged = autoUpdateCalibStatus() || nextSynced;
     const orderChanged = ensureEquipOrder();
     if(_equipLoadOk && (calibChanged || orderChanged)){ await saveEquipment(); }
   }
@@ -1089,6 +1089,26 @@ function isCalibExpired(item){
   if(!item.nextCalib) return false;
   const today = todayISO();
   return item.nextCalib < today;
+}
+/* บังคับให้ "สอบเทียบครั้งถัดไป" = "สอบเทียบล่าสุด" + รอบสอบเทียบ (ปี) เสมอ
+   แก้ปัญหาข้อมูลที่ import จาก Excel หรือค้างจากของเก่า ทำให้วันถัดไปไม่ตรงกับวันล่าสุด (เช่น ล่าสุด 2026 แต่ถัดไปเป็น 2025) */
+function syncNextCalib(list){
+  let changed = false;
+  (list || state.equipment).forEach(e=>{
+    const last = e.lastCalib ? String(e.lastCalib).slice(0,10) : '';
+    if(!last || !isValidISODate(last)) return;
+    const cycle = parseInt(e.calibCycle,10) || 1;
+    const d = new Date(last+'T00:00:00');
+    d.setFullYear(d.getFullYear() + cycle);
+    const expected = toLocalISODate(d);
+    const cur = e.nextCalib ? String(e.nextCalib).slice(0,10) : '';
+    if(cur !== expected){
+      e.nextCalib = expected;
+      if(e.importLockNextCalib !== undefined) e.importLockNextCalib = expected;
+      changed = true;
+    }
+  });
+  return changed;
 }
 /* ===================== Auto-update สถานะใช้งาน ตามวันสอบเทียบครั้งถัดไป =====================
    ถ้าวันที่ "สอบเทียบครั้งถัดไป" (nextCalib) ของเครื่องมือ เกินวันที่ปัจจุบันแล้ว (เลยกำหนด)
@@ -4885,6 +4905,7 @@ function importExcel(file){
         notifReadCalib = new Set(Array.from(notifReadCalib).filter(id=>liveIds.has(id)));
         try{ await persistNotifReadState(); }catch(_){}
       }
+      syncNextCalib();
       autoUpdateCalibStatus();
       await saveEquipment();
       render();
@@ -5063,7 +5084,7 @@ function applyEquipmentListUpdate(eq){
   if(cur === next) return;
   state.equipment = eq;
   {
-    const calibChanged = autoUpdateCalibStatus();
+    const nextSynced = syncNextCalib(); const calibChanged = autoUpdateCalibStatus() || nextSynced;
     const orderChanged = ensureEquipOrder();
     if(calibChanged || orderChanged){ saveEquipment(); }
   }
