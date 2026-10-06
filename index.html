@@ -284,7 +284,21 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .tool-tab{ padding:8px 14px; border-radius:10px; background:var(--card); border:1px solid var(--border); cursor:pointer; font-weight:600; font-size:13.5px; }
 .tool-tab-active{ background:var(--primary); color:#fff; border-color:var(--primary); }
 
+.slip-preview-card{ max-width:96vw; width:96vw; max-height:96vh; padding:14px 18px; overflow:hidden; }
+.slip-preview-scroll{ overflow:auto; background:#e5e7eb; border-radius:12px; padding:12px; }
+.slip-preview-fit{ margin:0 auto; position:relative; }
+.slip-preview-card.slip-expanded{ max-width:100vw; width:100vw; max-height:100vh; height:100vh; border-radius:0; padding:12px 16px; }
+.slip-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.slip-head h3{ min-width:0; }
+.slip-head .icon-btn{ flex:none; margin-left:auto; }
+.slip-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:10px 0 12px; }
+.slip-preview-paper{ background:#fff; width:210mm; max-width:none; transform-origin:top left; box-shadow:0 2px 12px rgba(0,0,0,.2); color:#000; }
+.report-row-click{ cursor:pointer; transition:.12s; }
+.report-row-click:hover{ background:var(--chip-bg); }
+.report-row-click:hover td:first-child{ color:var(--primary); }
+.nowrap-cell{ white-space:nowrap; }
 .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px; }
+.modal-backdrop:has(.slip-expanded){ padding:0; }
 .modal-card{ background:var(--card); border-radius:18px; padding:24px; max-width:640px; width:100%; max-height:88vh; overflow-y:auto; box-shadow: var(--shadow); }
 .modal-card.chart-expand-card{ max-width:920px; }
 .calib-confirm-card{ max-width:420px; max-height:88vh; overflow-y:auto; }
@@ -567,7 +581,7 @@ const state = {
   manage: { catFilter:'', statusFilter:'', search:'', editing:null },
   calendar: { year: new Date().getFullYear(), month: new Date().getMonth(), selectedDay:null },
   availCal: null, // { cat, name, year, month, selectedDay } — ปฏิทินสถานะการจองต่อรายการเครื่องมือ (เปิดดูได้โดยไม่ต้องล็อกอิน)
-  reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:''}, unitSearch:'', topEquipCount:8, topUnitCount:15 },
+  reports: { mode:'month', month: new Date().getMonth(), year: new Date().getFullYear(), fy: new Date().getFullYear()+543, half:'oct-mar', weekStart:'', filterDepts:[], filterProvinces:[], filterCategories:[], filterAssets:[], openFilterDropdown:null, filterSearch:{dept:'',province:'',category:'',asset:''}, unitSearch:'', topEquipCount:8, topUnitCount:15 },
   lastCreatedBorrowId: null,
   pendingBorrow: null,
   calibConfirmIds: null,
@@ -586,6 +600,8 @@ const state = {
   lastCreatedReturnId: null,
   notif: { open: false },
   viewingBorrowId: null,
+  slipPreviewId: null,        // ใบยืมที่เปิดดูตัวอย่างเอกสาร (จากตารางรายงาน)
+  slipExpanded: false,        // true = ขยายหน้าต่างตัวอย่างใบยืมเต็มจอ ให้เอกสารใหญ่/อ่านง่ายขึ้น
   partialReturnId: null,      // id ของใบยืมที่กำลังเปิดหน้าต่าง "คืนเครื่องมือแบบรายชิ้น"
   partialReturnSelected: new Set(), // ชุด equipmentId (unit) ที่ถูกเลือกไว้ให้คืนในหน้าต่างนั้น
   expandedChart: null,        // { key, title } ของกราฟที่กำลังเปิดดูแบบขยาย
@@ -1253,6 +1269,7 @@ function render(){
     ${renderPrintSlipContainer()}
     ${state.pendingBorrow ? renderConfirmBorrowModal() : ''}
     ${state.viewingBorrowId ? renderBorrowDetailModal() : ''}
+    ${state.slipPreviewId ? renderSlipPreviewModal() : ''}
     ${state.partialReturnId ? renderPartialReturnModal() : ''}
     ${state.availCal ? renderAvailabilityCalendarModal() : ''}
     ${state.calibConfirmIds ? renderCalibConfirmModal() : ''}
@@ -1261,6 +1278,7 @@ function render(){
     ${state.expandedChart ? renderChartExpandModal() : ''}
   `;
   attachHandlers();
+  if(state.slipPreviewId) fitSlipPreview();
   if(typeof updateLiveClock==='function') updateLiveClock();
 
   if(activeId){
@@ -1487,7 +1505,7 @@ function renderReturnTab(){
         <div class="flex justify-between flex-wrap gap-2">
           <div>
             <div class="font-bold">${esc(b.code)} — ${esc(b.name)} (${esc(b.dept)})</div>
-            <div class="text-sm subtle">ยืม ${fmtDateBE(b.borrowDate)} ถึง ${fmtDateBE(b.returnDate)} • พื้นที่: ${esc(b.province)}</div>
+            <div class="text-sm subtle">ยืมตั้งแต่วันที่ ${fmtDateBE(b.borrowDate)} ถึงวันที่ ${fmtDateBE(b.returnDate)} • พื้นที่: ${esc(b.province)}</div>
             ${b.phone?`<div class="text-sm subtle">เบอร์โทร: ${esc(b.phone)}</div>`:''}
             <div class="text-sm subtle">รายการ: ${itemsSummaryLine(b)}</div>
             <div class="text-xs mt-1">${borrowStatusBadge(b)}</div>
@@ -1500,6 +1518,57 @@ function renderReturnTab(){
       </div>`;
       }).join('')
     }
+  </div>`;
+}
+
+/* ย่อ/ขยายใบยืมในหน้าต่างตัวอย่างให้พอดีจอ (ทั้งกว้างและสูง) ไม่ต้องเลื่อน
+   ถ้าย่อจนเล็กเกินอ่านไม่ออก (ใบยืมยาวหลายรายการ) จะยึดความกว้างเป็นหลักแล้วเลื่อนขึ้นลงแทน */
+function fitSlipPreview(){
+  const box = document.querySelector('.slip-preview-scroll');
+  const fit = document.querySelector('.slip-preview-fit');
+  const paper = document.querySelector('.slip-preview-paper');
+  if(!box || !fit || !paper) return;
+  const apply = ()=>{
+    paper.style.transform = 'none';
+    const pw = paper.offsetWidth, ph = paper.offsetHeight;
+    if(!pw || !ph) return;
+    const top = box.getBoundingClientRect().top;
+    box.style.maxHeight = Math.max(200, window.innerHeight - top - 24) + 'px';
+    const availW = box.clientWidth - 24;
+    const availH = window.innerHeight - top - 24 - 24;
+    const sW = availW / pw, sH = availH / ph;
+    let scale = Math.min(sW, sH, 1.6);
+    if(scale < 0.6) scale = Math.min(sW, 1.6);   // เล็กเกินไป -> ยึดความกว้าง แล้วเลื่อนแนวตั้ง
+    if(state.slipExpanded) scale = Math.min(sW, 3);   // โหมดขยาย: ยึดความกว้างเต็มจอ แล้วเลื่อนอ่านแนวตั้ง
+    paper.style.transform = 'scale(' + scale + ')';
+    fit.style.width = (pw * scale) + 'px';
+    fit.style.height = (ph * scale) + 'px';
+  };
+  apply();
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ if(document.querySelector('.slip-preview-paper')===paper) apply(); });
+  setTimeout(()=>{ if(document.querySelector('.slip-preview-paper')===paper) apply(); }, 250);
+}
+window.addEventListener('resize', ()=>{ if(state.slipPreviewId) fitSlipPreview(); });
+
+function renderSlipPreviewModal(){
+  const b = state.borrows.find(x=>x.id===state.slipPreviewId);
+  if(!b) return '';
+  return `
+  <div class="modal-backdrop" data-act="close-modal">
+    <div class="modal-card slip-preview-card ${state.slipExpanded?'slip-expanded':''}">
+      <div class="slip-head">
+        <h3 class="text-lg font-bold">ใบยืม ${esc(b.code||'')}</h3>
+        <button class="icon-btn" data-act="close-modal" title="ปิด">&times;</button>
+      </div>
+      <div class="slip-actions">
+        <button type="button" class="btn-ghost" data-act="slip-toggle-expand" title="${state.slipExpanded?'ย่อกลับ':'ขยายเต็มจอ'}">${state.slipExpanded
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>ย่อกลับ'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>ขยาย'}</button>
+        <button class="btn-primary" data-act="print-slip" data-id="${b.id}">พิมพ์ใบยืม</button>
+        <button class="btn-ghost" data-act="download-slip-pdf" data-id="${b.id}">ดาวน์โหลด PDF</button>
+      </div>
+      <div class="slip-preview-scroll"><div class="slip-preview-fit"><div class="slip-preview-paper">${buildSlipHTML(b)}</div></div></div>
+    </div>
   </div>`;
 }
 
@@ -1565,6 +1634,13 @@ function renderBorrowDetailModal(){
   </div>`;
 }
 
+/* วันที่คืนจริงของเครื่องมือแต่ละชิ้น (บันทึกเป็นวันที่ admin กดคืน) — ข้อมูลเก่าที่ไม่มี returnedAt จะใช้วันที่ปิดใบยืมแทนถ้ามี */
+function returnedDateLabel(b, unitId){
+  const rec = (b.itemsExpanded||[]).find(x=>x.equipmentId===unitId);
+  let iso = rec && rec.returnedAt ? String(rec.returnedAt).slice(0,10) : '';
+  if(!iso && b.actualReturnedAt) iso = toLocalISODate(new Date(b.actualReturnedAt));
+  return iso ? 'เมื่อ ' + fmtDateBE(iso) : 'ไม่ระบุวันที่คืน';
+}
 function renderPartialReturnModal(){
   const b = state.borrows.find(x=>x.id===state.partialReturnId);
   if(!b){ state.partialReturnId = null; return ''; }
@@ -1620,7 +1696,7 @@ function renderPartialReturnModal(){
                   </td>
                   <td class="p-2">${esc(g.name)}</td>
                   <td class="p-2 font-mono text-xs">${esc(label)}</td>
-                  <td class="p-2 text-center" style="white-space:nowrap;">${already ? '<span class="pill pill-ok" style="white-space:nowrap;">คืนแล้ว</span>' : '<span class="pill pill-warn" style="white-space:nowrap;">ยังไม่คืน</span>'}</td>
+                  <td class="p-2 text-center" style="white-space:nowrap;">${already ? `<span class="pill pill-ok" style="white-space:nowrap;">คืนแล้ว</span><div class="text-xs subtle" style="margin-top:4px;">${esc(returnedDateLabel(b, uid))}</div>` : '<span class="pill pill-warn" style="white-space:nowrap;">ยังไม่คืน</span>'}</td>
                 </tr>`;
               }).join('');
               return rows;
@@ -1633,6 +1709,7 @@ function renderPartialReturnModal(){
         <div class="text-sm subtle">เลือกไว้ ${selectedCount} จาก ${allRemainingIds.length} ชิ้นที่ยังไม่คืน</div>
         ${selectedCount>0 ? `<div class="text-xs subtle">ผลลัพธ์ของชิ้นที่คืนครั้งนี้จะถูกบันทึกเป็น: ${previewLabel}</div>` : ''}
       </div>
+      <div class="text-xs subtle mt-2">วันที่คืนจะบันทึกเป็น <b>วันนี้ (${fmtDateBE(todayISO())})</b> โดยอัตโนมัติ — ไม่สามารถเลือกวันย้อนหลังหรือล่วงหน้าได้</div>
 
       <div class="flex justify-end gap-2 mt-5">
         <button class="btn-ghost" data-act="close-modal">ยกเลิก</button>
@@ -1655,7 +1732,7 @@ function openPartialReturn(id){
 async function returnSelectedItems(id, unitIds){
   const b = state.borrows.find(x=>x.id===id);
   if(!b || !unitIds || !unitIds.length) return;
-  const today = todayISO();
+  const today = todayISO();   // วันที่คืน = วันที่ admin กดคืนจริงเท่านั้น (ไม่รับค่าย้อนหลัง/ล่วงหน้าจากภายนอก)
   (b.itemsExpanded||[]).forEach(rec=>{
     if(!rec.returned && unitIds.includes(rec.equipmentId)){ rec.returned = true; rec.returnedAt = today; }
   });
@@ -2011,7 +2088,7 @@ function renderClearConfirmModal(){
       <div class="calib-confirm-icon" style="color:#ef4444;border-color:#ef4444">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </div>
-      <h3 class="text-lg font-bold mb-1 text-center">ล้างฐานข้อมูลเครื่องมือทั้งหมด</h3>
+      <h3 class="text-lg font-bold mb-1 text-center">${esc(cc.title || 'ล้างฐานข้อมูลเครื่องมือทั้งหมด')}</h3>
       <p class="text-sm subtle mb-4 text-center">${cc.warnHtml}</p>
       <div class="mt-2">
         <label class="lbl">กรอกรหัสยืนยันเพื่อดำเนินการต่อ *</label>
@@ -2022,7 +2099,7 @@ function renderClearConfirmModal(){
       </div>
       <div class="mt-6 flex justify-end gap-2">
         <button class="btn-ghost" data-act="cancel-clear-confirm">ยกเลิก</button>
-        <button class="btn-danger" data-act="confirm-clear-do" ${locked?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ยืนยันล้างฐานข้อมูล</button>
+        <button class="btn-danger" data-act="confirm-clear-do" ${locked?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ${cc.kind==='dashboard' ? 'ยืนยันล้างข้อมูล Dashboard' : 'ยืนยันล้างฐานข้อมูล'}</button>
       </div>
     </div>
   </div>`;
@@ -2944,7 +3021,7 @@ function renderCalendar(){
         <div class="flex justify-between flex-wrap gap-2">
           <div>
             <div class="font-bold">${b.code} — ${esc(b.name)} (${esc(b.dept)})</div>
-            <div class="text-sm subtle">ยืม ${fmtDateBE(b.borrowDate)} ถึง ${fmtDateBE(b.returnDate)} • พื้นที่: ${esc(b.province)}</div>
+            <div class="text-sm subtle">ยืมตั้งแต่วันที่ ${fmtDateBE(b.borrowDate)} ถึงวันที่ ${fmtDateBE(b.returnDate)} • พื้นที่: ${esc(b.province)}</div>
             <div class="text-sm subtle">รายการ: ${itemsSummaryLine(b)}</div>
             <div class="text-xs mt-1">${borrowStatusBadge(b)}</div>
           </div>
@@ -3060,7 +3137,7 @@ function renderAvailDayBorrowList(cat, name, dayISO){
   return matches.map(b=>`
     <div class="borrow-item-card">
       <div class="font-bold">${esc(b.code)} — ${esc(b.dept)}</div>
-      <div class="text-sm subtle">ยืม ${fmtDateBE(b.borrowDate)} ถึง ${fmtDateBE(b.returnDate)}</div>
+      <div class="text-sm subtle">ยืมตั้งแต่วันที่ ${fmtDateBE(b.borrowDate)} ถึงวันที่ ${fmtDateBE(b.returnDate)}</div>
     </div>`).join('');
 }
 
@@ -3104,13 +3181,71 @@ function filterBorrowsByRange(range){
   return state.borrows.filter(b=> b.borrowDate>=range.start && b.borrowDate<=range.end);
 }
 // ตัวกรองรายงาน: หน่วยงาน / จังหวัด / ประเภทเครื่องมือ (เลือกได้หลายอัน, ว่าง = ไม่กรอง)
+/* ----- ตัวกรองรหัสครุภัณฑ์ -----
+   รหัสครุภัณฑ์ของแต่ละชิ้นในใบยืม: ดูจาก itemsExpanded ก่อน ถ้าไม่มีให้ดูจากคลังเครื่องมือปัจจุบัน */
+function unitAssetCodeOf(b, unitId){
+  const rec = (b.itemsExpanded||[]).find(x=>x.equipmentId===unitId);
+  let code = rec && rec.assetCode ? rec.assetCode : '';
+  if(!isUsableAssetCode(code)){
+    const eq = state.equipment.find(x=>x.id===unitId);
+    if(eq && eq.assetCode) code = eq.assetCode;
+  }
+  return String(code||'').trim();
+}
+/* จำนวนชิ้นของรายการ (กลุ่ม) it ในใบยืม b ที่ผ่านตัวกรองรหัสครุภัณฑ์ — ถ้าไม่ได้เลือกตัวกรองจะได้ it.qty เท่าเดิม */
+function reportItemQty(b, it){
+  const assets = state.reports.filterAssets||[];
+  if(!assets.length) return it.qty;
+  const ids = (it.equipmentIds && it.equipmentIds.length) ? it.equipmentIds : (it.equipmentId ? [it.equipmentId] : []);
+  if(ids.length) return ids.filter(id=>assets.includes(unitAssetCodeOf(b,id))).length;
+  return String(it.assetCode||'').split(',').map(s=>s.trim()).filter(c=>assets.includes(c)).length;
+}
+// ตัวเลือกของตัวกรองรายงาน: แสดงเฉพาะค่าที่มีอยู่จริงในใบยืม (ไม่แสดงค่าที่ไม่เคยถูกยืมเลย)
+// ค่าที่กำลังเลือกอยู่จะคงอยู่ในรายการเสมอ เพื่อให้กดยกเลิกได้
+function reportFilterOptions(){
+  const r = state.reports;
+  const depts = new Set(), provs = new Set(), cats = new Set(), assetNames = {};
+  state.borrows.forEach(b=>{
+    if(b.dept) depts.add(b.dept);
+    if(b.province) provs.add(b.province);
+    (b.items||[]).forEach(it=>{ if(it.category) cats.add(it.category); });
+    const list = (b.itemsExpanded && b.itemsExpanded.length) ? b.itemsExpanded : [];
+    list.forEach(rec=>{
+      const c = unitAssetCodeOf(b, rec.equipmentId) || String(rec.assetCode||'').trim();
+      if(isUsableAssetCode(c) && !(c in assetNames)) assetNames[c] = rec.name || '';
+    });
+    if(!list.length){
+      (b.items||[]).forEach(it=>{
+        String(it.assetCode||'').split(',').map(s=>s.trim()).forEach(c=>{
+          if(isUsableAssetCode(c) && !(c in assetNames)) assetNames[c] = it.name || '';
+        });
+      });
+    }
+  });
+  (r.filterDepts||[]).forEach(v=>depts.add(v));
+  (r.filterProvinces||[]).forEach(v=>provs.add(v));
+  (r.filterCategories||[]).forEach(v=>cats.add(v));
+  (r.filterAssets||[]).forEach(c=>{ if(!(c in assetNames)) assetNames[c] = ''; });
+  // เรียงตามลำดับในรายการมาตรฐานก่อน ส่วนค่าอื่นที่ไม่อยู่ในรายการต่อท้ายตามตัวอักษร
+  const order = (set, base)=>{
+    const inBase = base.filter(x=>set.has(x));
+    const rest = Array.from(set).filter(x=>!base.includes(x)).sort((a,b)=>a.localeCompare(b,'th'));
+    return inBase.concat(rest);
+  };
+  const codes = Object.keys(assetNames).sort((a,b)=>a.localeCompare(b,'th',{numeric:true}));
+  return {
+    depts: order(depts, DEPTS), provinces: order(provs, PROVINCES), categories: order(cats, CATEGORIES),
+    assets: codes, assetLabel: c=> assetNames[c] ? (c+' — '+assetNames[c]) : c
+  };
+}
 function applyReportFilters(list){
   const r = state.reports;
-  const depts = r.filterDepts||[], provs = r.filterProvinces||[], cats = r.filterCategories||[];
+  const depts = r.filterDepts||[], provs = r.filterProvinces||[], cats = r.filterCategories||[], assets = r.filterAssets||[];
   return list.filter(b=>{
     if(depts.length && !depts.includes(b.dept)) return false;
     if(provs.length && !provs.includes(b.province)) return false;
     if(cats.length && !(b.items||[]).some(it=>cats.includes(it.category))) return false;
+    if(assets.length && !(b.items||[]).some(it=>(!cats.length || cats.includes(it.category)) && reportItemQty(b,it)>0)) return false;
     return true;
   });
 }
@@ -3119,22 +3254,28 @@ function reportItemMatchesCatFilter(category){
   return !cats.length || cats.includes(category);
 }
 function toggleReportFilter(type, value){
-  const key = type==='dept'?'filterDepts': type==='province'?'filterProvinces':'filterCategories';
+  const key = type==='dept'?'filterDepts': type==='province'?'filterProvinces': type==='asset'?'filterAssets':'filterCategories';
   const arr = state.reports[key];
   const i = arr.indexOf(value);
   if(i>=0) arr.splice(i,1); else arr.push(value);
   render();
 }
 function clearReportFilters(){
-  state.reports.filterDepts = []; state.reports.filterProvinces = []; state.reports.filterCategories = [];
+  state.reports.filterDepts = []; state.reports.filterProvinces = []; state.reports.filterCategories = []; state.reports.filterAssets = [];
   state.reports.openFilterDropdown = null;
   render();
 }
-async function clearDashboardData(){
-  const ok1 = confirm('ยืนยันล้างข้อมูล Dashboard?\n\nการดำเนินการนี้จะลบ "ใบยืมทั้งหมด" ที่ใช้แสดงรายงาน/สถิติออกจากระบบถาวร (รายชื่อเครื่องมือในคลังจะไม่ถูกลบ)');
-  if(!ok1) return;
-  const ok2 = confirm('ยืนยันอีกครั้ง: ข้อมูลใบยืมทั้งหมดจะถูกลบและกู้คืนไม่ได้ ต้องการดำเนินการต่อหรือไม่?');
-  if(!ok2) return;
+function clearDashboardData(){
+  // เปิดหน้าต่างกรอกรหัสยืนยันก่อนล้าง (ใช้หน้าต่างเดียวกับการล้างฐานข้อมูลเครื่องมือ)
+  state.clearConfirm = {
+    kind:'dashboard',
+    title:'ล้างข้อมูล Dashboard',
+    warnHtml:'ยืนยันล้างข้อมูล Dashboard? จะลบ <b>ใบยืมทั้งหมด</b> ที่ใช้แสดงรายงาน/สถิติออกจากระบบถาวร <b>ไม่สามารถกู้คืนได้</b> (รายชื่อเครื่องมือในคลังจะไม่ถูกลบ)',
+    error:null, attempts:0, lockedUntil:0
+  };
+  render();
+}
+async function doClearDashboardData(){
   state.borrows = [];
   state.returns = [];
   await saveBorrows();
@@ -3169,11 +3310,12 @@ function renderFormSearchSelect(ftype, label, options, value, placeholder){
     </div>` : ''}
   </div>`;
 }
-function renderFilterDropdown(ftype, label, options, selected, iconFn){
+function renderFilterDropdown(ftype, label, options, selected, iconFn, labelFn){
   const isOpen = state.reports.openFilterDropdown === ftype;
   const btnText = selected.length ? `เลือกแล้ว ${selected.length} รายการ` : 'ทั้งหมด (ไม่กรอง)';
   const searchVal = state.reports.filterSearch[ftype] || '';
-  const filteredOptions = searchVal ? options.filter(o=>o.toLowerCase().includes(searchVal.toLowerCase())) : options;
+  const optLabel = o=> labelFn ? labelFn(o) : o;
+  const filteredOptions = searchVal ? options.filter(o=>optLabel(o).toLowerCase().includes(searchVal.toLowerCase())) : options;
   return `
   <div class="ms-dropdown" data-dropdown="${ftype}">
     <label class="lbl mb-2">${esc(label)} ${selected.length?`<span class="pill pill-ok" style="margin-left:4px">${selected.length}</span>`:''}</label>
@@ -3191,7 +3333,7 @@ function renderFilterDropdown(ftype, label, options, selected, iconFn){
         ${filteredOptions.length===0 ? `<div class="ms-dropdown-empty">ไม่พบรายการที่ค้นหา</div>` : filteredOptions.map(o=>`
         <label class="ms-dropdown-item">
           <input type="checkbox" data-act="toggle-report-filter" data-ftype="${ftype}" data-fval="${escAttr(o)}" ${selected.includes(o)?'checked':''}/>
-          <span>${iconFn?iconFn(o):''}${esc(o)}</span>
+          <span>${iconFn?iconFn(o):''}${esc(optLabel(o))}</span>
         </label>`).join('')}
       </div>
     </div>` : ''}
@@ -3209,12 +3351,14 @@ function renderReportsTab(){
     byProvinceBorrows[prov] = (byProvinceBorrows[prov]||0) + 1;
     b.items.forEach(it=>{
       if(!reportItemMatchesCatFilter(it.category)) return;
-      byDept[b.dept] = (byDept[b.dept]||0) + it.qty;
-      byEquip[it.name] = (byEquip[it.name]||0) + it.qty;
-      byCat[it.category] = (byCat[it.category]||0) + it.qty;
+      const q = reportItemQty(b, it);   // นับเฉพาะชิ้นที่ตรงกับตัวกรองรหัสครุภัณฑ์ (ถ้าเลือกไว้)
+      if(!q) return;
+      byDept[b.dept] = (byDept[b.dept]||0) + q;
+      byEquip[it.name] = (byEquip[it.name]||0) + q;
+      byCat[it.category] = (byCat[it.category]||0) + q;
       equipCat[it.name] = it.category;
-      byProvince[prov] = (byProvince[prov]||0) + it.qty;
-      totalQty += it.qty;
+      byProvince[prov] = (byProvince[prov]||0) + q;
+      totalQty += q;
     });
   });
   const equipEntries = Object.entries(byEquip).sort((a,b)=>b[1]-a[1]);
@@ -3236,7 +3380,7 @@ function renderReportsTab(){
     if(b.status==='late-returned') prevLateReturnedCount++;
     b.items.forEach(it=>{
       if(!reportItemMatchesCatFilter(it.category)) return;
-      prevTotalQty += it.qty;
+      prevTotalQty += reportItemQty(b, it);
     });
   });
   const prevActiveCount = prevList.length - prevReturnedCount;
@@ -3269,9 +3413,11 @@ function renderReportsTab(){
 
   // เครื่องมือที่ไม่ถูกยืมเลยในช่วงเวลาที่เลือก (เทียบกับคลังทั้งหมด ตามตัวกรองประเภท/หน่วยงานถ้ามี)
   const catFilterSet = state.reports.filterCategories||[];
+  const assetFilterSet = state.reports.filterAssets||[];
   const allToolNames = {};
   state.equipment.forEach(e=>{
     if(catFilterSet.length && !catFilterSet.includes(e.category)) return;
+    if(assetFilterSet.length && !assetFilterSet.includes(String(e.assetCode||'').trim())) return;
     const key = e.category+'|||'+e.name;
     if(!allToolNames[key]) allToolNames[key] = { category:e.category, name:e.name, total:0 };
     allToolNames[key].total++;
@@ -3318,6 +3464,7 @@ function renderReportsTab(){
   const unitsByName = {};
   state.equipment.forEach(e=>{
     if(catFilterSet.length && !catFilterSet.includes(e.category)) return;
+    if(assetFilterSet.length && !assetFilterSet.includes(String(e.assetCode||'').trim())) return;
     if(!unitsByName[e.name]) unitsByName[e.name] = [];
     unitsByName[e.name].push(e);
   });
@@ -3359,9 +3506,16 @@ function renderReportsTab(){
     else if(b.status==='late-returned') dd.lateReturned++;
     itemGroupsForBorrow(b).forEach(g=>{
       if(!reportItemMatchesCatFilter(g.category)) return;
+      let gQty = g.qty, gRet = g.returnedQty;
+      if(assetFilterSet.length){
+        const matched = g.unitIds.filter(id=>assetFilterSet.includes(unitAssetCodeOf(b,id)));
+        gQty = matched.length;
+        gRet = matched.filter(id=>g.returnedUnitIds.includes(id)).length;
+        if(!gQty) return;
+      }
       if(!dd.items[g.name]) dd.items[g.name] = { category: g.category, qty: 0, returnedQty: 0 };
-      dd.items[g.name].qty += g.qty;
-      dd.items[g.name].returnedQty += g.returnedQty;
+      dd.items[g.name].qty += gQty;
+      dd.items[g.name].returnedQty += gRet;
     });
   });
   const deptDetailEntries = Object.entries(deptDetail).sort((a,b)=>(b[1].active+b[1].returned+b[1].lateReturned)-(a[1].active+a[1].returned+a[1].lateReturned));
@@ -3436,7 +3590,6 @@ function renderReportsTab(){
         <div class="flex gap-2 ml-auto">
           <button class="btn-ghost" data-act="export-excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> ส่งออก Excel</button>
           <button class="btn-primary" data-act="print-report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> พิมพ์รายงาน</button>
-          <button class="btn-ghost" style="color:#dc2626;border-color:#fca5a5" data-act="clear-dashboard-data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างข้อมูล Dashboard</button>
         </div>
       </div>
       <div class="text-sm subtle mt-3">ช่วงข้อมูล: ${fmtDateBE(range.start)} — ${fmtDateBE(range.end)} • พบใบยืม ${list.length} รายการ • เทียบกับช่วงก่อนหน้า ${fmtDateBE(prevRange.start)} — ${fmtDateBE(prevRange.end)}</div>
@@ -3445,13 +3598,14 @@ function renderReportsTab(){
     <div class="card p-5 no-print">
       <div class="flex items-center justify-between mb-3">
         <h3 class="font-bold text-sm">ตัวกรอง (เลือกได้หลายรายการ)</h3>
-        ${(state.reports.filterDepts.length+state.reports.filterProvinces.length+state.reports.filterCategories.length)>0 ?
+        ${(state.reports.filterDepts.length+state.reports.filterProvinces.length+state.reports.filterCategories.length+state.reports.filterAssets.length)>0 ?
           `<button class="btn-ghost" data-act="clear-report-filters">✕ ล้างตัวกรองทั้งหมด</button>` : ''}
       </div>
-      <div class="grid md:grid-cols-3 gap-5">
-        ${renderFilterDropdown('dept', 'หน่วยงาน', DEPTS, state.reports.filterDepts)}
-        ${renderFilterDropdown('province', 'จังหวัด', PROVINCES, state.reports.filterProvinces)}
-        ${renderFilterDropdown('category', 'ประเภทเครื่องมือ', CATEGORIES, state.reports.filterCategories, c=>catIcon(c)+' ')}
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+        ${(()=>{ window.__rfo = reportFilterOptions(); return renderFilterDropdown('dept', 'หน่วยงาน', window.__rfo.depts, state.reports.filterDepts); })()}
+        ${renderFilterDropdown('province', 'จังหวัด', window.__rfo.provinces, state.reports.filterProvinces)}
+        ${renderFilterDropdown('category', 'ประเภทเครื่องมือ', window.__rfo.categories, state.reports.filterCategories, c=>catIcon(c)+' ')}
+        ${renderFilterDropdown('asset', 'รหัสครุภัณฑ์', window.__rfo.assets, state.reports.filterAssets, null, window.__rfo.assetLabel)}
       </div>
     </div>
 
@@ -3681,12 +3835,12 @@ function renderReportsTab(){
           <thead><tr><th>รหัสใบยืม</th><th>วันที่ยืม</th><th>วันที่คืน</th><th>หน่วยงาน</th><th>ผู้ยืม</th><th>พื้นที่</th><th>รายการเครื่องมือ</th><th>สถานะ</th></tr></thead>
           <tbody>
             ${list.map(b=>`
-              <tr>
-                <td class="font-mono text-xs">${b.code}</td>
+              <tr class="report-row-click" data-act="view-slip-preview" data-id="${b.id}" title="คลิกเพื่อดูเอกสารใบยืม">
+                <td class="font-mono text-xs nowrap-cell">${esc(b.code)}</td>
                 <td class="text-xs">${fmtDateShort(b.borrowDate)}</td>
                 <td class="text-xs">${fmtDateShort(b.returnDate)}</td>
-                <td>${esc(b.dept)}</td>
-                <td>${esc(b.name)}</td>
+                <td class="nowrap-cell">${esc(b.dept)}</td>
+                <td class="nowrap-cell">${esc(b.name)}</td>
                 <td>${esc(b.province)}</td>
                 <td class="text-xs">${itemsSummaryLine(b)}</td>
                 <td>${borrowStatusBadge(b)}</td>
@@ -3694,6 +3848,12 @@ function renderReportsTab(){
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div class="card p-5 no-print" style="border-color:#fca5a5">
+      <h3 class="font-bold mb-1" style="color:#b91c1c">การจัดการข้อมูลขั้นสูง</h3>
+      <p class="text-sm subtle mb-3">ลบใบยืมทั้งหมดที่ใช้แสดงรายงาน/สถิติบน Dashboard ออกจากระบบถาวร (รายชื่อเครื่องมือในคลังจะไม่ถูกลบ) — ต้องกรอกรหัสยืนยันก่อนดำเนินการ</p>
+      <button class="btn-ghost" style="color:#dc2626;border-color:#fca5a5" data-act="clear-dashboard-data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ล้างข้อมูล Dashboard</button>
     </div>
   </div>`;
 }
@@ -3943,6 +4103,7 @@ function attachHandlers(){
   bindTextInput('r-search-dept', v=>{state.reports.filterSearch.dept=v; renderSoft();});
   bindTextInput('r-search-province', v=>{state.reports.filterSearch.province=v; renderSoft();});
   bindTextInput('r-search-category', v=>{state.reports.filterSearch.category=v; renderSoft();});
+  bindTextInput('r-search-asset', v=>{state.reports.filterSearch.asset=v; renderSoft();});
   bindTextInput('r-unit-search', v=>{state.reports.unitSearch=v; renderSoft();});
   bindEnterKey('login-user', doLogin);
   bindEnterKey('login-pass', doLogin);
@@ -4126,8 +4287,10 @@ function onClick(e){
   if(act==='reorder-down'){ moveEquipGroup(el.dataset.cat, el.dataset.name, 1); return; }
   if(act==='add-equip'){ state.manage.editing='new'; render(); return; }
   if(act==='edit-equip'){ state.manage.editing=el.dataset.id; render(); return; }
+  if(act==='view-slip-preview'){ state.slipPreviewId=el.dataset.id; state.slipExpanded=false; render(); return; }
+  if(act==='slip-toggle-expand'){ state.slipExpanded = !state.slipExpanded; render(); return; }
   if(act==='view-borrow'){ state.viewingBorrowId=el.dataset.id; render(); return; }
-  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; state.availCal=null; state.partialReturnId=null; state.partialReturnSelected=new Set(); state.expandedChart=null; render(); return; }
+  if(act==='close-modal'){ state.manage.editing=null; state.viewingBorrowId=null; state.slipPreviewId=null; state.slipExpanded=false; state.availCal=null; state.partialReturnId=null; state.partialReturnSelected=new Set(); state.expandedChart=null; render(); return; }
   if(act==='open-avail-cal'){ openAvailabilityCalendar(el.dataset.cat, el.dataset.name); return; }
   if(act==='avail-cal-prev'){ availCalShift(-1); return; }
   if(act==='avail-cal-next'){ availCalShift(1); return; }
@@ -4158,7 +4321,7 @@ function onClick(e){
       return;
     }
     state.clearConfirm = null;
-    doClearEquip();
+    if(cc.kind==='dashboard') doClearDashboardData(); else doClearEquip();
     return;
   }
   if(act==='clear-manage-history'){ clearManageHistory(); return; }
@@ -5024,7 +5187,7 @@ function statusLabelTH(status){
 }
 function exportExcel(){
   const range = getReportRange();
-  const list = filterBorrowsByRange(range);
+  const list = applyReportFilters(filterBorrowsByRange(range));   // ส่งออกตามตัวกรองที่เลือกไว้
   const rows = [['รหัสใบยืม','วันที่ยืม','วันที่คืน','หน่วยงาน','ผู้ยืม','เบอร์โทร','พื้นที่','รายการเครื่องมือ','สถานะ']];
   list.forEach(b=>{
     rows.push([b.code, fmtDateShort(b.borrowDate), fmtDateShort(b.returnDate), b.dept, b.name, b.phone||'', b.province, b.items.map(i=>i.name+' x'+i.qty).join(', '), statusLabelTH(b.status)]);
