@@ -609,7 +609,7 @@ const state = {
 
 /* ===================== ระบบแจ้งเตือน (กระดิ่ง) — เฉพาะ admin ที่ login แล้ว =====================
    - แจ้งเตือน "ใบยืมใหม่" เมื่อมีใบยืมเข้ามาใหม่ (ที่ยังไม่เคยเห็น)
-   - แจ้งเตือน "ส่งคืนสาย" เมื่อใบยืมที่ยัง active เลยกำหนดวันคืนแล้ว (ที่ยังไม่เคยเห็น)
+   - แจ้งเตือน "เลยระยะเวลายืม" เมื่อใบยืมที่ยัง active เลยกำหนดวันคืนแล้ว (ที่ยังไม่เคยเห็น)
    สถานะ "เคยเห็นแล้ว" เก็บไว้ในเครื่อง (localStorage) แยกตามเครื่อง/เบราว์เซอร์
 ====================================================================================== */
 let notifReadBorrows = new Set();
@@ -1099,9 +1099,9 @@ function isBorrowPartiallyReturned(b){
   return c>0 && !isBorrowFullyReturned(b);
 }
 function borrowStatusBadge(b){
-  if(b.status==='early-returned') return '<span class="pill pill-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อนกำหนด</span>';
-  if(b.status==='late-returned') return '<span class="pill pill-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> คืนสาย (เลยกำหนด)</span>';
-  if(b.status==='returned') return '<span class="pill pill-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> คืนตรงเวลา</span>';
+  if(b.status==='early-returned') return '<span class="pill pill-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อน</span>';
+  if(b.status==='late-returned') return '<span class="pill pill-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> เลยระยะเวลายืม</span>';
+  if(b.status==='returned') return '<span class="pill pill-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ตามระยะเวลา</span>';
   if(isBorrowPartiallyReturned(b)) return `<span class="pill pill-warn">คืนบางส่วน (${borrowReturnedUnitCount(b)}/${borrowTotalUnitCount(b)})</span>`;
   if(b.status==='active' && borrowTimingCategory(b)==='late') return `<span class="pill pill-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> เลยกำหนดคืนแล้ว ${daysLate(b)} วัน (ยังไม่คืน)</span>`;
   return '<span class="pill pill-ok">อนุมัติ/ใช้งานอยู่</span>';
@@ -1350,7 +1350,7 @@ function renderNotifPanel(){
           <div class="notif-item unread" data-act="notif-open" data-type="late" data-id="${b.id}">
             <div class="notif-icon late"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
             <div class="notif-text">
-              <div class="notif-title">ส่งคืนสาย: ${esc(b.code||'')}</div>
+              <div class="notif-title">เลยระยะเวลายืม: ${esc(b.code||'')}</div>
               <div class="notif-sub">${esc(b.dept||'-')} • ${esc(b.name||'-')} • เลยกำหนด ${dl} วัน</div>
               <div class="notif-time">กำหนดคืน ${esc(b.returnDate||'-')}</div>
             </div>
@@ -1470,16 +1470,16 @@ function renderReturnTab(){
   const cLate = activeAll.filter(b=>borrowTimingCategory(b)==='late').length;
   const subTabs = [
     {id:'all', label:'ทั้งหมด', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>', count: activeAll.length},
-    {id:'early', label:'คืนก่อนกำหนด', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>', count: cEarly},
-    {id:'ontime', label:'คืนตรงเวลา', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', count: cOntime},
-    {id:'late', label:'คืนสาย', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', count: cLate},
+    {id:'early', label:'คืนก่อน', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>', count: cEarly},
+    {id:'ontime', label:'ตามระยะเวลา', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', count: cOntime},
+    {id:'late', label:'เลยระยะเวลายืม', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', count: cLate},
   ];
   const successHTML = state.lastCreatedReturnId ? renderReturnSuccessBanner() : '';
   return `
   ${successHTML}
   <div class="card p-5 md:p-7 mt-5">
     <h2 class="text-lg font-bold flex items-center gap-2 mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> คืนเครื่องมือ (สำหรับ Admin)</h2>
-    <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเปิดหน้าต่างให้เลือกได้ว่าจะคืนกี่ชิ้น (คืนครบทุกชิ้น หรือคืนแค่บางชิ้นก็ได้) แล้วเทียบวันที่คืนจริงกับวันครบกำหนดคืนเพื่อบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อนกำหนด/ตรงเวลา/สาย พร้อมปรับสถานะเครื่องมือที่เลือกคืนให้พร้อมยืมใหม่ทันที ใบยืมจะปิดโดยอัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
+    <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเปิดหน้าต่างให้เลือกได้ว่าจะคืนกี่ชิ้น (คืนครบทุกชิ้น หรือคืนแค่บางชิ้นก็ได้) แล้วเทียบวันที่คืนจริงกับวันครบกำหนดคืนเพื่อบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อน/ตามระยะเวลา/เลยระยะเวลายืม พร้อมปรับสถานะเครื่องมือที่เลือกคืนให้พร้อมยืมใหม่ทันที ใบยืมจะปิดโดยอัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
 
     <div class="tabbar mb-4" style="gap:6px">
       ${subTabs.map(t=>`
@@ -1496,10 +1496,10 @@ function renderReturnTab(){
     ${list.length===0 ? `<div class="empty-hint">${q ? 'ไม่พบใบยืมที่ยังไม่คืนตรงกับคำค้นหานี้' : 'ไม่มีใบยืมในหมวดนี้'}</div>` :
       list.map(b=>{
         const timing = borrowTimingCategory(b);
-        let btnLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อนกำหนด';
+        let btnLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อน';
         let btnStyle = '';
-        if(timing==='ontime') btnLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> คืนตรงเวลา';
-        if(timing==='late'){ btnLabel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`; btnStyle='background:#fee2e2;color:#b91c1c;border-color:#fecaca'; }
+        if(timing==='ontime') btnLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ตามระยะเวลา';
+        if(timing==='late'){ btnLabel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> เลยระยะเวลายืม ${daysLate(b)} วัน`; btnStyle='background:#fee2e2;color:#b91c1c;border-color:#fecaca'; }
         return `
       <div class="borrow-item-card">
         <div class="flex justify-between flex-wrap gap-2">
@@ -1649,9 +1649,9 @@ function renderPartialReturnModal(){
   const allRemainingIds = groups.flatMap(g=>g.remainingUnitIds);
   const selectedCount = allRemainingIds.filter(id=>sel.has(id)).length;
   const timing = borrowTimingCategory(b);
-  let previewLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อนกำหนด';
-  if(timing==='ontime') previewLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> คืนตรงเวลา';
-  if(timing==='late') previewLabel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> คืนสาย (เลยกำหนด ${daysLate(b)} วัน)`;
+  let previewLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg> คืนก่อน';
+  if(timing==='ontime') previewLabel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> ตามระยะเวลา';
+  if(timing==='late') previewLabel = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> เลยระยะเวลายืม ${daysLate(b)} วัน`;
   return `
   <div class="modal-backdrop" data-act="close-modal">
     <div class="modal-card">
@@ -2988,8 +2988,8 @@ function renderCalendar(){
     cells += `<div class="cal-cell ${cellCls} ${isSel?'cal-sel':''}" data-act="cal-day" data-day="${d}">
       <div class="cal-daynum">${d}</div>
       ${items.length? `<div class="calday-badges">
-        ${activeN? `<span class="calday-badge calday-badge-active"><svg viewBox="0 0 24 24" fill="#dc2626" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> ยืมอยู่ ${activeN}</span>`:''}
-        ${reservedN? `<span class="calday-badge calday-badge-reserved"><svg viewBox="0 0 24 24" fill="#f59e0b" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> จอง ${reservedN}</span>`:''}
+        ${activeN? `<span class="calday-badge calday-badge-active"><svg viewBox="0 0 24 24" fill="#dc2626" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> มีใบยืมอยู่ ${activeN}</span>`:''}
+        ${reservedN? `<span class="calday-badge calday-badge-reserved"><svg viewBox="0 0 24 24" fill="#f59e0b" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> มีการจอง ${reservedN}</span>`:''}
         ${returnedN? `<span class="calday-badge calday-badge-returned"><svg viewBox="0 0 24 24" fill="#9ca3af" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> คืนแล้ว ${returnedN}</span>`:''}
       </div>`:''}
     </div>`;
@@ -3004,8 +3004,8 @@ function renderCalendar(){
     </div>
     <p class="text-sm subtle mb-2">นับตลอดช่วงวันที่ยืม-คืนของทุกใบยืม ไม่ใช่แค่วันที่สร้างใบยืม — คลิกวันที่เพื่อดูรายละเอียด</p>
     <div class="avail-legend mb-3">
-      <span><span class="avail-legend-dot" style="background:#f87171"></span><svg viewBox="0 0 24 24" fill="#dc2626" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> ยืมอยู่ (ถือเครื่องมืออยู่จริง)</span>
-      <span><span class="avail-legend-dot" style="background:#fbbf24"></span><svg viewBox="0 0 24 24" fill="#f59e0b" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> จอง (จองล่วงหน้า ยังไม่มารับ)</span>
+      <span><span class="avail-legend-dot" style="background:#f87171"></span><svg viewBox="0 0 24 24" fill="#dc2626" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> มีใบยืมอยู่ (ถือเครื่องมืออยู่จริง)</span>
+      <span><span class="avail-legend-dot" style="background:#fbbf24"></span><svg viewBox="0 0 24 24" fill="#f59e0b" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> มีการจอง (จองล่วงหน้า ยังไม่มารับ)</span>
       <span><span class="avail-legend-dot" style="background:#cbd5d1"></span><svg viewBox="0 0 24 24" fill="#9ca3af" style="width:0.55em;height:0.55em;vertical-align:0.02em;margin-right:0.32em;display:inline-block;flex:none"><circle cx="12" cy="12" r="10"/></svg> คืนแล้ว</span>
     </div>
     <div class="cal-grid cal-grid-head">
@@ -3483,7 +3483,7 @@ function renderReportsTab(){
     unitRows = unitRows.filter(r=> (r.name+' '+r.assetCode).toLowerCase().includes(unitSearchVal));
   }
 
-  // ผู้ยืมที่คืนสายซ้ำ (นับจากใบยืมทั้งหมดในระบบ ไม่จำกัดเฉพาะช่วงเวลาที่เลือก เพื่อเห็นภาพพฤติกรรมสะสม)
+  // ผู้ยืมที่เลยระยะเวลายืมซ้ำ (นับจากใบยืมทั้งหมดในระบบ ไม่จำกัดเฉพาะช่วงเวลาที่เลือก เพื่อเห็นภาพพฤติกรรมสะสม)
   const lateByBorrower = {};
   applyReportFilters(state.borrows).forEach(b=>{
     const key = b.dept+'|||'+b.name;
@@ -3614,7 +3614,7 @@ function renderReportsTab(){
       <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#0891b2">${totalQty}</div><div class="text-xs subtle mt-1">จำนวนเครื่องมือที่ยืม (ชิ้น)</div>${deltaBadge(deltaQty)}</div>
       <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#b45309">${activeCount}</div><div class="text-xs subtle mt-1">กำลังยืมอยู่</div>${deltaBadge(deltaActive, true)}</div>
       <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:#15803d">${returnedCount}</div><div class="text-xs subtle mt-1">คืนแล้ว</div>${deltaBadge(deltaReturned)}</div>
-      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:${onTimeRate===null?'#6b7280':(onTimeRate>=90?'#15803d':onTimeRate>=75?'#b45309':'#dc2626')}">${onTimeRate===null?'—':onTimeRate.toFixed(0)+'%'}</div><div class="text-xs subtle mt-1">คืนตรงเวลา (จากที่คืนแล้ว)</div>${deltaPointBadge(deltaOnTime)}</div>
+      <div class="card p-4 text-center"><div class="text-2xl font-bold" style="color:${onTimeRate===null?'#6b7280':(onTimeRate>=90?'#15803d':onTimeRate>=75?'#b45309':'#dc2626')}">${onTimeRate===null?'—':onTimeRate.toFixed(0)+'%'}</div><div class="text-xs subtle mt-1">ตามระยะเวลา (จากที่คืนแล้ว)</div>${deltaPointBadge(deltaOnTime)}</div>
     </div>
 
     <div class="grid md:grid-cols-3 gap-5">
@@ -3741,12 +3741,12 @@ function renderReportsTab(){
         </div>`}
       </div>
       <div class="card p-5">
-        <h3 class="font-bold mb-3">ผู้ยืมที่คืนสายซ้ำ (Repeat late returners)</h3>
-        <div class="text-xs subtle mb-3">นับจากใบยืมทั้งหมดในระบบตามตัวกรองปัจจุบัน (ไม่จำกัดเฉพาะช่วงเวลาที่เลือก) — แสดงเฉพาะผู้ที่คืนสายตั้งแต่ 2 ครั้งขึ้นไป</div>
-        ${repeatLateReturners.length===0? `<div class="empty-hint">ไม่พบผู้ยืมที่คืนสายซ้ำ</div>` : `
+        <h3 class="font-bold mb-3">ผู้ยืมที่เลยระยะเวลายืมซ้ำ (Repeat late returners)</h3>
+        <div class="text-xs subtle mb-3">นับจากใบยืมทั้งหมดในระบบตามตัวกรองปัจจุบัน (ไม่จำกัดเฉพาะช่วงเวลาที่เลือก) — แสดงเฉพาะผู้ที่เลยระยะเวลายืมตั้งแต่ 2 ครั้งขึ้นไป</div>
+        ${repeatLateReturners.length===0? `<div class="empty-hint">ไม่พบผู้ยืมที่เลยระยะเวลายืมซ้ำ</div>` : `
         <div class="table-wrap">
           <table class="data-table">
-            <thead><tr><th>หน่วยงาน</th><th>ผู้ยืม</th><th class="c" style="width:16%">คืนสาย</th><th class="c" style="width:16%">ใบยืมทั้งหมด</th></tr></thead>
+            <thead><tr><th>หน่วยงาน</th><th>ผู้ยืม</th><th class="c" style="width:16%">เลยระยะเวลายืม</th><th class="c" style="width:16%">ใบยืมทั้งหมด</th></tr></thead>
             <tbody>
               ${repeatLateReturners.map(r=>`
               <tr>
@@ -3766,7 +3766,7 @@ function renderReportsTab(){
       ${deptDetailEntries.length===0? `<div class="empty-hint">ไม่มีข้อมูล</div>` : `
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th style="width:13%">หน่วยงาน</th><th>รายการเครื่องมือที่ยืม (ต่อชิ้น)</th><th class="c" style="width:11%">ใบยืม<br/>กำลังยืมอยู่</th><th class="c" style="width:10%">ใบยืม<br/>คืนแล้ว (ก่อน/ตรงเวลา)</th><th class="c" style="width:10%">ใบยืม<br/>คืนสาย (เลยกำหนด)</th></tr></thead>
+          <thead><tr><th style="width:13%">หน่วยงาน</th><th>รายการเครื่องมือที่ยืม (ต่อชิ้น)</th><th class="c" style="width:11%">ใบยืม<br/>กำลังยืมอยู่</th><th class="c" style="width:10%">ใบยืม<br/>คืนแล้ว (ก่อน/ตามระยะเวลา)</th><th class="c" style="width:10%">ใบยืม<br/>เลยระยะเวลายืม</th></tr></thead>
           <tbody>
             ${deptDetailEntries.map(([dept,dd])=>{
               const itemEntries = Object.entries(dd.items).sort((a,b)=>b[1].qty-a[1].qty);
@@ -3962,8 +3962,8 @@ function drawReportCharts(){
         labels: data.deptStatusLabels.map(l=>l.length>20?l.slice(0,20)+'…':l),
         datasets:[
           { label:'กำลังยืมอยู่', data:data.deptStatusActive, backgroundColor:'#b45309' },
-          { label:'คืนแล้ว (ก่อน/ตรงเวลา)', data:data.deptStatusReturned, backgroundColor:'#15803d' },
-          { label:'คืนสาย (เลยกำหนด)', data:data.deptStatusLateReturned, backgroundColor:'#dc2626' },
+          { label:'คืนแล้ว (ก่อน/ตามระยะเวลา)', data:data.deptStatusReturned, backgroundColor:'#15803d' },
+          { label:'เลยระยะเวลายืม', data:data.deptStatusLateReturned, backgroundColor:'#dc2626' },
         ]
       },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
@@ -4044,8 +4044,8 @@ function drawExpandedChart(data, palette, fontColor){
         labels: data.deptStatusLabels,
         datasets:[
           { label:'กำลังยืมอยู่', data:data.deptStatusActive, backgroundColor:'#b45309' },
-          { label:'คืนแล้ว (ก่อน/ตรงเวลา)', data:data.deptStatusReturned, backgroundColor:'#15803d' },
-          { label:'คืนสาย (เลยกำหนด)', data:data.deptStatusLateReturned, backgroundColor:'#dc2626' },
+          { label:'คืนแล้ว (ก่อน/ตามระยะเวลา)', data:data.deptStatusReturned, backgroundColor:'#15803d' },
+          { label:'เลยระยะเวลายืม', data:data.deptStatusLateReturned, backgroundColor:'#dc2626' },
         ]
       },
       options:{ maintainAspectRatio:false, indexAxis:'y', plugins:{
@@ -5130,19 +5130,19 @@ function excelDateToISO(v){
   return null;
 }
 
-/* ===================== การคืนเครื่องมือ (คืนก่อนกำหนด / คืนตรงเวลา / คืนสาย) =====================
+/* ===================== การคืนเครื่องมือ (คืนก่อน / ตามระยะเวลา / เลยระยะเวลายืม) =====================
    ผู้ดูแลระบบเป็นผู้กดคืนเครื่องมือเองเสมอ (ไม่มีการปิดใบยืมอัตโนมัติ)
    ระบบจะเทียบ "วันที่คืน (returnDate)" ที่กำหนดไว้ในใบยืม กับวันที่กดคืนจริง แล้วตั้งสถานะให้อัตโนมัติ:
-     - กดคืนก่อนถึงวันครบกำหนด  -> 'early-returned'  (คืนก่อนกำหนด)
-     - กดคืนตรงวันครบกำหนดพอดี -> 'returned'         (คืนตรงเวลา)
-     - กดคืนหลังวันครบกำหนดไปแล้ว -> 'late-returned'   (คืนสาย/เลยกำหนด)
+     - กดคืนก่อนถึงวันครบกำหนด  -> 'early-returned'  (คืนก่อน)
+     - กดคืนตรงวันครบกำหนดพอดี -> 'returned'         (ตามระยะเวลา)
+     - กดคืนหลังวันครบกำหนดไปแล้ว -> 'late-returned'   (เลยระยะเวลายืม/เลยกำหนด)
 ====================================================================================== */
 // หมวดของใบยืมที่ยัง "active" (ยังไม่คืน) เทียบกับวันครบกำหนดคืน ณ วันนี้
 // ใช้จัดกลุ่มในเมนู "คืนเครื่องมือ" และเพื่อแจ้งเตือนใบยืมที่เลยกำหนดแล้ว
 function borrowTimingCategory(b){
   const today = todayISO();
   if(!b.returnDate) return 'early';
-  if(b.returnDate > today) return 'early';   // ยังไม่ถึงกำหนด (ถ้าคืนวันนี้ = คืนก่อนกำหนด)
+  if(b.returnDate > today) return 'early';   // ยังไม่ถึงกำหนด (ถ้าคืนวันนี้ = คืนก่อน)
   if(b.returnDate === today) return 'ontime'; // ถึงกำหนดคืนพอดีวันนี้
   return 'late'; // เลยวันครบกำหนดคืนแล้ว แต่ยังไม่ได้คืน
 }
@@ -5168,9 +5168,9 @@ async function returnBorrowNow(id){
   if(!b) return;
   const today = todayISO();
   let newStatus, confirmLabel;
-  if(!b.returnDate || today < b.returnDate){ newStatus='early-returned'; confirmLabel='ก่อนกำหนด'; }
-  else if(today === b.returnDate){ newStatus='returned'; confirmLabel='ตรงเวลา'; }
-  else { newStatus='late-returned'; confirmLabel=`สาย (เลยกำหนดมาแล้ว ${daysLate(b)} วัน)`; }
+  if(!b.returnDate || today < b.returnDate){ newStatus='early-returned'; confirmLabel='ก่อน'; }
+  else if(today === b.returnDate){ newStatus='returned'; confirmLabel='ตามระยะเวลา'; }
+  else { newStatus='late-returned'; confirmLabel=`เลยระยะเวลายืม ${daysLate(b)} วัน`; }
   if(!confirm(`ยืนยันคืนเครื่องมือ${confirmLabel}สำหรับใบยืม ${b.code} (${b.name})?\nเครื่องมือทุกชิ้นในใบยืมนี้จะกลับมาว่างให้ยืมใหม่ได้ทันที`)) return;
   (b.itemsExpanded||[]).forEach(rec=>{ if(!rec.returned){ rec.returned = true; rec.returnedAt = today; } });
   b.status = newStatus;
@@ -5180,9 +5180,9 @@ async function returnBorrowNow(id){
 }
 /* ===================== Reports export/print ===================== */
 function statusLabelTH(status){
-  if(status==='early-returned') return 'คืนก่อนกำหนด';
-  if(status==='late-returned') return 'คืนสาย (เลยกำหนด)';
-  if(status==='returned') return 'คืนตรงเวลา';
+  if(status==='early-returned') return 'คืนก่อน';
+  if(status==='late-returned') return 'เลยระยะเวลายืม';
+  if(status==='returned') return 'ตามระยะเวลา';
   return 'กำลังยืมอยู่';
 }
 function exportExcel(){
