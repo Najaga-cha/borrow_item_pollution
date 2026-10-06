@@ -1468,7 +1468,7 @@ function renderReturnTab(){
   const sub = state.returnSubTab || 'all';
   const q = (state.returnSearch||'').trim().toLowerCase();
   const activeAll = state.borrows.filter(b=>b.status==='active');
-  const byTiming = sub==='all' ? activeAll : activeAll.filter(b=>borrowTimingCategory(b)===sub);
+  const byTiming = (sub==='all' || sub==='calendar') ? activeAll : activeAll.filter(b=>borrowTimingCategory(b)===sub);
   const list = q ? byTiming.filter(b=>{
     return (b.code||'').toLowerCase().includes(q)
       || (b.name||'').toLowerCase().includes(q)
@@ -1483,13 +1483,14 @@ function renderReturnTab(){
     {id:'early', label:'คืนก่อน', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>', count: cEarly},
     {id:'ontime', label:'ตามระยะเวลา', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', count: cOntime},
     {id:'late', label:'เลยระยะเวลายืม', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', count: cLate},
+    {id:'calendar', label:'ปฏิทินการยืม', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', count: 0},
   ];
   const successHTML = state.lastCreatedReturnId ? renderReturnSuccessBanner() : '';
   return `
   ${successHTML}
   <div class="card p-5 md:p-7 mt-5">
     <h2 class="text-lg font-bold flex items-center gap-2 mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> คืนเครื่องมือ (สำหรับ Admin)</h2>
-    <p class="text-sm subtle mb-4">รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเปิดหน้าต่างให้เลือกได้ว่าจะคืนกี่ชิ้น (คืนครบทุกชิ้น หรือคืนแค่บางชิ้นก็ได้) แล้วเทียบวันที่คืนจริงกับวันครบกำหนดคืนเพื่อบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อน/ตามระยะเวลา/เลยระยะเวลายืม พร้อมปรับสถานะเครื่องมือที่เลือกคืนให้พร้อมยืมใหม่ทันที ใบยืมจะปิดโดยอัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
+    <p class="text-sm subtle mb-4" ${sub==='calendar'?'hidden':''}>รายการใบยืมที่ยังไม่คืน — กด "คืนเครื่องมือ" เมื่อผู้ยืมนำเครื่องมือมาคืน ระบบจะเปิดหน้าต่างให้เลือกได้ว่าจะคืนกี่ชิ้น (คืนครบทุกชิ้น หรือคืนแค่บางชิ้นก็ได้) แล้วเทียบวันที่คืนจริงกับวันครบกำหนดคืนเพื่อบันทึกสถานะให้อัตโนมัติว่าเป็นการคืนก่อน/ตามระยะเวลา/เลยระยะเวลายืม พร้อมปรับสถานะเครื่องมือที่เลือกคืนให้พร้อมยืมใหม่ทันที ใบยืมจะปิดโดยอัตโนมัติก็ต่อเมื่อคืนครบทุกชิ้นแล้วเท่านั้น</p>
 
     <div class="tabbar mb-4" style="gap:6px">
       ${subTabs.map(t=>`
@@ -1497,9 +1498,9 @@ function renderReturnTab(){
           style="${sub===t.id?'background:var(--primary);color:#fff;border-color:var(--primary);':''}${t.id==='late'&&t.count>0?'border-color:#dc2626;color:'+(sub===t.id?'#fff':'#dc2626')+';':''}">
           ${t.icon} ${t.label} ${t.count>0?`<span class="pill ${sub===t.id?'':'pill-warn'}" style="margin-left:4px;${sub===t.id?'background:rgba(255,255,255,.25);color:#fff;':''}">${t.count}</span>`:''}
         </button>`).join('')}
-      <button type="button" class="btn-ghost" data-act="goto-borrow-calendar" title="เปิดปฏิทินการยืม"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;margin-right:0.32em;display:inline-block;flex:none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ปฏิทินการยืม</button>
     </div>
 
+    ${sub==='calendar' ? renderCalendar() : `
     <div class="mb-4">
       <label class="lbl">ค้นหาใบยืมที่ต้องการคืน (รหัสใบยืม / ชื่อผู้ยืม / เบอร์โทร / หน่วยงาน)</label>
       <input id="ret-search" class="inp" value="${esc(state.returnSearch||'')}" placeholder="พิมพ์เพื่อค้นหา หรือเว้นว่างเพื่อดูรายการทั้งหมด"/>
@@ -1528,7 +1529,7 @@ function renderReturnTab(){
         </div>
       </div>`;
       }).join('')
-    }
+    }`}
   </div>`;
 }
 
@@ -4303,7 +4304,7 @@ function onClick(e){
   if(act==='download-slip-pdf'){ downloadSlipPDF(el.dataset.id); return; }
   if(act==='mailto-notify'){ notifyAdmin(el.dataset.id); return; }
   if(act==='mview'){ state.manage.view = el.dataset.v; render(); return; }
-  if(act==='goto-borrow-calendar'){ state.tab='manage'; state.manage.view='calendar'; state.lastCreatedBorrowId=null; state.lastCreatedReturnId=null; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
+
   if(act==='calib-subtab'){ state.manage.calibSubView = el.dataset.v; render(); return; }
   if(act==='reorder-cat'){ state.manage.reorderCat = el.dataset.cat; render(); return; }
   if(act==='reorder-up'){ moveEquipGroup(el.dataset.cat, el.dataset.name, -1); return; }
