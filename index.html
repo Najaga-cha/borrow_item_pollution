@@ -1483,7 +1483,30 @@ function unitReturnBadge(b, rec){
   const d = Math.round((new Date(iso+'T00:00:00') - new Date(due+'T00:00:00'))/86400000);
   return `<span class="pill pill-danger">เลยกำหนด ${d} วัน</span>`;
 }
-function itemReturnGroups(){
+/* ----- ตัวกรองช่วงเวลา (อิงวันที่คืนจริง) — แยกอิสระจากตัวกรองในหน้ารายงาน ----- */
+function itemReturnPeriod(){
+  if(!state.itemReturnPeriod){
+    const n = new Date();
+    state.itemReturnPeriod = { mode:'month', month:n.getMonth(), year:n.getFullYear(), fy:n.getFullYear()+543, half:'oct-mar', weekStart:'' };
+  }
+  return state.itemReturnPeriod;
+}
+function itemReturnRange(){
+  const p = itemReturnPeriod();
+  if(p.mode==='all') return null;
+  if(p.mode==='week') return weekRange(p.weekStart || todayISO());
+  if(p.mode==='month') return monthRange(p.month, p.year);
+  if(p.mode==='half') return halfRange(p.half, p.fy);
+  if(p.mode==='fy') return fiscalRange(p.fy);
+  return null;
+}
+function unitInRange(u, range){
+  if(!range) return true;
+  return !!u.iso && u.iso >= range.start && u.iso <= range.end;
+}
+/* ใบยืมที่มีการคืนอย่างน้อย 1 ชิ้นในช่วง range (null = ทั้งหมด)
+   แถวย่อยที่แสดง = ชิ้นที่คืนในช่วงนั้น + ชิ้นที่ยังไม่คืน (ชิ้นที่คืนนอกช่วงจะถูกซ่อน) */
+function itemReturnGroups(range){
   const groups = [];
   state.borrows.forEach(b=>{
     const exp = b.itemsExpanded || [];
@@ -1501,36 +1524,89 @@ function itemReturnGroups(){
         iso: unitReturnIso(b, rec),
       };
     });
-    const isos = units.map(u=>u.iso).filter(Boolean).sort();
-    groups.push({ b, units, lastIso: isos.length ? isos[isos.length-1] : '', firstIso: isos.length ? isos[0] : '' });
+    if(!units.some(u=>u.rec.returned && unitInRange(u, range))) return;
+    groups.push({ b, allUnits: units, shown: units.filter(u=> !u.rec.returned || unitInRange(u, range)) });
   });
-  groups.sort((x,y)=> (y.lastIso||'').localeCompare(x.lastIso||'') || (x.b.code||'').localeCompare(y.b.code||''));
   return groups;
 }
-function renderItemReturnTable(){
+/* ผลลัพธ์ที่แสดงจริง = ช่วงเวลา + คำค้นหา
+   - ค้นหาตรงกับชื่อเครื่องมือ/รหัสครุภัณฑ์ -> แสดงเฉพาะหัวใบยืม + เครื่องมือชิ้นที่ตรงเท่านั้น
+   - ค้นหาตรงกับรหัสใบยืม/ผู้ยืม/หน่วยงาน/พื้นที่ -> แสดงเครื่องมือทุกชิ้นของใบนั้น */
+function itemReturnView(){
   const q = (state.returnSearch||'').trim().toLowerCase();
-  const all = itemReturnGroups();
-  const groups = q ? all.filter(g=>{
-    const b = g.b;
-    return (b.code||'').toLowerCase().includes(q) || (b.name||'').toLowerCase().includes(q)
-      || (b.dept||'').toLowerCase().includes(q) || (b.province||'').toLowerCase().includes(q)
-      || g.units.some(u=> u.name.toLowerCase().includes(q) || String(u.assetCode).toLowerCase().includes(q));
-  }) : all;
+  const range = itemReturnRange();
+  let groups = itemReturnGroups(range);
+  let searching = false;
+  if(q){
+    const out = [];
+    groups.forEach(g=>{
+      const matched = g.shown.filter(u=> u.name.toLowerCase().includes(q) || String(u.assetCode).toLowerCase().includes(q));
+      if(matched.length){ out.push({ ...g, shown: matched, byUnit:true }); return; }
+      const b = g.b;
+      if((b.code||'').toLowerCase().includes(q) || (b.name||'').toLowerCase().includes(q)
+         || (b.dept||'').toLowerCase().includes(q) || (b.province||'').toLowerCase().includes(q)) out.push(g);
+    });
+    groups = out; searching = true;
+  }
+  groups.forEach(g=>{
+    const isos = g.shown.filter(u=>u.rec.returned && u.iso && unitInRange(u, range)).map(u=>u.iso).sort();
+    g.firstIso = isos[0] || ''; g.lastIso = isos[isos.length-1] || '';
+  });
+  groups.sort((x,y)=> (y.lastIso||'').localeCompare(x.lastIso||'') || (x.b.code||'').localeCompare(y.b.code||''));
+  return { groups, range, q, searching };
+}
+function renderItemReturnTable(){
+  const p = itemReturnPeriod();
+  const { groups, range, q, searching } = itemReturnView();
   const collapsed = state.itemReturnCollapsed || (state.itemReturnCollapsed = {});
-  const totalReturned = groups.reduce((s,g)=>s+g.units.filter(u=>u.rec.returned).length,0);
+  const totalReturned = groups.reduce((s,g)=>s+g.shown.filter(u=>u.rec.returned).length,0);
+  let prevInfo = '';
+  if(range){
+    const prev = getPreviousRange(range);
+    prevInfo = ` • เทียบกับช่วงก่อนหน้า ${fmtDateBE(prev.start)} — ${fmtDateBE(prev.end)} (พบใบยืม ${itemReturnGroups(prev).length} รายการ)`;
+  }
   const chev = (open)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;transition:.15s;transform:rotate(${open?90:0}deg)"><polyline points="9 18 15 12 9 6"/></svg>`;
+  const sel = (v,cur)=> v===cur ? 'selected' : '';
   return `
+    <div class="flex flex-wrap gap-3 items-end mb-3">
+      <div>
+        <label class="lbl">ช่วงเวลา (วันที่คืนจริง)</label>
+        <select id="ir-mode" class="inp">
+          <option value="week" ${sel('week',p.mode)}>รายสัปดาห์</option>
+          <option value="month" ${sel('month',p.mode)}>รายเดือน</option>
+          <option value="half" ${sel('half',p.mode)}>ราย 6 เดือน</option>
+          <option value="fy" ${sel('fy',p.mode)}>รายปีงบประมาณ</option>
+          <option value="all" ${sel('all',p.mode)}>ทั้งหมด</option>
+        </select>
+      </div>
+      ${p.mode==='week' ? `<div><label class="lbl">วันเริ่มสัปดาห์</label><input type="date" id="ir-week" class="inp" value="${p.weekStart||todayISO()}"/></div>` : ''}
+      ${p.mode==='month' ? `
+        <div><label class="lbl">เดือน</label>
+          <select id="ir-month" class="inp">${THAI_MONTHS.map((m,i)=>`<option value="${i}" ${p.month===i?'selected':''}>${m}</option>`).join('')}</select>
+        </div>
+        <div><label class="lbl">ปี พ.ศ.</label><input type="number" id="ir-year" class="inp" value="${beYear(p.year)}"/></div>` : ''}
+      ${p.mode==='half' ? `
+        <div><label class="lbl">ช่วง</label>
+          <select id="ir-half" class="inp">
+            <option value="oct-mar" ${sel('oct-mar',p.half)}>ตุลาคม - มีนาคม</option>
+            <option value="apr-sep" ${sel('apr-sep',p.half)}>เมษายน - กันยายน</option>
+          </select>
+        </div>
+        <div><label class="lbl">ปีงบประมาณ พ.ศ.</label><input type="number" id="ir-fy" class="inp" value="${p.fy}"/></div>` : ''}
+      ${p.mode==='fy' ? `<div><label class="lbl">ปีงบประมาณ พ.ศ.</label><input type="number" id="ir-fy2" class="inp" value="${p.fy}"/></div>` : ''}
+    </div>
+    <div class="text-sm subtle mb-4">${range ? `ช่วงข้อมูล: ${fmtDateBE(range.start)} — ${fmtDateBE(range.end)} • ` : 'ช่วงข้อมูล: ทั้งหมด • '}พบใบยืม ${groups.length} รายการ${prevInfo}</div>
     <div class="mb-4">
       <label class="lbl">ค้นหา (รหัสใบยืม / ผู้ยืม / หน่วยงาน / พื้นที่ / ชื่อเครื่องมือ / รหัสครุภัณฑ์)</label>
       <input id="ret-search" class="inp" value="${esc(state.returnSearch||'')}" placeholder="พิมพ์เพื่อค้นหา หรือเว้นว่างเพื่อดูรายการทั้งหมด"/>
     </div>
     <h3 class="font-bold mb-1">รายละเอียดการคืนเครื่องมือแต่ละชิ้น</h3>
-    <p class="text-sm subtle mb-3">${groups.length} ใบยืม • คืนแล้ว ${totalReturned} ชิ้น • วันที่คืนจริงอิงจากวันที่กดคืนในระบบ • กดที่แถวใบยืมเพื่อย่อ/ขยายรายการเครื่องมือ</p>
+    <p class="text-sm subtle mb-3">${groups.length} ใบยืม • คืนแล้ว ${totalReturned} ชิ้น • วันที่คืนจริงอิงจากวันที่กดคืนในระบบ • ${searching ? 'ค้นหาตรงกับชื่อเครื่องมือ จะแสดงเฉพาะชิ้นที่ตรงกัน' : 'กดที่แถวใบยืมเพื่อย่อ/ขยายรายการเครื่องมือ'}</p>
     ${groups.length>0 ? `<div class="flex gap-2 mb-3 flex-wrap">
       <button type="button" class="btn-ghost" data-act="collapse-all-item-return">ย่อทั้งหมด (เห็นเฉพาะหัวใบยืม)</button>
       <button type="button" class="btn-ghost" data-act="expand-all-item-return">ขยายทั้งหมด</button>
     </div>` : ''}
-    ${groups.length===0 ? `<div class="empty-hint">${q ? 'ไม่พบรายการคืนที่ตรงกับคำค้นหานี้' : 'ยังไม่มีการคืนเครื่องมือในระบบ'}</div>` : `
+    ${groups.length===0 ? `<div class="empty-hint">${q ? 'ไม่พบรายการคืนที่ตรงกับคำค้นหานี้ในช่วงเวลาที่เลือก' : 'ไม่มีการคืนเครื่องมือในช่วงเวลาที่เลือก'}</div>` : `
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr>
@@ -1540,14 +1616,15 @@ function renderItemReturnTable(){
         <tbody>
           ${groups.map(g=>{
             const b = g.b;
-            const open = !collapsed[b.id];
-            const total = g.units.length;
-            const done = g.units.filter(u=>u.rec.returned).length;
+            const open = (g.byUnit && searching) ? true : !collapsed[b.id];
+            const total = g.allUnits.length;
+            const done = g.allUnits.filter(u=>u.rec.returned).length;
             const left = total - done;
-            const lastTxt = g.lastIso ? (g.firstIso && g.firstIso!==g.lastIso ? fmtDateShort(g.firstIso)+' – '+fmtDateShort(g.lastIso) : fmtDateShort(g.lastIso)) : '-';
+            const lastTxt = g.lastIso ? (g.firstIso!==g.lastIso ? fmtDateShort(g.firstIso)+' – '+fmtDateShort(g.lastIso) : fmtDateShort(g.lastIso)) : '-';
+            const hs = 'background:var(--chip-bg);border-top:2px solid var(--border)';
             const head = `
           <tr data-act="toggle-item-return" data-id="${b.id}" style="cursor:pointer">
-            <td style="background:var(--chip-bg);border-top:2px solid var(--border)">
+            <td style="${hs}">
               <div class="flex items-center gap-2">
                 <span class="subtle" style="display:inline-flex">${chev(open)}</span>
                 <span style="width:10px;height:10px;border-radius:999px;background:var(--primary);flex:none"></span>
@@ -1556,15 +1633,15 @@ function renderItemReturnTable(){
               </div>
               <div class="text-xs subtle" style="margin:3px 0 0 42px">${esc(b.dept||'-')} • ${esc(b.name||'-')} • ${esc(b.province||'-')}</div>
             </td>
-            <td class="text-xs" style="background:var(--chip-bg);border-top:2px solid var(--border)">${fmtDateShort(b.borrowDate)}</td>
-            <td class="text-xs" style="background:var(--chip-bg);border-top:2px solid var(--border)">${fmtDateShort(b.returnDate)}</td>
-            <td class="text-xs" style="background:var(--chip-bg);border-top:2px solid var(--border)">${lastTxt}</td>
-            <td style="background:var(--chip-bg);border-top:2px solid var(--border)">${borrowStatusBadge(b)} <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px" data-act="view-slip-preview" data-id="${b.id}">ดูใบยืม</button></td>
-            <td style="background:var(--chip-bg);border-top:2px solid var(--border);text-align:center;font-weight:700">${total}</td>
-            <td style="background:var(--chip-bg);border-top:2px solid var(--border);text-align:center;font-weight:700;color:#15803d">${done}</td>
-            <td style="background:var(--chip-bg);border-top:2px solid var(--border);text-align:center;font-weight:700;color:${left>0?'#b45309':'var(--subtle)'}">${left}</td>
+            <td class="text-xs" style="${hs}">${fmtDateShort(b.borrowDate)}</td>
+            <td class="text-xs" style="${hs}">${fmtDateShort(b.returnDate)}</td>
+            <td class="text-xs" style="${hs}">${lastTxt}</td>
+            <td style="${hs}">${borrowStatusBadge(b)} <button type="button" class="btn-ghost" style="padding:2px 8px;font-size:11px;margin-left:4px" data-act="view-slip-preview" data-id="${b.id}">ดูใบยืม</button></td>
+            <td style="${hs};text-align:center;font-weight:700">${total}</td>
+            <td style="${hs};text-align:center;font-weight:700;color:#15803d">${done}</td>
+            <td style="${hs};text-align:center;font-weight:700;color:${left>0?'#b45309':'var(--subtle)'}">${left}</td>
           </tr>`;
-            const kids = !open ? '' : g.units.map(u=>`
+            const kids = !open ? '' : g.shown.map(u=>`
           <tr>
             <td style="padding-left:44px">
               <span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:var(--border);margin-right:10px;vertical-align:middle"></span>${esc(u.name)}
@@ -4557,7 +4634,7 @@ function onClick(e){
     returnSelectedItems(b.id, ids);
     return;
   }
-  if(act==='collapse-all-item-return'){ state.itemReturnCollapsed = {}; itemReturnGroups().forEach(g=>{ state.itemReturnCollapsed[g.b.id] = true; }); render(); return; }
+  if(act==='collapse-all-item-return'){ state.itemReturnCollapsed = {}; itemReturnView().groups.forEach(g=>{ state.itemReturnCollapsed[g.b.id] = true; }); render(); return; }
   if(act==='expand-all-item-return'){ state.itemReturnCollapsed = {}; render(); return; }
   if(act==='toggle-item-return'){ state.itemReturnCollapsed = state.itemReturnCollapsed || {}; const id = el.dataset.id; state.itemReturnCollapsed[id] = !state.itemReturnCollapsed[id]; render(); return; }
   if(act==='return-subtab'){ state.returnSubTab = el.dataset.subtab; render(); return; }
@@ -4677,6 +4754,12 @@ function onChange(e){
 
   if(el.id==='import-file'){ importExcel(el.files[0]); return; }
 
+  if(el.id==='ir-mode'){ itemReturnPeriod().mode = el.value; render(); return; }
+  if(el.id==='ir-week'){ itemReturnPeriod().weekStart = el.value; render(); return; }
+  if(el.id==='ir-month'){ itemReturnPeriod().month = parseInt(el.value); render(); return; }
+  if(el.id==='ir-year'){ itemReturnPeriod().year = (parseInt(el.value)||beYear(new Date().getFullYear())) - 543; render(); return; }
+  if(el.id==='ir-half'){ itemReturnPeriod().half = el.value; render(); return; }
+  if(el.id==='ir-fy' || el.id==='ir-fy2'){ itemReturnPeriod().fy = parseInt(el.value) || (new Date().getFullYear()+543); render(); return; }
   if(el.id==='r-mode'){ state.reports.mode = el.value; render(); return; }
   if(el.id==='r-week'){ state.reports.weekStart = el.value; render(); return; }
   if(el.id==='r-month'){ state.reports.month = parseInt(el.value); render(); return; }
