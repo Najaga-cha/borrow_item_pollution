@@ -2379,7 +2379,7 @@ function buildSlipHTML(b){
       <div><b>วันที่ยืม:</b> ${esc(fmtDateBE(b.borrowDate))}</div>
       <div class="slip-col2"><b>ถึงวันที่:</b> ${esc(fmtDateBE(b.returnDate))}</div>
     </div>
-    <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน:</b> ${esc(b.province)}${b.notes?' • หมายเหตุ: '+esc(b.notes):''}</div>
+    <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน:</b> ${esc(b.province)}${b.notes?' • กรณี: '+esc(b.notes):''}</div>
 
     <div class="slip-section-title-row">
       <div class="slip-section-title">รายการเครื่องมือที่ยืม</div>
@@ -2405,8 +2405,9 @@ function printSlip(id){
   // ใส่เลขหน้ามุมขวาบน (เฉพาะตอนพิมพ์ใบยืม) ด้วย CSS @page margin box ล้วนๆ ไม่กระทบวิธีพิมพ์เดิม
   const pageNumStyle = document.createElement('style');
   pageNumStyle.id = 'slip-page-number-style';
+  const refCssText = String(b.code||'').replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/[\r\n]/g,' ');
   pageNumStyle.textContent = `@media print{
-    @page{ margin-top:18mm; @top-right{ content: counter(page) "/" counter(pages); font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:0; } }
+    @page{ margin-top:18mm; @top-right{ content: "${refCssText}\\A0\\A0\\A0" counter(page) "/" counter(pages); font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:0; } }
     body.printing-slip .slip-page{ padding-top:6mm; }
   }`;
   document.head.appendChild(pageNumStyle);
@@ -2521,7 +2522,7 @@ function slipFileName(b){
 function pdfFileName(b){
   return `ใบยืม_${b.code.replace(/[\/\\]/g,'-')}.pdf`;
 }
-async function buildPDFDataUriFromHTML(html, css){
+async function buildPDFDataUriFromHTML(html, css, refText){
   if(!window.html2canvas || !window.jspdf) throw new Error('ไม่พบไลบรารีสร้าง PDF (html2canvas/jsPDF)');
   const { jsPDF } = window.jspdf;
 
@@ -2625,6 +2626,23 @@ async function buildPDFDataUriFromHTML(html, css){
       pdf.setFontSize(10);
       pdf.setTextColor(80,80,80);
       pdf.text(`${p}/${totalPages}`, pageWidth - 10, 8, { align: 'right' });
+      // รหัสอ้างอิงอยู่หน้าเลขหน้า (วาดเป็นภาพ เพราะ jsPDF ไม่มีฟอนต์ไทย)
+      if(refText){
+        const pn = `${p}/${totalPages}`;
+        const pnW = pdf.getTextWidth(pn);
+        const cv = document.createElement('canvas');
+        const sc = 8, fontPx = 11;
+        const cx = cv.getContext('2d');
+        const fnt = `${fontPx*sc}px 'TH Sarabun PSK','Sarabun',sans-serif`;
+        cx.font = fnt;
+        const tw = cx.measureText(refText).width;
+        cv.width = Math.ceil(tw)+4; cv.height = Math.ceil(fontPx*sc*1.5);
+        cx.font = fnt;
+        cx.fillStyle = '#505050'; cx.textBaseline = 'middle';
+        cx.fillText(refText, 2, cv.height/2);
+        const wMm = cv.width/sc*0.3528, hMm = cv.height/sc*0.3528;
+        pdf.addImage(cv.toDataURL('image/png'), 'PNG', pageWidth - 10 - pnW - 4 - wMm, 8 - hMm*0.62, wMm, hMm);
+      }
     }
 
     dataUri = pdf.output('datauristring');
@@ -2634,7 +2652,7 @@ async function buildPDFDataUriFromHTML(html, css){
   return dataUri;
 }
 async function buildSlipPDFDataUri(b){
-  return buildPDFDataUriFromHTML(buildSlipHTML(b), SLIP_STANDALONE_CSS);
+  return buildPDFDataUriFromHTML(buildSlipHTML(b), SLIP_STANDALONE_CSS, b.code);
 }
 function downloadSlipPDF(id){
   const b = state.borrows.find(x=>x.id===id);
