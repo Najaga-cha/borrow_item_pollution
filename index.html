@@ -404,6 +404,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-grid td.sig-cell{ width:50%; vertical-align:top; padding:0; }
 .sig-grid td.sig-cell:first-child{ padding-right:20px; }
 .sig-grid td.sig-cell:last-child{ padding-left:20px; }
+.sig-grid tr:nth-child(1) td.sig-cell{ padding-top:28px; }
 .sig-grid tr:nth-child(2) td.sig-cell{ padding-top:44px; }
 .sig-box{ font-size:14pt; }
 .sig-row{ display:flex; align-items:flex-end; white-space:nowrap; height:2.3em; position:relative; }
@@ -2482,7 +2483,8 @@ const SLIP_STANDALONE_CSS = `
   .sig-grid td.sig-cell{ width:50%; vertical-align:top; padding:0; }
   .sig-grid td.sig-cell:first-child{ padding-right:20px; }
   .sig-grid td.sig-cell:last-child{ padding-left:20px; }
-  .sig-grid tr:nth-child(2) td.sig-cell{ padding-top:44px; }
+  .sig-grid tr:nth-child(1) td.sig-cell{ padding-top:28px; }
+.sig-grid tr:nth-child(2) td.sig-cell{ padding-top:44px; }
   .sig-box{ font-size:14pt; }
   .sig-row{ display:flex; align-items:flex-end; white-space:nowrap; height:2.3em; position:relative; }
   .sig-row-label{ flex-shrink:0; }
