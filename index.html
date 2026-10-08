@@ -502,8 +502,6 @@ const EQUIPMENT_SEED = []; // [แก้ไข] เดิมฝังข้อ�
 const PROVINCES = ["กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"];
 const DEPTS = ["สตพ.1", "สตพ.2", "สตพ.3", "สตฉ.", "สรม.", "สผป.", "ฝบท.", "กจส.", "กจน.", "กจอ.", "ศวส."];
 const CATEGORIES = ["ด้านน้ำ", "ด้านอากาศ", "ด้านฉุกเฉิน", "ด้านดิน", "คอมพิวเตอร์", "เสียง", "ยานพาหนะ"];
-// ชื่อหมวดที่แสดงบนหน้าจอ (คีย์ข้อมูลใน Firestore ยังเป็นชื่อเดิม เพื่อให้ข้อมูลเก่าจับคู่ได้)
-function catLabel(c){ return ['คอมพิวเตอร์','เสียง','ยานพาหนะ'].indexOf(c)>=0 ? 'ด้าน'+c : c; }
 
 </script>
 <script>
@@ -977,7 +975,11 @@ async function initData(){
 
   let br = await stGet('borrows:list', true);
   if(!br || !Array.isArray(br)) br = [];
-  state.borrows = normalizeLegacyDepts(br);
+  { const _dd = dedupeBorrowsById(br);
+    const _dupFound = Array.isArray(br) && _dd.length !== br.length;
+    state.borrows = normalizeLegacyDepts(_dd);
+    if(_dupFound){ try{ await saveBorrows(); }catch(e){} } // เขียนข้อมูลที่ล้างซ้ำแล้วกลับลงฐานข้อมูล
+  }
 
   await migrateLegacyAutoReturned();
   await migrateItemsExpandedFingerprint();
@@ -1243,6 +1245,17 @@ function ensureEquipOrder(){
   return changed;
 }
 
+
+// ตัดใบยืมที่ id ซ้ำกัน (เกิดจากการกดยืนยันซ้ำในอดีต) เหลือไว้ใบแรกของแต่ละ id
+function dedupeBorrowsById(list){
+  if(!Array.isArray(list)) return list;
+  const seen = new Set();
+  return list.filter(b=>{
+    if(!b || !b.id) return true;
+    if(seen.has(b.id)) return false;
+    seen.add(b.id); return true;
+  });
+}
 
 // ข้อมูลเก่าที่บันทึกไว้เป็น "สตฉ" (ไม่มีจุด) ทั้งชื่อหน่วยงานและรหัสใบยืม ให้แสดง/นับรวมเป็น "สตฉ." (ปรับในหน่วยความจำเท่านั้น)
 function normalizeLegacyDepts(list){
@@ -1858,7 +1871,7 @@ function renderBorrowDetailModal(){
                 <tr style="border-top:1px solid var(--border);">
                   <td class="p-2">${esc(g.name)}</td>
                   <td class="p-2">${esc(g.assetCode||'-')}</td>
-                  <td class="p-2">${esc(catLabel(g.category||'-'))}</td>
+                  <td class="p-2">${esc(g.category||'-')}</td>
                   <td class="p-2 text-center">${g.qty}</td>
                   <td class="p-2 text-center">${g.returnedQty>0 ? `คืนแล้ว ${g.returnedQty}/${g.qty}` : 'ยังไม่คืน'}</td>
                 </tr>`).join('')}
@@ -2055,7 +2068,7 @@ function renderBorrowTab(){
           <button type="button" class="cat-card ${active?'cat-card-active':''}" style="--c:${col.bg};--c2:${col.bg2}" data-act="toggle-cat" data-cat="${c}">
             ${active? `<span class="cat-card-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;display:block"><polyline points="20 6 9 17 4 12"/></svg></span>` : ''}
             <span class="cat-card-icon-wrap">${catIcon(c)}</span>
-            <span class="cat-card-name">${catLabel(c)}</span>
+            <span class="cat-card-name">${c}</span>
             <span class="cat-card-count">${avail}/${total} พร้อมยืม</span>
             ${pendingCalib>0 ? `<span class="cat-card-pending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;display:block;flex:none"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> รอสอบเทียบ ${pendingCalib} เครื่อง</span>` : ''}
           </button>`;
@@ -2091,7 +2104,7 @@ function renderToolPicker(){
         const col = CATEGORY_COLOR[cat];
         return `
         <div class="tool-panel" style="--c:${col.bg};--c2:${col.bg2}">
-          <div class="tool-panel-head">${catIcon(cat)} ${catLabel(cat)}</div>
+          <div class="tool-panel-head">${catIcon(cat)} ${cat}</div>
           <div class="tool-list">
             ${groups.length===0 ? `<div class="empty-hint">ยังไม่มีข้อมูลเครื่องมือในหมวดนี้</div>` : groups.map(g=>{
               const remain = g.availItems.length;
@@ -2155,7 +2168,7 @@ function renderConfirmBorrowModal(){
   const itemsRows = b.items.map((it,i)=>`
     <tr>
       <td class="c">${i+1}</td>
-      <td>${esc(catLabel(it.category||'-'))}</td>
+      <td>${esc(it.category||'-')}</td>
       <td>${esc(it.name)}</td>
       <td class="c">${it.qty}</td>
     </tr>`).join('');
@@ -2388,7 +2401,7 @@ function buildSlipHTML(b){
     return `
     <tr>
       <td class="c">${i+1}</td>
-      <td>${esc(catLabel(it.category||'-'))}</td>
+      <td>${esc(it.category||'-')}</td>
       <td>${esc(it.name)}</td>
       <td class="assetcode-cell">${codeHtml}</td>
       <td class="c">${it.qty}</td>
@@ -2841,7 +2854,7 @@ function renderCalibTab(){
         <label class="lbl">หมวดหมู่</label>
         <select id="cb-cat" class="inp">
           <option value="">ทั้งหมด</option>
-          ${CATEGORIES.map(c=>`<option value="${c}" ${cm.catFilter===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+          ${CATEGORIES.map(c=>`<option value="${c}" ${cm.catFilter===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       <div>
@@ -2884,7 +2897,7 @@ function renderCalibTab(){
           ${items.length===0 ? `<tr><td colspan="12" class="text-center subtle py-6">ไม่พบข้อมูล</td></tr>` : items.map((e,idx)=>`
             <tr class="${e.calibInfo.cls} ${state.calibSelected.has(e.id)?'calib-row-selected':''}">
               <td class="text-center"><input type="checkbox" class="calib-checkbox calib-row-check" data-id="${e.id}" ${state.calibSelected.has(e.id)?'checked':''}/></td>
-              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${catLabel(e.category)}</span></td>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${e.category}</span></td>
               <td class="text-center">${idx+1}</td>
               <td class="font-mono text-xs calib-asset-code">${esc(e.assetCode||'-')}</td>
               <td class="text-xs">
@@ -2934,7 +2947,7 @@ function renderBrokenTab(){
         <label class="lbl">หมวดหมู่</label>
         <select id="rb-cat" class="inp">
           <option value="">ทั้งหมด</option>
-          ${CATEGORIES.map(c=>`<option value="${c}" ${bm.catFilter===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+          ${CATEGORIES.map(c=>`<option value="${c}" ${bm.catFilter===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       <div class="flex-1 min-w-[180px]">
@@ -2965,7 +2978,7 @@ function renderBrokenTab(){
           ${items.length===0 ? `<tr><td colspan="11" class="text-center subtle py-6">ไม่พบข้อมูล — ไม่มีเครื่องมือที่ชำรุดในขณะนี้</td></tr>` : items.map((e,idx)=>`
             <tr class="calib-row-danger ${state.brokenSelected.has(e.id)?'calib-row-selected':''}">
               <td class="text-center"><input type="checkbox" class="calib-checkbox broken-row-check" data-id="${e.id}" ${state.brokenSelected.has(e.id)?'checked':''}/></td>
-              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${catLabel(e.category)}</span></td>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${e.category}</span></td>
               <td class="text-center">${idx+1}</td>
               <td class="font-mono text-xs calib-asset-code">${esc(e.assetCode||'-')}</td>
               <td class="text-xs">
@@ -3024,7 +3037,7 @@ function renderHistoryTab(){
         <label class="lbl">หมวดหมู่</label>
         <select id="hs-cat" class="inp">
           <option value="">ทั้งหมด</option>
-          ${CATEGORIES.map(c=>`<option value="${c}" ${hm.catFilter===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+          ${CATEGORIES.map(c=>`<option value="${c}" ${hm.catFilter===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       <div>
@@ -3062,7 +3075,7 @@ function renderHistoryTab(){
             <tr>
               <td class="text-xs font-semibold calib-asset-code">${fmtDateBEShort2((r.date||'').slice(0,10))}</td>
               <td class="text-xs"><span class="pill ${r.type==='calib'?'pill-ok':'pill-warn'}" style="white-space:nowrap;">${r.type==='calib'?'สอบเทียบ':'ซ่อมเครื่องมือ'}</span></td>
-              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[r.equip.category]?.bg||'#888'}">${catLabel(r.equip.category)}</span></td>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[r.equip.category]?.bg||'#888'}">${r.equip.category}</span></td>
               <td class="font-mono text-xs calib-asset-code">${esc(r.equip.assetCode||'-')}</td>
               <td class="text-xs">
                 <div class="font-medium">${esc(r.equip.name)}</div>
@@ -3087,10 +3100,10 @@ function renderReorderTab(){
   <div class="card p-5">
     <p class="text-sm subtle mb-4">จัดลำดับการแสดงผลของเครื่องมือแต่ละประเภท — ลำดับนี้จะถูกใช้ทั้งในหน้า "ยืมเครื่องมือ" (ขั้นตอนที่ 3) และหน้า "รายการเครื่องมือ"</p>
     <div class="flex flex-wrap gap-2 mb-5">
-      ${CATEGORIES.map(c=>`<button class="tool-tab ${state.manage.reorderCat===c?'tool-tab-active':''}" data-act="reorder-cat" data-cat="${c}">${catIcon(c)} ${catLabel(c)}</button>`).join('')}
+      ${CATEGORIES.map(c=>`<button class="tool-tab ${state.manage.reorderCat===c?'tool-tab-active':''}" data-act="reorder-cat" data-cat="${c}">${catIcon(c)} ${c}</button>`).join('')}
     </div>
     <div class="tool-panel" style="--c:${col.bg};--c2:${col.bg2}">
-      <div class="tool-panel-head">${catIcon(cat)} ${catLabel(cat)} — ${groups.length} รายการ</div>
+      <div class="tool-panel-head">${catIcon(cat)} ${cat} — ${groups.length} รายการ</div>
       <div class="tool-list">
         ${groups.length===0 ? `<div class="empty-hint">ยังไม่มีข้อมูลเครื่องมือในหมวดนี้</div>` : groups.map((g,idx)=>`
           <div class="tool-row reorder-row" data-cat="${cat}" data-name="${escAttr(g.name)}">
@@ -3116,7 +3129,7 @@ function renderEquipTable(list){
         <label class="lbl">หมวดหมู่</label>
         <select id="m-cat" class="inp">
           <option value="">ทั้งหมด</option>
-          ${CATEGORIES.map(c=>`<option value="${c}" ${state.manage.catFilter===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+          ${CATEGORIES.map(c=>`<option value="${c}" ${state.manage.catFilter===c?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       <div>
@@ -3154,7 +3167,7 @@ function renderEquipTable(list){
             const expired = isCalibExpired(e);
             return `
             <tr>
-              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${catLabel(e.category)}</span></td>
+              <td><span class="mini-chip" style="--c:${CATEGORY_COLOR[e.category]?.bg||'#888'}">${e.category}</span></td>
               <td class="font-medium">${esc(e.name)}</td>
               <td class="font-mono text-xs">${esc(e.assetCode||'-')}</td>
               <td class="text-xs">${esc(e.brand||'')} ${esc(e.model||'')}</td>
@@ -3207,7 +3220,7 @@ function renderEquipModal(){
       <h3 class="text-lg font-bold mb-4">${e.id?'แก้ไขเครื่องมือ':'เพิ่มเครื่องมือใหม่'}</h3>
       <div class="grid md:grid-cols-2 gap-3">
         <div><label class="lbl">ประเภท</label>
-          <select id="em-category" class="inp">${CATEGORIES.map(c=>`<option value="${c}" ${e.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}</select>
+          <select id="em-category" class="inp">${CATEGORIES.map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('')}</select>
         </div>
         <div><label class="lbl">ชื่อเครื่องมือ</label><input id="em-name" class="inp" value="${esc(e.name)}"/></div>
         <div><label class="lbl">รหัสครุภัณฑ์</label><input id="em-assetCode" class="inp" value="${esc(e.assetCode||'')}"/></div>
@@ -3888,7 +3901,7 @@ function renderReportsTab(){
       <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
         ${(()=>{ window.__rfo = reportFilterOptions(); return renderFilterDropdown('dept', 'หน่วยงาน', window.__rfo.depts, state.reports.filterDepts); })()}
         ${renderFilterDropdown('province', 'จังหวัด', window.__rfo.provinces, state.reports.filterProvinces)}
-        ${renderFilterDropdown('category', 'ประเภทเครื่องมือ', window.__rfo.categories, state.reports.filterCategories, c=>catIcon(c)+' ', catLabel)}
+        ${renderFilterDropdown('category', 'ประเภทเครื่องมือ', window.__rfo.categories, state.reports.filterCategories, c=>catIcon(c)+' ')}
         ${renderFilterDropdown('asset', 'รหัสครุภัณฑ์', window.__rfo.assets, state.reports.filterAssets, null, window.__rfo.assetLabel)}
       </div>
     </div>
@@ -4178,7 +4191,7 @@ function drawReportCharts(){
   if(catEl && data.catEntries.length){
     _reportChartInstances.cat = new Chart(catEl, {
       type:'doughnut',
-      data:{ labels:data.catEntries.map(e=>catLabel(e[0])), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:data.catEntries.map(e=>(CATEGORY_COLOR[e[0]]&&CATEGORY_COLOR[e[0]].bg)||'#64748b') }] },
+      data:{ labels:data.catEntries.map(e=>e[0]), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:data.catEntries.map(e=>(CATEGORY_COLOR[e[0]]&&CATEGORY_COLOR[e[0]].bg)||'#64748b') }] },
       options:{ maintainAspectRatio:false, plugins:{
         legend:{ position:'bottom', labels:{boxWidth:10,font:{size:10}} },
         datalabels:{ display:true, color:'#fff', font:{weight:'700',size:11}, formatter:(v,ctx)=>{ const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); const pct=total? (v/total*100):0; return pct<6? '' : v+'\n('+pct.toFixed(0)+'%)'; }, textAlign:'center' }
@@ -4290,7 +4303,7 @@ function drawExpandedChart(data, palette, fontColor){
 
   if(key==='cat' && data.catEntries.length){
     config = { type:'doughnut',
-      data:{ labels:data.catEntries.map(e=>catLabel(e[0])), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:data.catEntries.map(e=>(CATEGORY_COLOR[e[0]]&&CATEGORY_COLOR[e[0]].bg)||'#64748b') }] },
+      data:{ labels:data.catEntries.map(e=>e[0]), datasets:[{ data:data.catEntries.map(e=>e[1]), backgroundColor:data.catEntries.map(e=>(CATEGORY_COLOR[e[0]]&&CATEGORY_COLOR[e[0]].bg)||'#64748b') }] },
       options:{ maintainAspectRatio:false, plugins:{
         legend:{ position:'bottom', labels:{boxWidth:12,font:{size:13}} },
         datalabels:{ display:true, color:'#fff', font:{weight:'700',size:14}, formatter:(v,ctx)=>{ const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0); const pct=total? (v/total*100):0; return pct<6? '' : v+'\n('+pct.toFixed(0)+'%)'; }, textAlign:'center' }
@@ -4991,17 +5004,23 @@ function cancelConfirmBorrow(){
   render();
 }
 
+let _submittingBorrow = false; // กันกดยืนยันซ้ำ (ดับเบิลคลิก/แตะสองครั้ง) ระหว่างรอบันทึก
 async function confirmSubmitBorrow(){
+  if(_submittingBorrow) return;
   const borrow = state.pendingBorrow;
   if(!borrow) return;
-  state.borrows.push(borrow);
-  await saveBorrows();
-  state.lastCreatedBorrowId = borrow.id;
-  state.pendingBorrow = null;
-  resetForm();
-  render();
-
-  notifyAdmin(borrow.id, { auto:true });
+  _submittingBorrow = true;
+  state.pendingBorrow = null; // เคลียร์ก่อนรอบันทึก เพื่อไม่ให้เรียกซ้ำได้
+  try{
+    if(!state.borrows.some(b=>b && b.id===borrow.id)){ // กันใบยืม id ซ้ำ
+      state.borrows.push(borrow);
+      await saveBorrows();
+    }
+    state.lastCreatedBorrowId = borrow.id;
+    resetForm();
+    render();
+    notifyAdmin(borrow.id, { auto:true });
+  } finally { _submittingBorrow = false; }
 }
 
 
@@ -5573,7 +5592,7 @@ function applyBorrowsListUpdate(br){
   const prevIds = new Set(state.borrows.map(b=>b.id));
   const freshNew = br.filter(b=>!prevIds.has(b.id));
 
-  state.borrows = normalizeLegacyDepts(br);
+  state.borrows = normalizeLegacyDepts(dedupeBorrowsById(br));
   render();
 
   if(state.loggedIn && freshNew.length){
