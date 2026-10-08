@@ -206,7 +206,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .ms-dropdown-item:hover{ background: var(--chip-bg); }
 .ms-dropdown-item input{ width:16px; height:16px; accent-color: var(--primary); flex-shrink:0; }
 
-.cat-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:12px; }
+.cat-grid{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(160px,1fr); gap:12px; overflow-x:auto; padding:6px 4px 14px; margin:-6px -4px -14px; scrollbar-width:thin; }
 .cat-card{ position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; padding:22px 14px 16px; border-radius:16px; border:1.5px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; transition:.18s ease; overflow:hidden; }
 .cat-card::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--c); opacity:0; transition:.18s ease; }
 .cat-card:hover{ border-color:var(--c); transform:translateY(-2px); box-shadow:0 10px 22px -10px color-mix(in srgb, var(--c) 55%, transparent); }
@@ -499,7 +499,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 <script>
 const EQUIPMENT_SEED = []; // [แก้ไข] เดิมฝังข้อมูลเครื่องมือชุดเก่าไว้ที่นี่ ทำให้หลังล้างฐานข้อมูลแล้วข้อมูลเก่ากลับมา — ตอนนี้ปล่อยว่าง ให้ใช้ข้อมูลจาก Excel (นำเข้า) เท่านั้น
 const PROVINCES = ["กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"];
-const DEPTS = ["สตพ.1", "สตพ.2", "สตพ.3", "สตฉ", "สรม.", "สผป.", "ฝบท.", "กจส.", "กจน.", "กจอ.", "ศวส."];
+const DEPTS = ["สตพ.1", "สตพ.2", "สตพ.3", "สตฉ.", "สรม.", "สผป.", "ฝบท.", "กจส.", "กจน.", "กจอ.", "ศวส."];
 const CATEGORIES = ["ด้านน้ำ", "ด้านอากาศ", "ด้านฉุกเฉิน", "ด้านดิน", "คอมพิวเตอร์", "เสียง", "ยานพาหนะ"];
 
 </script>
@@ -974,14 +974,14 @@ async function initData(){
 
   let br = await stGet('borrows:list', true);
   if(!br || !Array.isArray(br)) br = [];
-  state.borrows = br;
+  state.borrows = normalizeLegacyDepts(br);
 
   await migrateLegacyAutoReturned();
   await migrateItemsExpandedFingerprint();
 
   let rt = await stGet('returns:list', true);
   if(!rt || !Array.isArray(rt)) rt = [];
-  state.returns = rt;
+  state.returns = normalizeLegacyDepts(rt);
 
   await loadNotifReadState();
 
@@ -1240,6 +1240,12 @@ function ensureEquipOrder(){
   return changed;
 }
 
+
+// ข้อมูลเก่าที่บันทึกไว้เป็น "สตฉ" (ไม่มีจุด) ให้แสดง/นับรวมเป็น "สตฉ." (ปรับในหน่วยความจำเท่านั้น)
+function normalizeLegacyDepts(list){
+  if(Array.isArray(list)) list.forEach(x=>{ if(x && x.dept === 'สตฉ') x.dept = 'สตฉ.'; });
+  return list;
+}
 
 function nextBorrowCode(dept){
   const prefix = dept;
@@ -5553,7 +5559,7 @@ function applyBorrowsListUpdate(br){
   const prevIds = new Set(state.borrows.map(b=>b.id));
   const freshNew = br.filter(b=>!prevIds.has(b.id));
 
-  state.borrows = br;
+  state.borrows = normalizeLegacyDepts(br);
   render();
 
   if(state.loggedIn && freshNew.length){
