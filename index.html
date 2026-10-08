@@ -206,7 +206,8 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .ms-dropdown-item:hover{ background: var(--chip-bg); }
 .ms-dropdown-item input{ width:16px; height:16px; accent-color: var(--primary); flex-shrink:0; }
 
-.cat-grid{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(160px,1fr); gap:12px; overflow-x:auto; padding:6px 4px 14px; margin:-6px -4px -14px; scrollbar-width:thin; }
+.cat-grid{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(160px,1fr); gap:12px; overflow-x:auto; overflow-y:hidden; padding:6px 4px 14px; margin:-6px -4px -14px; scrollbar-width:none; -ms-overflow-style:none; }
+.cat-grid::-webkit-scrollbar{ display:none; height:0; }
 .cat-card{ position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; padding:22px 14px 16px; border-radius:16px; border:1.5px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; transition:.18s ease; overflow:hidden; }
 .cat-card::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--c); opacity:0; transition:.18s ease; }
 .cat-card:hover{ border-color:var(--c); transform:translateY(-2px); box-shadow:0 10px 22px -10px color-mix(in srgb, var(--c) 55%, transparent); }
@@ -1241,9 +1242,16 @@ function ensureEquipOrder(){
 }
 
 
-// ข้อมูลเก่าที่บันทึกไว้เป็น "สตฉ" (ไม่มีจุด) ให้แสดง/นับรวมเป็น "สตฉ." (ปรับในหน่วยความจำเท่านั้น)
+// ข้อมูลเก่าที่บันทึกไว้เป็น "สตฉ" (ไม่มีจุด) ทั้งชื่อหน่วยงานและรหัสใบยืม ให้แสดง/นับรวมเป็น "สตฉ." (ปรับในหน่วยความจำเท่านั้น)
 function normalizeLegacyDepts(list){
-  if(Array.isArray(list)) list.forEach(x=>{ if(x && x.dept === 'สตฉ') x.dept = 'สตฉ.'; });
+  const fixCode = (c)=> (typeof c === 'string' && c.indexOf('สตฉ-') === 0) ? 'สตฉ.-' + c.slice(4) : c;
+  if(Array.isArray(list)) list.forEach(x=>{
+    if(!x) return;
+    if(x.dept === 'สตฉ') x.dept = 'สตฉ.';
+    // รหัสใบยืม/ใบคืนเก่า เช่น สตฉ-0001/2569 -> สตฉ.-0001/2569
+    if(x.code) x.code = fixCode(x.code);
+    if(x.borrowCode) x.borrowCode = fixCode(x.borrowCode);
+  });
   return list;
 }
 
