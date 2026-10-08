@@ -501,7 +501,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 const EQUIPMENT_SEED = []; // [แก้ไข] เดิมฝังข้อมูลเครื่องมือชุดเก่าไว้ที่นี่ ทำให้หลังล้างฐานข้อมูลแล้วข้อมูลเก่ากลับมา — ตอนนี้ปล่อยว่าง ให้ใช้ข้อมูลจาก Excel (นำเข้า) เท่านั้น
 const PROVINCES = ["กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"];
 const DEPTS = ["สตพ.1", "สตพ.2", "สตพ.3", "สตฉ.", "สรม.", "สผป.", "ฝบท.", "กจส.", "กจน.", "กจอ.", "ศวส."];
-const CATEGORIES = ["ด้านน้ำ", "ด้านอากาศ", "ด้านฉุกเฉิน", "ด้านดิน", "คอมพิวเตอร์", "เสียง", "ยานพาหนะ"];
+const CATEGORIES = ["ด้านน้ำ", "ด้านอากาศ", "ด้านฉุกเฉิน", "ด้านดิน", "คอมพิวเตอร์", "ด้านเสียง", "ด้านยานพาหนะ"];
 
 </script>
 <script>
@@ -723,8 +723,8 @@ const CATEGORY_COLOR = {
   'ด้านฉุกเฉิน': {bg:'#dc2626', bg2:'#fef2f2', txt:'#b91c1c', ring:'#f87171'},
   'ด้านดิน': {bg:'#a16207', bg2:'#fefce8', txt:'#854d0e', ring:'#facc15'},
   'คอมพิวเตอร์': {bg:'#7c3aed', bg2:'#f5f3ff', txt:'#6d28d9', ring:'#a78bfa'},
-  'เสียง': {bg:'#db2777', bg2:'#fdf2f8', txt:'#be185d', ring:'#f472b6'},
-  'ยานพาหนะ': {bg:'#16a34a', bg2:'#f0fdf4', txt:'#15803d', ring:'#4ade80'},
+  'ด้านเสียง': {bg:'#db2777', bg2:'#fdf2f8', txt:'#be185d', ring:'#f472b6'},
+  'ด้านยานพาหนะ': {bg:'#16a34a', bg2:'#f0fdf4', txt:'#15803d', ring:'#4ade80'},
 };
 
 function beYear(y){ return y + 543; }
@@ -966,7 +966,7 @@ async function initData(){
   let eq = r.value;
   if(!r.ok){ eq = Array.isArray(MEM['equipment:list']) ? MEM['equipment:list'] : []; console.warn('อ่านรายการเครื่องมือจากฐานข้อมูลไม่สำเร็จ — จะไม่บันทึกทับ'); }
   else if(!Array.isArray(eq)) eq = [];
-  state.equipment = eq;
+  state.equipment = normalizeLegacyCategories(eq);
   {
     const nextSynced = syncNextCalib(); const calibChanged = autoUpdateCalibStatus() || nextSynced;
     const orderChanged = ensureEquipOrder();
@@ -1258,6 +1258,15 @@ function dedupeBorrowsById(list){
 }
 
 // ข้อมูลเก่าที่บันทึกไว้เป็น "สตฉ" (ไม่มีจุด) ทั้งชื่อหน่วยงานและรหัสใบยืม ให้แสดง/นับรวมเป็น "สตฉ." (ปรับในหน่วยความจำเท่านั้น)
+// ชื่อหมวดเก่า: "ด้านคอมพิวเตอร์" -> "คอมพิวเตอร์" (ตัดคำว่า "ด้าน" ออก) และ "เสียง"/"ยานพาหนะ" -> "ด้านเสียง"/"ด้านยานพาหนะ" (ปรับในหน่วยความจำเท่านั้น)
+const LEGACY_CAT_MAP = {'ด้านคอมพิวเตอร์':'คอมพิวเตอร์', 'เสียง':'ด้านเสียง', 'ยานพาหนะ':'ด้านยานพาหนะ'};
+function fixLegacyCat(x){
+  if(x && typeof x.category === 'string' && LEGACY_CAT_MAP[x.category]) x.category = LEGACY_CAT_MAP[x.category];
+}
+function normalizeLegacyCategories(list){
+  if(Array.isArray(list)) list.forEach(fixLegacyCat);
+  return list;
+}
 function normalizeLegacyDepts(list){
   const fixCode = (c)=> (typeof c === 'string' && c.indexOf('สตฉ-') === 0) ? 'สตฉ.-' + c.slice(4) : c;
   if(Array.isArray(list)) list.forEach(x=>{
@@ -1265,6 +1274,9 @@ function normalizeLegacyDepts(list){
     if(x.dept === 'สตฉ') x.dept = 'สตฉ.';
     // รหัสใบยืม/ใบคืนเก่า เช่น สตฉ-0001/2569 -> สตฉ.-0001/2569
     if(x.code) x.code = fixCode(x.code);
+    fixLegacyCat(x);
+    if(Array.isArray(x.items)) x.items.forEach(fixLegacyCat);
+    if(Array.isArray(x.itemsExpanded)) x.itemsExpanded.forEach(fixLegacyCat);
     if(x.borrowCode) x.borrowCode = fixCode(x.borrowCode);
   });
   return list;
@@ -2088,7 +2100,7 @@ function renderBorrowTab(){
 }
 
 function catIcon(c){
-  return {'ด้านน้ำ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>','ด้านอากาศ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>','ด้านฉุกเฉิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>','ด้านดิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>','คอมพิวเตอร์':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>','เสียง':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>','ยานพาหนะ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>'}[c] || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+  return {'ด้านน้ำ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>','ด้านอากาศ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/></svg>','ด้านฉุกเฉิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>','ด้านดิน':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>','คอมพิวเตอร์':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>','ด้านเสียง':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>','ด้านยานพาหนะ':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>'}[c] || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;vertical-align:-0.16em;display:inline-block;flex:none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
 }
 
 function renderToolPicker(){
@@ -5575,7 +5587,7 @@ function applyEquipmentListUpdate(eq){
   if(!Array.isArray(eq)) return;
   const cur = JSON.stringify(state.equipment), next = JSON.stringify(eq);
   if(cur === next) return;
-  state.equipment = eq;
+  state.equipment = normalizeLegacyCategories(eq);
   {
     const nextSynced = syncNextCalib(); const calibChanged = autoUpdateCalibStatus() || nextSynced;
     const orderChanged = ensureEquipOrder();
