@@ -415,6 +415,10 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
 .sig-row-role{ flex-shrink:0; padding-left:4px; }
 .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:6px; text-align:right; }
+  /* ให้เส้นจุดทุกบล็อกลงชื่อสิ้นสุดตำแหน่งเดียวกัน: ป้ายตำแหน่ง (ผู้ยืม/ผู้ให้ยืม/ผู้คืนพัสดุ/ผู้รับคืนพัสดุ) ใช้ความกว้างเท่ากัน ชิดขวา */
+  .sig-row-top .sig-row-role{ min-width:5.6em; padding-left:0; }
+  .sig-row-top .sig-row-dots{ margin-right:calc(5.6em + 8px); }
+  .sig-row-paren .sig-row-dots, .sig-row-position .sig-row-dots{ margin-right:14px; }
 .sig-row-paren{ padding-left:1.5em; }
 .sig-row-date .sig-row-dots{ flex:0 0 3.2em; }
 .sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
@@ -2531,6 +2535,10 @@ const SLIP_STANDALONE_CSS = `
   .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
   .sig-row-role{ flex-shrink:0; padding-left:4px; }
   .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:6px; text-align:right; }
+  /* ให้เส้นจุดทุกบล็อกลงชื่อสิ้นสุดตำแหน่งเดียวกัน: ป้ายตำแหน่ง (ผู้ยืม/ผู้ให้ยืม/ผู้คืนพัสดุ/ผู้รับคืนพัสดุ) ใช้ความกว้างเท่ากัน ชิดขวา */
+  .sig-row-top .sig-row-role{ min-width:5.6em; padding-left:0; }
+  .sig-row-top .sig-row-dots{ margin-right:calc(5.6em + 8px); }
+  .sig-row-paren .sig-row-dots, .sig-row-position .sig-row-dots{ margin-right:14px; }
   .sig-row-paren{ padding-left:1.5em; }
   .sig-row-date .sig-row-dots{ flex:0 0 3.2em; }
 .sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
