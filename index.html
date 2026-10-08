@@ -2404,13 +2404,13 @@ function buildSlipHTML(b){
     <div class="slip-field-row"><b>เรียน หน.ศูนย์สนับสนุนฯ ผ่าน ผอ.${esc(b.dept||'')}</b></div>
     <div class="slip-field-row slip-field-two">
       <div><b>ชื่อ-นามสกุล ผู้ยืม :</b> ${esc(b.name)}</div>
-      <div class="slip-col2">${b.position?'<b>ตำแหน่ง</b> '+esc(b.position):''}</div>
+      <div class="slip-col2">${b.position?'<b>ตำแหน่ง :</b> '+esc(b.position):''}</div>
     </div>
     <div class="slip-field-row slip-field-two">
       <div><b>วันที่ยืม :</b> ${esc(fmtDateBE(b.borrowDate))}</div>
       <div class="slip-col2"><b>ถึงวันที่ :</b> ${esc(fmtDateBE(b.returnDate))}</div>
     </div>
-    <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน :</b> ${esc(b.province)}${b.notes?' &nbsp;&nbsp; <b>กรณี</b> '+esc(b.notes):''}</div>
+    <div class="slip-field-row"><b>พื้นที่นำไปใช้งาน :</b> ${esc(b.province)}${b.notes?' &nbsp;&nbsp; <b>กรณี :</b> '+esc(b.notes):''}</div>
 
     <div class="slip-section-title-row">
       <div class="slip-section-title">รายการเครื่องมือที่ยืม</div>
@@ -2427,6 +2427,9 @@ function buildSlipHTML(b){
     </tbody></table>
   </div>`;
 }
+// รหัสอ้างอิงมุมขวาบนของหน้ากระดาษ: ตัดขีด "-" หลังชื่อหน่วยงานออก เช่น สตฉ.-0001/2569 -> สตฉ.0001/2569
+function slipHeaderRef(code){ return String(code||'').replace('-', ''); }
+
 function printSlip(id){
   const b = state.borrows.find(x=>x.id===id);
   if(!b) return;
@@ -2436,11 +2439,12 @@ function printSlip(id){
   // ใส่เลขหน้ามุมขวาบน (เฉพาะตอนพิมพ์ใบยืม) ด้วย CSS @page margin box ล้วนๆ ไม่กระทบวิธีพิมพ์เดิม
   const pageNumStyle = document.createElement('style');
   pageNumStyle.id = 'slip-page-number-style';
-  const refCssText = String(b.code||'').replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/[\r\n]/g,' ');
+  const refCssText = slipHeaderRef(b.code).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/[\r\n]/g,' ');
   pageNumStyle.textContent = `@media print{
     @page{ margin-top:26mm;
       @top-left{ content:url('${SLIP_LOGO_PRINT}'); vertical-align:bottom; text-align:left; padding-left:5mm; }
-      @top-right{ content: "${refCssText}\\A0\\A0\\A0" counter(page) "/" counter(pages); font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:7mm; } }
+      @top-right{ content: "${refCssText}\\A0\\A0\\A0(" counter(page) "/" counter(pages) ")"; font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:7mm; }
+      @top-center{ content:""; } @bottom-left{ content:""; } @bottom-center{ content:""; } @bottom-right{ content:""; } }
     body.printing-slip .slip-page{ padding-top:0; }
     body.printing-slip .slip-logo{ display:none; }
   }`;
@@ -2530,7 +2534,7 @@ const SLIP_STANDALONE_CSS = `
   .sig-row-paren{ padding-left:1.5em; }
   .sig-row-date .sig-row-dots{ flex:0 0 3.2em; }
 .sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
-  @media print{ @page{ size:A4; margin:10mm; } }
+  @media print{ @page{ size:A4; margin:10mm; @top-left{ content:""; } @top-center{ content:""; } @top-right{ content:""; } @bottom-left{ content:""; } @bottom-center{ content:""; } @bottom-right{ content:""; } } }
 `;
 function buildSlipStandaloneHTML(b){
   return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"/>
@@ -2664,10 +2668,10 @@ async function buildPDFDataUriFromHTML(html, css, refText){
       pdf.setPage(p);
       pdf.setFontSize(10);
       pdf.setTextColor(80,80,80);
-      pdf.text(`${p}/${totalPages}`, pageWidth - 10, 17.5, { align: 'right' });
+      pdf.text(`(${p}/${totalPages})`, pageWidth - 10, 17.5, { align: 'right' });
       // รหัสอ้างอิงอยู่หน้าเลขหน้า (วาดเป็นภาพ เพราะ jsPDF ไม่มีฟอนต์ไทย)
       if(refText){
-        const pn = `${p}/${totalPages}`;
+        const pn = `(${p}/${totalPages})`;
         const pnW = pdf.getTextWidth(pn);
         const cv = document.createElement('canvas');
         const sc = 8, fontPx = 11;
@@ -2691,7 +2695,7 @@ async function buildPDFDataUriFromHTML(html, css, refText){
   return dataUri;
 }
 async function buildSlipPDFDataUri(b){
-  return buildPDFDataUriFromHTML(buildSlipHTML(b), SLIP_STANDALONE_CSS, b.code);
+  return buildPDFDataUriFromHTML(buildSlipHTML(b), SLIP_STANDALONE_CSS, slipHeaderRef(b.code));
 }
 function downloadSlipPDF(id){
   const b = state.borrows.find(x=>x.id===id);
