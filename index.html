@@ -415,13 +415,6 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
 .sig-row-role{ flex-shrink:0; padding-left:4px; }
 .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:6px; text-align:right; }
-  /* เส้นจุด 3 บรรทัด (ลงชื่อ / ( ) / ตำแหน่ง) ให้เริ่มและจบที่ตำแหน่งเดียวกัน = ยาวเท่ากัน */
-  .sig-row-top .sig-row-label, .sig-row-paren .sig-row-label, .sig-row-position .sig-row-label{ display:inline-block; min-width:3.4em; }
-  .sig-row-paren{ padding-left:0; }
-  .sig-row-paren .sig-row-label{ text-align:right; padding-right:2px; }
-  .sig-row-top .sig-row-role{ min-width:5.6em; padding-left:0; }
-  .sig-row-top .sig-row-dots, .sig-row-paren .sig-row-dots, .sig-row-position .sig-row-dots{ margin-right:calc(5.6em + 8px); }
-  .sig-row-paren .sig-row-role{ right:calc(5.2em + 5px); padding-left:0; background:none; }
 .sig-row-paren{ padding-left:1.5em; }
 .sig-row-date .sig-row-dots{ flex:0 0 3.2em; }
 .sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
@@ -2538,13 +2531,6 @@ const SLIP_STANDALONE_CSS = `
   .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
   .sig-row-role{ flex-shrink:0; padding-left:4px; }
   .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:6px; text-align:right; }
-  /* เส้นจุด 3 บรรทัด (ลงชื่อ / ( ) / ตำแหน่ง) ให้เริ่มและจบที่ตำแหน่งเดียวกัน = ยาวเท่ากัน */
-  .sig-row-top .sig-row-label, .sig-row-paren .sig-row-label, .sig-row-position .sig-row-label{ display:inline-block; min-width:3.4em; }
-  .sig-row-paren{ padding-left:0; }
-  .sig-row-paren .sig-row-label{ text-align:right; padding-right:2px; }
-  .sig-row-top .sig-row-role{ min-width:5.6em; padding-left:0; }
-  .sig-row-top .sig-row-dots, .sig-row-paren .sig-row-dots, .sig-row-position .sig-row-dots{ margin-right:calc(5.6em + 8px); }
-  .sig-row-paren .sig-row-role{ right:calc(5.2em + 5px); padding-left:0; background:none; }
   .sig-row-paren{ padding-left:1.5em; }
   .sig-row-date .sig-row-dots{ flex:0 0 3.2em; }
 .sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
