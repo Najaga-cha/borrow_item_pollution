@@ -288,7 +288,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .slip-preview-card{ max-width:96vw; width:96vw; max-height:96vh; padding:14px 18px; overflow:hidden; }
 .slip-preview-scroll{ overflow:auto; background:#e5e7eb; border-radius:12px; padding:12px; }
 .slip-preview-fit{ margin:0 auto; position:relative; }
-.slip-pageno{ position:absolute; right:10mm; font-size:12pt; line-height:1; color:#666; font-family:'TH Sarabun PSK','Sarabun',sans-serif; pointer-events:none; }
+.slip-pageno{ position:absolute; right:10mm; font-size:14pt; line-height:1; color:#000; font-family:'TH Sarabun PSK','Sarabun',sans-serif; pointer-events:none; }
 .slip-preview-card.slip-expanded{ max-width:100vw; width:100vw; max-height:100vh; height:100vh; border-radius:0; padding:12px 16px; }
 .slip-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .slip-head h3{ min-width:0; }
@@ -385,7 +385,7 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 #print-area{ display:none; }
 .slip-page{ font-family:'TH Sarabun PSK','Sarabun',sans-serif; font-size:14pt; color:#000; padding:13mm 16mm 14mm; position:relative; }
 .slip-header-line{ display:flex; align-items:center; justify-content:center; min-height:12mm; text-align:center; font-weight:700; font-size:22pt; margin-bottom:8px; }
-.slip-logo{ position:absolute; left:15mm; top:5mm; height:22mm; width:auto; }
+.slip-logo{ position:absolute; left:14mm; top:5mm; height:22mm; width:auto; }
 .slip-field-row{ font-size:14pt; margin-bottom:10px; }
 .slip-field-row b{ font-weight:700; }
 .slip-field-two{ display:flex; gap:24px; }
@@ -1835,7 +1835,7 @@ function renderSlipPreviewModal(){
         <button class="btn-primary" data-act="print-slip" data-id="${b.id}">พิมพ์ใบยืม</button>
         <button class="btn-ghost" data-act="download-slip-pdf" data-id="${b.id}">ดาวน์โหลด PDF</button>
       </div>
-      <div class="slip-preview-scroll"><div class="slip-preview-fit"><div class="slip-preview-paper" data-ref="${esc(b.code||'')}">${buildSlipHTML(b)}</div></div></div>
+      <div class="slip-preview-scroll"><div class="slip-preview-fit"><div class="slip-preview-paper" data-ref="${esc(slipHeaderRef(b.code))}">${buildSlipHTML(b)}</div></div></div>
     </div>
   </div>`;
 }
@@ -2426,8 +2426,8 @@ function buildSlipHTML(b){
     <div class="slip-header-line"><img class="slip-logo" src="${SLIP_LOGO}" alt=""/><span>ใบยืมเครื่องมือ กตพ.</span></div>
 
     <div class="slip-field-row slip-field-two">
-      <div><b>รหัสอ้างอิง :</b> ${esc(b.code)}</div>
-      <div class="slip-col2"><b>วันที่จอง :</b> ${bookingDateISO? esc(fmtDateBE(bookingDateISO)) : '-'}${b.createdTime? ' &nbsp; '+esc(b.createdTime) : ''}</div>
+      <div><b>ใบยืมเลขที่ :</b> ${esc(slipHeaderRef(b.code))}</div>
+      <div class="slip-col2"><b>วันที่จอง :</b> ${bookingDateISO? esc(fmtDateBE(bookingDateISO)) : '-'}${b.createdTime? ' &nbsp; เวลา '+esc(b.createdTime) : ''}</div>
     </div>
     <div class="slip-field-row"><b>เรียน หน.ศูนย์สนับสนุนฯ ผ่าน ผอ.${esc(b.dept||'')}</b></div>
     <div class="slip-field-row slip-field-two">
@@ -2444,7 +2444,7 @@ function buildSlipHTML(b){
       <div class="slip-section-title">รายการเครื่องมือที่ยืม</div>
     </div>
     <table class="slip-table">
-      <thead><tr><th style="width:6%">ลำดับ</th><th style="width:13%">ประเภท</th><th>ชื่อเครื่องมือ</th><th style="width:32%">รหัสครุภัณฑ์ / S.N.</th><th style="width:8%">จำนวน</th></tr></thead>
+      <thead><tr><th style="width:6%">ลำดับ</th><th style="width:13%">ประเภท</th><th>ชื่อเครื่องมือ</th><th style="width:32%">รหัสครุภัณฑ์</th><th style="width:8%">จำนวน</th></tr></thead>
       <tbody>${itemsRows}</tbody>
     </table>
 
@@ -2455,8 +2455,8 @@ function buildSlipHTML(b){
     </tbody></table>
   </div>`;
 }
-// รหัสอ้างอิงมุมขวาบนของหน้ากระดาษ: ตัดขีด "-" หลังชื่อหน่วยงานออก เช่น สตฉ.-0001/2569 -> สตฉ.0001/2569
-function slipHeaderRef(code){ return String(code||'').replace('-', ''); }
+// เลขที่ใบยืม (ในใบยืม + มุมขวาบน): เปลี่ยนขีด "-" หลังชื่อหน่วยงานเป็นเว้นวรรค เช่น สตฉ.-0001/2569 -> สตฉ. 0001/2569
+function slipHeaderRef(code){ return String(code||'').replace('-', ' '); }
 
 function printSlip(id){
   const b = state.borrows.find(x=>x.id===id);
@@ -2470,8 +2470,8 @@ function printSlip(id){
   const refCssText = slipHeaderRef(b.code).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/[\r\n]/g,' ');
   pageNumStyle.textContent = `@media print{
     @page{ margin-top:26mm;
-      @top-left{ content:url('${SLIP_LOGO_PRINT}'); vertical-align:bottom; text-align:left; padding-left:5mm; }
-      @top-right{ content: "${refCssText}\\A0\\A0\\A0(" counter(page) "/" counter(pages) ")"; font-size:12pt; color:#666; font-family:sans-serif; vertical-align:bottom; padding-bottom:7mm; }
+      @top-left{ content:url('${SLIP_LOGO_PRINT}'); vertical-align:bottom; text-align:left; padding-left:14mm; }
+      @top-right{ content: "${refCssText}\\A0\\A0\\A0(" counter(page) "/" counter(pages) ")"; font-size:14pt; color:#000; font-family:'TH Sarabun PSK','Sarabun',sans-serif; vertical-align:bottom; padding-bottom:7mm; }
       @top-center{ content:""; } @bottom-left{ content:""; } @bottom-center{ content:""; } @bottom-right{ content:""; } }
     body.printing-slip .slip-page{ padding-top:0; }
     body.printing-slip .slip-logo{ display:none; }
@@ -2529,7 +2529,7 @@ const SLIP_STANDALONE_CSS = `
   body{ font-family:'TH Sarabun PSK','Sarabun','Kanit',sans-serif; margin:0; padding:0; background:#fff; }
   .slip-page{ font-family:'TH Sarabun PSK','Sarabun',sans-serif; font-size:14pt; color:#000; padding:15mm 16mm 14mm; position:relative; }
   .slip-header-line{ display:flex; align-items:center; justify-content:center; min-height:12mm; text-align:center; font-weight:700; font-size:22pt; margin-bottom:8px; }
-.slip-logo{ position:absolute; left:15mm; top:5mm; height:22mm; width:auto; }
+.slip-logo{ position:absolute; left:14mm; top:5mm; height:22mm; width:auto; }
   .slip-field-row{ font-size:14pt; margin-bottom:10px; }
   .slip-field-row b{ font-weight:700; }
   .slip-field-two{ display:flex; gap:24px; }
@@ -2695,26 +2695,20 @@ async function buildPDFDataUriFromHTML(html, css, refText){
     const totalPages = pdf.internal.getNumberOfPages();
     for(let p = 1; p <= totalPages; p++){
       pdf.setPage(p);
-      pdf.setFontSize(10);
-      pdf.setTextColor(80,80,80);
-      pdf.text(`(${p}/${totalPages})`, pageWidth - 10, 17.5, { align: 'right' });
-      // รหัสอ้างอิงอยู่หน้าเลขหน้า (วาดเป็นภาพ เพราะ jsPDF ไม่มีฟอนต์ไทย)
-      if(refText){
-        const pn = `(${p}/${totalPages})`;
-        const pnW = pdf.getTextWidth(pn);
-        const cv = document.createElement('canvas');
-        const sc = 8, fontPx = 11;
-        const cx = cv.getContext('2d');
-        const fnt = `${fontPx*sc}px 'TH Sarabun PSK','Sarabun',sans-serif`;
-        cx.font = fnt;
-        const tw = cx.measureText(refText).width;
-        cv.width = Math.ceil(tw)+4; cv.height = Math.ceil(fontPx*sc*1.5);
-        cx.font = fnt;
-        cx.fillStyle = '#505050'; cx.textBaseline = 'middle';
-        cx.fillText(refText, 2, cv.height/2);
-        const wMm = cv.width/sc*0.3528, hMm = cv.height/sc*0.3528;
-        pdf.addImage(cv.toDataURL('image/png'), 'PNG', pageWidth - 10 - pnW - 4 - wMm, 17.5 - hMm*0.62, wMm, hMm);
-      }
+      // วาดข้อความ "เลขที่ใบยืม (หน้า/ทั้งหมด)" เป็นภาพ เพราะ jsPDF ไม่มีฟอนต์ไทย — ใช้ฟอนต์/ขนาดเดียวกับตัวอักษรในใบยืม (TH Sarabun PSK 14pt)
+      const topText = (refText ? refText + '\u00A0\u00A0\u00A0' : '') + `(${p}/${totalPages})`;
+      const cv = document.createElement('canvas');
+      const sc = 8, fontPx = 14;
+      const cx = cv.getContext('2d');
+      const fnt = `${fontPx*sc}px 'TH Sarabun PSK','Sarabun',sans-serif`;
+      cx.font = fnt;
+      const tw = cx.measureText(topText).width;
+      cv.width = Math.ceil(tw)+4; cv.height = Math.ceil(fontPx*sc*1.5);
+      cx.font = fnt;
+      cx.fillStyle = '#000000'; cx.textBaseline = 'middle';
+      cx.fillText(topText, 2, cv.height/2);
+      const wMm = cv.width/sc*0.3528, hMm = cv.height/sc*0.3528;
+      pdf.addImage(cv.toDataURL('image/png'), 'PNG', pageWidth - 10 - wMm, 17.5 - hMm*0.62, wMm, hMm);
     }
 
     dataUri = pdf.output('datauristring');
