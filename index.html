@@ -412,10 +412,10 @@ h1,h2,h3{ font-family:'Kanit','Sarabun',sans-serif; }
 .sig-box{ font-size:14pt; }
 .sig-row{ display:flex; align-items:flex-end; white-space:nowrap; height:2.1em; position:relative; }
 .sig-row-label{ flex-shrink:0; }
-.sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
+.sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 1px 0.3em; }
 .sig-row-role{ flex-shrink:0; padding-left:4px; }
-.sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:6px; text-align:right; }
-.sig-row-paren{ padding-left:1.5em; } .sig-row-paren .sig-row-role, .sig-row-top .sig-row-role{ bottom:0; }
+.sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:2px; text-align:right; }
+.sig-row-paren{ padding-left:1.5em; } .sig-row-paren .sig-row-role, .sig-row-top .sig-row-role{ bottom:0; } .sig-row-position .sig-row-role{ padding-left:0; }
 .sig-row-top{ height:3.6em; }
 .sig-row-date .sig-row-dots{ flex:0 0 5.5em; }
 .sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
@@ -2398,7 +2398,7 @@ function buildSigBox(roleLabel){
       <div class="sig-row sig-row-date">
         <span class="sig-row-label">ว/ด/ป เวลา</span>
         <span class="sig-row-dots"></span>
-        <span class="sig-row-role" style="padding:0 4px;">/</span>
+        <span class="sig-row-role" style="padding:0 1px;">/</span>
         <span class="sig-row-dots grow"></span>
         <span class="sig-row-role">นาฬิกา</span>
       </div>
@@ -2556,10 +2556,10 @@ const SLIP_STANDALONE_CSS = `
   .sig-box{ font-size:14pt; }
   .sig-row{ display:flex; align-items:flex-end; white-space:nowrap; height:2.1em; position:relative; }
   .sig-row-label{ flex-shrink:0; }
-  .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 4px 0.3em; }
+  .sig-row-dots{ flex:1 1 auto; border-bottom:1px dotted rgba(0,0,0,.55); height:0; min-width:1.5em; margin:0 1px 0.3em; }
   .sig-row-role{ flex-shrink:0; padding-left:4px; }
-  .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:6px; text-align:right; }
-  .sig-row-paren{ padding-left:1.5em; } .sig-row-paren .sig-row-role, .sig-row-top .sig-row-role{ bottom:0; }
+  .sig-row-top .sig-row-role, .sig-row-paren .sig-row-role, .sig-row-position .sig-row-role{ position:absolute; right:0; bottom:0.3em; background:#fff; padding-left:2px; text-align:right; }
+  .sig-row-paren{ padding-left:1.5em; } .sig-row-paren .sig-row-role, .sig-row-top .sig-row-role{ bottom:0; } .sig-row-position .sig-row-role{ padding-left:0; }
 .sig-row-top{ height:3.6em; }
   .sig-row-date .sig-row-dots{ flex:0 0 5.5em; }
 .sig-row-date .sig-row-dots.grow{ flex:1 1 auto; }
